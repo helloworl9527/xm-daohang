@@ -71,3 +71,7 @@ export async function resolvePublicTarget(
 
   return { url: canonicalizeUrl(url.toString()), addresses };
 }
+
+export async function assertPublicUrl(raw: string): Promise<string> {
+  return (await resolvePublicTarget(raw)).url;
+}

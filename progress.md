@@ -348,3 +348,21 @@
 
 - 红灯：queued GitHub job 在设置未来 30 分钟 backoff 后仍实际调用抓取器 1 次并 completed，回归测试退出 1。
 - 绿灯：同场景返回 deferred，抓取调用 0，item 保持 processing，request 保持 attempt=0 并延时；web 依然 completed。
+
+## 2026-08-09 - Task: T14 管理端添加内容
+
+### What was done
+
+- `POST /admin/api/items` 严格按 session→Origin/Host→CSRF→JSON Content-Type→Zod→模型 readiness→公网 URL 校验执行，统一 no-store 错误 envelope。
+- URL 通过 `assertPublicUrl` 解析全部 DNS 地址并规范化；按 GitHub 仓库、PDF/text 文档和普通网页分类。
+- 新 item 插入、generation 递增与 attempt=0 processing outbox 在同一事务中完成；规范 URL 冲突返回原 item，不重复入队。事务内二次校验模型配置。
+- 建立 224px 管理导航壳，中等视口转顶部导航；`/admin` 保持登录后添加入口，同时提供 `/admin/add`。
+- 添加表单实现 default/submitting/success/duplicate/error/disabled；保留 URL，防重复提交，缺模型时引导设置，重复时提供详情/重抓入口。
+- 表单使用可点击 label、正确 URL inputmode/autocomplete、`aria-live`、错误关联/回焦、离页草稿提示和 44px 触控目标。
+
+### Testing
+
+- 红灯：路由集成测试因 `items/route` 不存在退出 1；表单单测因 `AddItemForm` 不存在退出 1。
+- 绿灯：真实 PostgreSQL 路由 4/4，表单状态 3/3，T11/T12 回归 14/14 通过；typecheck/lint 通过。
+- 生产 `next build + next start` 下 Playwright desktop/mobile 2/2 通过；真实登录后添加+重复提交，DB 仅 1 item/1 outbox，控制台零错误、无横向溢出。
+- 截图：`.workflow/screenshots/t14-admin-add-{desktop,mobile}.png`，人工核对无重叠、裁切或字段泄露。
