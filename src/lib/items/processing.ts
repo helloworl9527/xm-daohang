@@ -14,7 +14,7 @@ export class ProcessingRequestError extends Error {
 
 export async function requestProcessing(
   itemId: string,
-  options: { receipt?: ProcessingReceipt } = {},
+  options: { receipt?: ProcessingReceipt; nextAttemptAt?: Date } = {},
 ): Promise<number> {
   const client = await pool.connect();
   try {
@@ -50,8 +50,8 @@ export async function requestProcessing(
     await client.query(
       `insert into processing_requests
         (item_id, process_generation, emb_version, attempt, status, next_attempt_at)
-       values ($1, $2, $3, 0, 'pending', now())`,
-      [itemId, generation, embVersion],
+       values ($1, $2, $3, 0, 'pending', $4)`,
+      [itemId, generation, embVersion, options.nextAttemptAt ?? new Date()],
     );
     if (options.receipt) {
       await client.query(

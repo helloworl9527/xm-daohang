@@ -305,3 +305,21 @@
 - 红灯：`vitest run tests/integration/refetch.test.ts` 退出 1，手动重抓服务不存在。
 - 绿灯：真实 PostgreSQL 集成测试 1 file / 3 tests 通过，覆盖 completed、failed 和 processing 重复请求。
 - `pnpm typecheck` 与 `pnpm lint` 均退出 0。
+
+## 2026-08-09 - Task: T13 定时重抓
+
+### What was done
+
+- 定时轮次先事务锁定 app_settings，检查 enabled 并原子声明 `snapshotAt/refetchLastRun`；同一分钟的双 worker 只有一个轮次执行。
+- 按 `(created_at,id)` keyset 遍历快照内到期 completed/failed，processing、未到期和快照后新增条目跳过；单条冲突/失败计入 skipped 并继续。
+- 无 PAT 时 GitHub 前 50 个 request 分散到 rolling-hour 窗口，第 51 个起延后到下一窗口；有 PAT 只取消该公开 API 预算，T09 `private=false` 强制边界不变。
+- `nextAttemptAt` 并入 `requestProcessing` 事务，没有入队后再调度的崩溃窗口。持久 `githubBackoffUntil` 会延迟当前及 publisher 后续 GitHub request，网页/文档不受影响；reset 后恢复。
+- 注册真实 pg-boss 整点 cron，queue 使用 `short` policy、固定 singleton key 和 `retryLimit:0`。
+- 轮次中途崩溃后，已入队条目保持 processing + 原 generation；下一轮不重复递增，继续其余条目。
+
+### Testing
+
+- 红灯：`vitest run tests/integration/scheduledRefetch.test.ts` 退出 1，定时作业模块不存在。
+- 绿灯：真实 PostgreSQL + pg-boss 集成测试 1 file / 8 tests 通过。
+- 覆盖双 worker、enabled/到期/状态/快照隔离、50/51 GitHub 预算、新持久 backoff 对 publisher 的隔离、reset、PAT、中途崩溃恢复和真实 cron 单例注册。
+- T11–T13 相关 3 files / 19 tests 通过；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 均退出 0。
