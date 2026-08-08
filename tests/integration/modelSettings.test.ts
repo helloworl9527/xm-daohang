@@ -2,13 +2,15 @@
 
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
 import { appSettings, items, processingRequests } from "@/db/schema";
 import { PUT } from "@/app/admin/api/settings/models/route";
+import { POST } from "@/app/admin/api/settings/models/test/route";
 import { createCsrfToken } from "@/lib/auth/guard";
 import { createSession } from "@/lib/auth/session";
+import * as modelSettings from "@/lib/config/modelSettings";
 import {
   probeEmbeddingConfig,
   saveEmbeddingConfig,
@@ -16,6 +18,7 @@ import {
   type ModelProbeAdapter,
 } from "@/lib/config/modelSettings";
 import { getDecryptedSecret, getSettings } from "@/lib/config/settings";
+import { logger, serializeLog } from "@/lib/log/logger";
 
 function vector(dim: number, first: number, second = 0): number[] {
   return [first, second, ...Array.from({ length: dim - 2 }, () => 0)];
@@ -55,6 +58,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  vi.restoreAllMocks();
   await db.delete(processingRequests);
   await db.delete(items);
   await db.delete(appSettings);
@@ -242,5 +246,54 @@ describe("model settings API security pipeline", () => {
     );
     expect(wrongContentType.status).toBe(415);
     expect(await db.select().from(appSettings)).toHaveLength(0);
+  });
+
+  it.each([
+    ["test", POST],
+    ["save", PUT],
+  ] as const)("does not expose an upstream-reflected draft key in %s logs or responses", async (
+    operation,
+    handler,
+  ) => {
+    const draftKey = "sk-DRAFT-MUST-NOT-LOG-9876";
+    const upstreamError = Object.assign(
+      new Error(`401 invalid credential ${draftKey}`),
+      { status: 401 },
+    );
+    const probe = vi
+      .spyOn(modelSettings, operation === "test" ? "probeLlmConfig" : "saveLlmConfig")
+      .mockRejectedValue(upstreamError);
+    const log = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+    const { token } = await createSession();
+
+    const response = await handler(
+      new Request("https://admin.example/admin/api/settings/models", {
+        method: operation === "test" ? "POST" : "PUT",
+        headers: {
+          cookie: `admin_session=${token}`,
+          host: "admin.example",
+          origin: "https://admin.example",
+          "content-type": "application/json",
+          "x-csrf-token": createCsrfToken(token),
+        },
+        body: JSON.stringify({
+          kind: "llm",
+          baseUrl: "https://models.example/v1",
+          model: "chat-model",
+          apiKey: draftKey,
+        }),
+      }),
+    );
+
+    expect(probe).toHaveBeenCalledOnce();
+    expect(response.status).toBe(502);
+    expect(await response.text()).not.toContain(draftKey);
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith("model_probe_failed", {
+      which: "llm",
+      category: "upstream",
+      httpStatus: 401,
+    });
+    expect(serializeLog(log.mock.calls[0])).not.toContain(draftKey);
   });
 });

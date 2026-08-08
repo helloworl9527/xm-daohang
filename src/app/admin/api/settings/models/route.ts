@@ -4,6 +4,7 @@ import { apiError, requireAdminApi, requireAdminWrite } from "@/lib/auth/guard";
 import { saveEmbeddingConfig, saveLlmConfig } from "@/lib/config/modelSettings";
 import { getSettings } from "@/lib/config/settings";
 import { logger } from "@/lib/log/logger";
+import { getSafeHttpStatus } from "@/lib/log/upstreamError";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,11 @@ export async function PUT(request: Request): Promise<Response> {
         : await saveEmbeddingConfig(parsed.data);
     return Response.json(settings, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    logger.error("model_settings_save", { error });
+    logger.error("model_probe_failed", {
+      which: parsed.data.kind === "llm" ? "llm" : "emb",
+      category: "upstream",
+      httpStatus: getSafeHttpStatus(error),
+    });
     return apiError("UPSTREAM", "模型连接测试失败，原配置未更改。", 502, true);
   }
 }

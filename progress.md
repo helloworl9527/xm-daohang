@@ -214,3 +214,17 @@
 
 - e2e 使用本地 OpenAI 兼容 HTTP fixture 与专用 PostgreSQL 测试库，不访问真实模型供应商，不操作生产数据。
 - 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: model settings with connectivity test and vector rebuild$' -1)"`。
+
+## 2026-08-09 - R3 上游模型错误日志收敛
+
+### What was done
+
+- 模型测试与保存路由不再把不可信上游 `Error` 传入 logger，只记录固定事件、模型类型、错误分类和合法数值 HTTP 状态码。
+- `getSafeHttpStatus` 仅接受 100–599 的整数，不会把上游 message/body/cause/stack 或字符串状态带入日志。
+- 保持统一 502 响应与保存失败不覆盖旧配置的既有行为。
+
+### Testing
+
+- 红灯：真实路由边界模拟上游 401 在 `Error.message` 回显草稿 Key，2 个回归用例均捕获 logger 序列化结果中的 `sk-DRAFT-MUST-NOT-LOG-9876` 并失败。
+- 绿灯：`vitest run tests/integration/modelSettings.test.ts` 退出 0，1 个文件、10 个测试通过；测试与保存路由的响应及日志均不含草稿 Key，且日志字段精确限定为 allowlist。
+- 同类点排查：`src` 中产品 logger 调用仅余这两处，均已收敛；定向 `typecheck` 与 `lint` 退出 0。

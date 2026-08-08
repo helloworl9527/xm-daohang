@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, requireAdminWrite } from "@/lib/auth/guard";
 import { probeEmbeddingConfig, probeLlmConfig } from "@/lib/config/modelSettings";
 import { logger } from "@/lib/log/logger";
+import { getSafeHttpStatus } from "@/lib/log/upstreamError";
 
 const modelSchema = z
   .object({
@@ -33,7 +34,11 @@ export async function POST(request: Request): Promise<Response> {
         : await probeEmbeddingConfig(parsed.data);
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    logger.error("model_settings_test", { error });
+    logger.error("model_probe_failed", {
+      which: parsed.data.kind === "llm" ? "llm" : "emb",
+      category: "upstream",
+      httpStatus: getSafeHttpStatus(error),
+    });
     return apiError("UPSTREAM", "模型连接测试失败。", 502, true);
   }
 }
