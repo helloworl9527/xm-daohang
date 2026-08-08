@@ -14,6 +14,31 @@ const input = {
 };
 
 describe("constrained Chinese summarization", () => {
+  it("rejects an English-dominant summary that contains only a small Chinese fragment", async () => {
+    const generate = vi.fn<SummaryGenerator>().mockResolvedValue(JSON.stringify({
+      summary: "This report covers database design 中文内容。It also explains vector search in detail。",
+      tags: ["database", "vector", "search"],
+    }));
+
+    await expect(summarizeContent(input, generate)).rejects.toMatchObject({
+      code: "UPSTREAM_INVALID_OUTPUT",
+      retryable: true,
+    });
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    "该文介绍 PostgreSQL 如何使用 pgvector 存储向量。读者可以结合 RAG 完成语义检索。",
+    "该文介绍数据库中的向量存储方法。读者可以按照示例完成语义检索。",
+  ])("accepts a Chinese-dominant summary with or without technical names", async (summary) => {
+    const generate = vi.fn<SummaryGenerator>().mockResolvedValue(JSON.stringify({
+      summary,
+      tags: ["数据库", "向量检索", "PostgreSQL"],
+    }));
+    await expect(summarizeContent(input, generate)).resolves.toMatchObject({ summary });
+    expect(generate).toHaveBeenCalledOnce();
+  });
+
   it("retries one invalid English response and returns only the corrected result", async () => {
     const generate = vi.fn<SummaryGenerator>()
       .mockResolvedValueOnce(JSON.stringify({

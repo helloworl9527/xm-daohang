@@ -323,3 +323,15 @@
 - 绿灯：真实 PostgreSQL + pg-boss 集成测试 1 file / 8 tests 通过。
 - 覆盖双 worker、enabled/到期/状态/快照隔离、50/51 GitHub 预算、新持久 backoff 对 publisher 的隔离、reset、PAT、中途崩溃恢复和真实 cron 单例注册。
 - T11–T13 相关 3 files / 19 tests 通过；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 均退出 0。
+
+## 2026-08-09 - R4 中文总结主体校验
+
+### What was done
+
+- 总结语言门禁由“至少 4 个汉字”收紧为有效字母中汉字占比 >=50%；空白、标点和数字不计入分母。
+- 允许 PostgreSQL、pgvector、RAG 等合理英文技术名词，但英文主体夹少量中文会进入既有的一次受约束修正，仍失败则抛 `UPSTREAM_INVALID_OUTPUT`。
+
+### Testing
+
+- 红灯：英文主体 `This report... 中文内容。It also...` 在第一次输出即被接受，回归测试退出 1。
+- 绿灯：英文主体连续两次被拒绝；中文含技术名词与纯中文均首次通过。

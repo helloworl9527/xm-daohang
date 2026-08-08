@@ -2,6 +2,14 @@ import { z } from "zod";
 
 import { AiClientError, generateLlmText } from "@/lib/ai/llm";
 
+const MIN_CHINESE_LETTER_RATIO = 0.5;
+
+function isChineseDominant(value: string): boolean {
+  const hanCount = (value.match(/\p{Script=Han}/gu) ?? []).length;
+  const latinCount = (value.match(/\p{Script=Latin}/gu) ?? []).length;
+  return hanCount >= 4 && hanCount / (hanCount + latinCount) >= MIN_CHINESE_LETTER_RATIO;
+}
+
 const summarySchema = z.object({
   summary: z.string().trim().min(10).max(500),
   tags: z.array(z.string().trim().min(1).max(30)).min(3).max(5),
@@ -10,7 +18,7 @@ const summarySchema = z.object({
   if (sentences.length < 2 || sentences.length > 4 || sentences.join("") !== value.summary) {
     context.addIssue({ code: "custom", path: ["summary"], message: "SUMMARY_SENTENCE_COUNT" });
   }
-  if ((value.summary.match(/\p{Script=Han}/gu) ?? []).length < 4) {
+  if (!isChineseDominant(value.summary)) {
     context.addIssue({ code: "custom", path: ["summary"], message: "SUMMARY_NOT_CHINESE" });
   }
   if (new Set(value.tags.map((tag) => tag.toLocaleLowerCase())).size !== value.tags.length) {
