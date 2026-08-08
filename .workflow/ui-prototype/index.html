@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f7f4" />
+    <title>藏舟 · v0.4 UI 原型</title>
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-mode="original" data-surface="public">
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <div id="app" aria-live="polite"></div>
+    <aside class="prototype-bar" aria-label="原型控制">
+      <div class="segmented" role="group" aria-label="选择区域">
+        <button type="button" data-surface-button="public" aria-pressed="true">
+          公开端
+        </button>
+        <button type="button" data-surface-button="admin" aria-pressed="false">
+          管理端
+        </button>
+      </div>
+      <div class="segmented modes" role="group" aria-label="交互版本">
+        <button type="button" data-mode-button="original" aria-pressed="true">
+          C 原版
+        </button>
+        <button type="button" data-mode-button="apple" aria-pressed="false">
+          C Apple 增强
+        </button>
+      </div>
+      <label class="state-select"
+        >状态<select id="state-switcher"></select
+      ></label>
+    </aside>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+      <form method="dialog">
+        <h2 id="confirm-title">删除这条收藏？</h2>
+        <p>条目和向量都会被移除，也不再出现在公开问答中。</p>
+        <div class="dialog-actions">
+          <button class="button secondary" value="cancel">取消</button
+          ><button class="button danger" value="confirm">删除收藏</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
