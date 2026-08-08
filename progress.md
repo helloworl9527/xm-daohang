@@ -269,3 +269,26 @@
 ### Notes
 
 - 未新增依赖；复用 `openai@7.4.0` 与 `zod@4.1.5`。
+
+## 2026-08-09 - Task: T11 pg-boss 队列与处理状态机
+
+### What was done
+
+- `requestProcessing` 在单个业务事务中锁定 item，递增 generation、置 processing、写 attempt=0 processing outbox，并可同事务写 waiting TG receipt。
+- processing publisher 按 `item:generation:attempt` 稳定 singleton key 向 pg-boss 投递，投递成功后才标 queued；崩溃后依靠 outbox 重放。GitHub 请求在持久 backoff 期间不发布，其他类型不受影响。
+- pg-boss `process-item` queue 固定 `short` policy + `retryLimit:0`；真实版本探针确认同 singleton key 只产生一个 created job。
+- handler 先以 request 状态 + item generation + settings embedding version 条件 claim，重复投递与旧代际/旧版本均 no-op；提交时再次校验代际与版本。
+- 默认管线串联 T09 GitHub/网页提取、T10 总结与嵌入；任意失败自行建立下一 attempt，0–3 共最多 4 次，最后失败才更新 item/receipt。
+- 指纹未变且模型版本未变时保留 summary/tags/embedding；新 embedding 版本必须重嵌入；内容变更时不覆盖 `summary_manual`。
+- 重建协调器只评估当前 generation + 目标 embedding version：有未完成保持 building，有最终失败置 failed，全部 done 才置 ready。
+
+### Testing
+
+- 红灯：`vitest run tests/integration/processItem.test.ts` 退出 1，items/queue/worker 实现模块不存在。
+- 绿灯：同一真实 PostgreSQL 16 + pgvector 集成测试 1 file / 10 tests 通过，含真实 pg-boss schema/queue/singleton 行为。
+- 覆盖新条目成功、四次失败、publisher 崩溃窗口、并发 claim、旧 generation/version、删除 no-op、receipt 原子完成、指纹短路、人工总结保护和重建协调。
+- `pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 均退出 0。
+
+### Notes
+
+- 新增运行时依赖 `pg-boss@10.3.3` (MIT，PostgreSQL 持久队列)；该版本支持项目 Node.js >=20，生产审计无已知漏洞。
