@@ -223,6 +223,192 @@ body {
   color: var(--color-signal);
 }
 
+.library-section {
+  max-width: 980px;
+}
+
+.library-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.5fr) minmax(160px, 1fr) minmax(130px, 0.65fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 28px;
+  padding-block: 18px;
+  border-block: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+}
+
+.library-filters label {
+  min-width: 0;
+}
+
+.library-filters label > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.library-filters input,
+.library-filters select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 25%, transparent);
+  border-radius: 6px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  padding: 9px 10px;
+  font: inherit;
+}
+
+.library-filter-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.library-filter-actions button,
+.library-state button,
+.library-more {
+  min-height: 44px;
+  border: 1px solid var(--color-search);
+  border-radius: 6px;
+  background: var(--color-white);
+  color: var(--color-search);
+  padding: 8px 13px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.library-filter-actions button[type="submit"] {
+  background: var(--color-search);
+  color: var(--color-white);
+}
+
+.library-results {
+  min-height: 240px;
+}
+
+.library-loading,
+.library-state {
+  margin-top: 28px;
+  border-left: 3px solid var(--color-search);
+  padding: 18px 20px;
+  background: var(--color-white);
+}
+
+.library-state p {
+  margin: 0 0 12px;
+}
+
+.library-state a {
+  color: var(--color-source);
+  font-weight: 700;
+}
+
+.library-result-count {
+  margin: 18px 0 4px;
+  color: color-mix(in srgb, var(--color-ink) 62%, transparent);
+  font-size: 0.8125rem;
+}
+
+.library-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 22px;
+  padding: 22px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 15%, transparent);
+}
+
+.library-item-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.library-item-heading h2 {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+
+.library-status {
+  flex: none;
+  color: var(--color-search);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.library-status--processing {
+  color: var(--color-source);
+}
+
+.library-status--failed,
+.library-item-failure {
+  color: var(--color-signal);
+}
+
+.library-item-url {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: var(--color-source);
+  font-size: 0.8125rem;
+}
+
+.library-item-summary,
+.library-item-failure {
+  margin: 10px 0 0;
+  line-height: 1.55;
+}
+
+.library-item-failure {
+  font-size: 0.8125rem;
+}
+
+.library-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.library-tags li {
+  border-bottom: 2px solid color-mix(in srgb, var(--color-search) 35%, transparent);
+  padding: 3px 2px;
+  font-size: 0.75rem;
+}
+
+.library-item-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  color: color-mix(in srgb, var(--color-ink) 62%, transparent);
+  font-size: 0.75rem;
+}
+
+.library-item-meta a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-source);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.library-more {
+  display: block;
+  margin: 20px auto 0;
+}
+
 button,
 a {
   -webkit-tap-highlight-color: color-mix(in srgb, var(--color-search) 18%, transparent);
@@ -465,6 +651,10 @@ a {
     grid-template-columns: 1fr;
     gap: 16px;
   }
+
+  .library-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 480px) {
@@ -496,6 +686,25 @@ a {
 
   .model-settings-actions button {
     flex: 1;
+  }
+
+
+  .library-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .library-filter-actions button {
+    flex: 1;
+  }
+
+  .library-item {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .library-item-meta {
+    flex-flow: row wrap;
+    align-items: center;
   }
 }
 
