@@ -292,3 +292,16 @@
 ### Notes
 
 - 新增运行时依赖 `pg-boss@10.3.3` (MIT，PostgreSQL 持久队列)；该版本支持项目 Node.js >=20，生产审计无已知漏洞。
+
+## 2026-08-09 - Task: T12 手动重抓
+
+### What was done
+
+- `manualRefetch(itemId)` 复用 T11 `requestProcessing` 事务；completed/failed 条目进入新 generation 并写 pending outbox。
+- 已有活跃 request 的 processing 条目稳定抛 `ITEM_ALREADY_PROCESSING`，不递增 generation、不重复入队。
+
+### Testing
+
+- 红灯：`vitest run tests/integration/refetch.test.ts` 退出 1，手动重抓服务不存在。
+- 绿灯：真实 PostgreSQL 集成测试 1 file / 3 tests 通过，覆盖 completed、failed 和 processing 重复请求。
+- `pnpm typecheck` 与 `pnpm lint` 均退出 0。
