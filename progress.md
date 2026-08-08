@@ -63,3 +63,33 @@
 - `docs/development.md`：增加唯一外部网络出口开发约束。
 - `progress.md`：追加 T02 施工与验证证据。
 - 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: SSRF guard and URL canonicalization$' -1)"`。
+
+## 2026-08-08 - Task: T03 数据库连接与 schema
+
+### What was done
+
+- 安装并启动本机 PostgreSQL 16.14，将官方 pgvector 0.8.6 源码按 PG16 `pg_config` 编译安装，建立专用 `collection_system_test` 数据库。
+- 实现 Drizzle node-postgres 连接池与 10 张 canonical 表，包含无 typmod `vector` 自定义列、外键、唯一约束、状态/边界 CHECK 和基础索引。
+- 使用 drizzle-kit 生成初始迁移，按架构裁决 DEV-001 把 `CREATE EXTENSION IF NOT EXISTS vector` 放在首句，之后才创建含 `embedding vector` 的 `items`。
+- 新增运行时依赖 `drizzle-orm@0.45.2` （Apache-2.0）、`pg@8.22.0` （MIT），开发依赖 `drizzle-kit@0.31.10` （MIT）和 `@types/pg@8.21.0` （MIT）。
+
+### Testing
+
+- 红灯：`DATABASE_URL=postgresql://apple@127.0.0.1:5432/collection_system_test corepack pnpm vitest run tests/integration/schema.test.ts` 退出 1，因 `@/db/client`/schema 尚不存在。
+- 绿灯：同一命令退出 0，1 个文件、3 个真实 PostgreSQL 集成测试全部通过；已验证迁移、插入/读回和唯一约束 `23505`。
+- `corepack pnpm typecheck` 与 `corepack pnpm lint` 在 schema 生成前的实现检查中均退出 0；任务提交前将再做新鲜整仓验证。
+
+### Notes
+
+- `.env.example`：增加无真实密钥的 `DATABASE_URL` 配置格式。
+- `package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`：增加并锁定 Drizzle/PG 依赖、命令与供应链策略。
+- `drizzle.config.ts`：新增 fail-closed 的 PostgreSQL 迁移配置。
+- `src/db/client.ts`：新增 PostgreSQL 连接池与 Drizzle `db` 实例。
+- `src/db/schema.ts`：新增 10 张表、无 typmod vector 类型及数据不变量。
+- `src/db/migrations/0000_initial.sql`、`src/db/migrations/meta/*`：新增初始迁移与 Drizzle 生成元数据。
+- `tests/integration/schema.test.ts`：新增专用测试库安全检查、迁移、读写和唯一约束集成覆盖。
+- `vitest.config.ts`：数据库集成测试文件串行执行，避免共享测试库迁移冲突。
+- `docs/development.md`：增加 PostgreSQL/pgvector 环境和测试库边界。
+- `progress.md`：追加 T03 施工与验证证据。
+- 已批准偏差 DEV-001：仅将 pgvector 扩展启用前移为初始迁移首句，不改变列、检索语义或产品行为；完成时还将记入 `.workflow/implementation-report.md`。
+- 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: db schema and drizzle client$' -1)"`。

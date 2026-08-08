@@ -9,3 +9,5 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
   - unrs-resolver
+minimumReleaseAgeExclude:
+  - '@types/pg@8.21.0'
