@@ -1,0 +1,94 @@
+:root {
+  --color-mist: #F5F7F4;
+  --color-white: #FFFFFF;
+  --color-ink: #17211D;
+  --color-search: #087F6C;
+  --color-source: #265FAF;
+  --color-signal: #D15A3C;
+  color: var(--color-ink);
+  background: var(--color-mist);
+  font-family: Inter, "PingFang SC", system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-mist);
+}
+
+.pressable {
+  min-width: 44px;
+  min-height: 44px;
+  transition: transform 120ms ease-out, background-color 120ms ease-out;
+  transform: scale(1);
+  touch-action: manipulation;
+}
+
+.pressable[data-pressed="true"],
+.pressable:active {
+  transform: scale(0.975);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-search);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-search) 24%, transparent);
+}
+
+.motion-region {
+  will-change: transform, opacity;
+}
+
+.material-surface {
+  background: color-mix(in srgb, var(--color-white) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 10px 32px color-mix(in srgb, var(--color-ink) 12%, transparent);
+}
+
+.material-surface--structural {
+  background: color-mix(in srgb, var(--color-mist) 88%, transparent);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--color-ink) 16%, transparent);
+}
+
+.material-surface--toast {
+  background: color-mix(in srgb, var(--color-ink) 92%, transparent);
+  color: var(--color-white);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pressable,
+  .motion-region {
+    transition-duration: 1ms;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .material-surface,
+  .material-surface--structural {
+    background: var(--color-white);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .material-surface--toast {
+    background: var(--color-ink);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .material-surface {
+    background: var(--color-white);
+    border: 1px solid var(--color-ink);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
