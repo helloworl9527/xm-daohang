@@ -335,3 +335,16 @@
 
 - 红灯：英文主体 `This report... 中文内容。It also...` 在第一次输出即被接受，回归测试退出 1。
 - 绿灯：英文主体连续两次被拒绝；中文含技术名词与纯中文均首次通过。
+
+## 2026-08-09 - R5 queued GitHub handler backoff 复查
+
+### What was done
+
+- `processItemJob` 在 claim 之后、任何 GitHub 外部抓取之前，用单条条件 SQL 同时复查当前 item generation/type、embedding version 与 `github_backoff_until`。
+- 命中未到期 backoff 时，同一 request/attempt 从 running 退回 pending，`next_attempt_at` 精确延至持久 retryAt；不调用抓取器、不消耗重试次数。
+- 条件限定 `item.type='github'`，web/doc queued job 在同一 backoff 期间照常处理。
+
+### Testing
+
+- 红灯：queued GitHub job 在设置未来 30 分钟 backoff 后仍实际调用抓取器 1 次并 completed，回归测试退出 1。
+- 绿灯：同场景返回 deferred，抓取调用 0，item 保持 processing，request 保持 attempt=0 并延时；web 依然 completed。

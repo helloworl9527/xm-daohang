@@ -143,6 +143,42 @@ describe("processing request state machine", () => {
     expect(dependencies.embed).toHaveBeenCalledOnce();
   });
 
+  it("rechecks GitHub backoff after queueing and before fetch without delaying web", async () => {
+    const now = new Date("2026-08-09T04:00:00.000Z");
+    const retryAt = new Date(now.getTime() + 30 * 60 * 1_000);
+    const github = await insertItem({ type: "github", status: "failed" });
+    const githubGeneration = await requestProcessing(github.id);
+    await db.update(processingRequests).set({ status: "queued" }).where(eq(processingRequests.itemId, github.id));
+    await db.update(appSettings).set({ githubBackoffUntil: retryAt }).where(eq(appSettings.id, 1));
+    const githubDependencies = { ...successfulDependencies(), now: () => now };
+
+    await expect(processItemJob({
+      itemId: github.id,
+      processGeneration: githubGeneration,
+      embVersion: 1,
+      attempt: 0,
+    }, githubDependencies)).resolves.toEqual({ claimed: true, outcome: "deferred" });
+    expect(githubDependencies.fetchContent).not.toHaveBeenCalled();
+    expect(await currentRequest(github.id, githubGeneration, 0)).toMatchObject({
+      status: "pending",
+      nextAttemptAt: retryAt,
+    });
+    const [githubSaved] = await db.select().from(items).where(eq(items.id, github.id));
+    expect(githubSaved.status).toBe("processing");
+
+    const web = await insertItem({ type: "web", status: "failed" });
+    const webGeneration = await requestProcessing(web.id);
+    await db.update(processingRequests).set({ status: "queued" }).where(eq(processingRequests.itemId, web.id));
+    const webDependencies = { ...successfulDependencies(), now: () => now };
+    await expect(processItemJob({
+      itemId: web.id,
+      processGeneration: webGeneration,
+      embVersion: 1,
+      attempt: 0,
+    }, webDependencies)).resolves.toMatchObject({ outcome: "completed" });
+    expect(webDependencies.fetchContent).toHaveBeenCalledOnce();
+  });
+
   it("recovers publisher crashes before and after send using the outbox and singleton key", async () => {
     const item = await insertItem({ status: "failed" });
     const generation = await requestProcessing(item.id);

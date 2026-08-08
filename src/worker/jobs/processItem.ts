@@ -25,7 +25,7 @@ export interface ProcessItemDependencies {
 
 export interface ProcessItemOutcome {
   claimed: boolean;
-  outcome?: "completed" | "retrying" | "failed";
+  outcome?: "completed" | "retrying" | "failed" | "deferred";
 }
 
 const defaultDependencies: ProcessItemDependencies = {
@@ -74,6 +74,24 @@ async function finishStaleRequest(payload: ProcessingJobPayload): Promise<void> 
     eq(processingRequests.attempt, payload.attempt),
     eq(processingRequests.status, "running"),
   ));
+}
+
+async function deferForGitHubBackoff(
+  payload: ProcessingJobPayload,
+  now: Date,
+): Promise<boolean> {
+  const result = await pool.query(
+    `update processing_requests r
+        set status = 'pending', next_attempt_at = s.github_backoff_until
+       from items i, app_settings s
+      where r.item_id = $1 and r.process_generation = $2 and r.attempt = $3
+        and r.emb_version = $4 and r.status = 'running'
+        and i.id = r.item_id and i.process_generation = r.process_generation
+        and i.type = 'github' and s.id = 1 and s.emb_version = r.emb_version
+        and s.github_backoff_until > $5`,
+    [payload.itemId, payload.processGeneration, payload.attempt, payload.embVersion, now],
+  );
+  return (result.rowCount ?? 0) === 1;
 }
 
 function stableError(error: unknown): { code: string; retryAt?: Date } {
@@ -151,6 +169,10 @@ export async function processItemJob(
   dependencies: ProcessItemDependencies = defaultDependencies,
 ): Promise<ProcessItemOutcome> {
   if (!(await claimRequest(payload))) return { claimed: false };
+  const startedAt = dependencies.now?.() ?? new Date();
+  if (await deferForGitHubBackoff(payload, startedAt)) {
+    return { claimed: true, outcome: "deferred" };
+  }
 
   try {
     const [item] = await db.select().from(items).where(eq(items.id, payload.itemId));
