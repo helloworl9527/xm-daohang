@@ -93,3 +93,28 @@
 - `progress.md`：追加 T03 施工与验证证据。
 - 已批准偏差 DEV-001：仅将 pgvector 扩展启用前移为初始迁移首句，不改变列、检索语义或产品行为；完成时还将记入 `.workflow/implementation-report.md`。
 - 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: db schema and drizzle client$' -1)"`。
+
+## 2026-08-08 - Task: T04 pgvector 精确向量扫描
+
+### What was done
+
+- 新增 `items_retrievable_idx(status, embedding_version, embedding_dim) WHERE embedding IS NOT NULL` 普通部分 B-tree 索引，迁移后执行 `ANALYZE items`。
+- 验证无 typmod vector 同时存放不同维度/版本，检索 SQL 先限定完成状态、当前版本和维度，再用 `<=>` 做余弦距离排序，不会对异维向量求距离。
+- 确认库中不存在 HNSW/IVFFlat 索引；100/500/1000 条规模均执行精确 `Seq Scan + Sort`。
+
+### Testing
+
+- 红灯：`DATABASE_URL=postgresql://apple@127.0.0.1:5432/collection_system_test corepack pnpm vitest run tests/integration/pgvector.test.ts` 退出 1，因 `items_retrievable_idx` 尚不存在；其余跨维度排序和基准已执行。
+- 绿灯：同一命令退出 0，1 个文件、3 个真实 pgvector 集成测试全部通过。
+- 基准：最终新鲜整仓运行中，100/500/1000 条的 recall@10 均为 `1.0`，P95 分别为 `0.931ms / 1.298ms / 1.485ms`，均低于计划的向量查询+排序 2s 硬门禁。
+- `EXPLAIN` 显示三个规模均为 `Seq Scan on items` 后按 `<=>` 精确排序，过滤条件包含非空向量、completed、version=7、dim=8。
+
+### Notes
+
+- `src/db/schema.ts`：增加已批准的可检索条目部分索引定义。
+- `src/db/migrations/0001_exact_vector_scan.sql`、`src/db/migrations/meta/*`：新增普通过滤索引与 `ANALYZE`。
+- `tests/integration/pgvector.test.ts`：新增跨维度/版本、索引类型、召回与延迟基准。
+- `docs/development.md`：增加精确检索的过滤顺序和禁止 ANN 边界。
+- `progress.md`：追加 T04 施工与验证证据。
+- DEV-001 实施结果：原 T04 扩展启用已收敛至 `0000_initial.sql` 首句；T04 的 `0001_exact_vector_scan.sql` 只承载过滤索引与统计信息，无数据模型或检索语义变化。
+- 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: enable pgvector exact cosine search$' -1)"`。

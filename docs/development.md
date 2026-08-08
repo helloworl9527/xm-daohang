@@ -22,6 +22,7 @@
 - 开发与集成验证使用 PostgreSQL 16 + pgvector。
 - `DATABASE_URL` 为应用、worker 与迁移共用连接；未设置时数据库模块和 Drizzle 命令会报错退出。
 - 初始迁移的第一条语句是 `CREATE EXTENSION IF NOT EXISTS vector`，保证无 typmod 的 `items.embedding` 列能在建表时解析。
+- 向量检索必须先按 `status='completed'`、当前 `embedding_version`与 `embedding_dim` 过滤，再用 `<=>` 做精确余弦距离排序。当前只有部分 B-tree 过滤索引，不得在未经同一召回基准证明前增加 HNSW/IVFFlat。
 - 集成测试只允许在名为 `collection_system_test` 的专用库中重建 `public`/`drizzle` schema，避免误伤其他数据库。
 
 ## 当前验证
@@ -30,6 +31,7 @@
 corepack pnpm vitest run tests/unit/logger.test.ts tests/unit/uiPrimitives.test.tsx
 corepack pnpm vitest run tests/unit/urlGuard.test.ts tests/integration/safeFetch.test.ts
 DATABASE_URL=postgresql://apple@127.0.0.1:5432/collection_system_test corepack pnpm vitest run tests/integration/schema.test.ts
+DATABASE_URL=postgresql://apple@127.0.0.1:5432/collection_system_test corepack pnpm vitest run tests/integration/pgvector.test.ts
 corepack pnpm typecheck
 corepack pnpm lint
 ```

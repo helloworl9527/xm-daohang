@@ -55,6 +55,9 @@ export const items = pgTable(
   },
   (table) => [
     index("items_status_idx").on(table.status),
+    index("items_retrievable_idx")
+      .on(table.status, table.embeddingVersion, table.embeddingDim)
+      .where(sql`${table.embedding} is not null`),
     check("items_type_check", sql`${table.type} in ('web', 'doc', 'github')`),
     check("items_status_check", sql`${table.status} in ('processing', 'completed', 'failed')`),
     check("items_source_check", sql`${table.source} in ('admin', 'telegram')`),
