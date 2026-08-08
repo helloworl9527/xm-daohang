@@ -8,6 +8,7 @@ const MAX_STRING_LENGTH = 2_048;
 const SENSITIVE_KEY =
   /(?:api[-_]?key|authorization|cookie|credential|password|secret|session|token)/i;
 const SENSITIVE_QUERY_KEY = /(?:api[-_]?key|auth|code|credential|key|password|secret|signature|token)/i;
+const EMBEDDED_HTTP_URL = /https?:\/\/[^\s"'<>]+/gi;
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 type LogFields = Record<string, unknown>;
@@ -19,9 +20,7 @@ function truncate(value: string): string {
     : `${value.slice(0, MAX_STRING_LENGTH)}${TRUNCATED}`;
 }
 
-function sanitizeUrl(value: string): string {
-  if (!/^https?:\/\//i.test(value)) return truncate(value);
-
+function sanitizeMatchedUrl(value: string): string {
   try {
     const url = new URL(value);
     url.username = "";
@@ -29,10 +28,14 @@ function sanitizeUrl(value: string): string {
     for (const key of [...url.searchParams.keys()]) {
       if (SENSITIVE_QUERY_KEY.test(key)) url.searchParams.delete(key);
     }
-    return truncate(url.toString());
+    return url.toString();
   } catch {
-    return truncate(value);
+    return value;
   }
+}
+
+function sanitizeString(value: string): string {
+  return truncate(value.replace(EMBEDDED_HTTP_URL, sanitizeMatchedUrl));
 }
 
 function sanitizeError(
@@ -41,8 +44,8 @@ function sanitizeError(
   depth: number,
 ): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {
-    name: sanitizeUrl(error.name),
-    message: sanitizeUrl(error.message),
+    name: sanitizeString(error.name),
+    message: sanitizeString(error.message),
   };
 
   if (typeof error.code === "string" || typeof error.code === "number") {
@@ -58,7 +61,7 @@ function sanitizeError(
 function sanitizeValue(value: unknown, seen: WeakSet<object>, depth: number): unknown {
   if (value === null || typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value === "bigint") return value.toString();
-  if (typeof value === "string") return sanitizeUrl(value);
+  if (typeof value === "string") return sanitizeString(value);
   if (typeof value === "undefined") return undefined;
   if (typeof value === "function" || typeof value === "symbol") return String(value);
   if (depth > MAX_DEPTH) return TRUNCATED;

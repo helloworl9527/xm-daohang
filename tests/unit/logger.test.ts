@@ -55,6 +55,44 @@ describe("sanitizeForLog", () => {
     });
   });
 
+  it("sanitizes credentials and sensitive query values in embedded URLs", () => {
+    const serialized = serializeLog({
+      detail:
+        "fetch https://user:pass@example.com/path?token=secret-token&view=compact failed",
+    });
+
+    expect(serialized).not.toContain("user:pass");
+    expect(serialized).not.toContain("secret-token");
+    expect(serialized).toContain("fetch https://example.com/path?view=compact failed");
+  });
+
+  it("sanitizes URLs in Error messages, stacks, causes, and allowlisted fields", () => {
+    const cause = new Error("cause https://example.com/a?authorization=BearerSecret");
+    const error = Object.assign(
+      new Error("fetch https://u:p@example.com/a?token=SECRET_TOKEN&x=1 failed", { cause }),
+      {
+        code: "UPSTREAM",
+        detail: "retry https://name:password@example.com/b?api_key=API_SECRET",
+      },
+    );
+    error.stack =
+      "Error: fetch failed\n    at https://stack-user:stack-pass@example.com/c?secret=STACK_SECRET";
+
+    const serialized = serializeLog(error);
+
+    for (const secret of [
+      "u:p",
+      "SECRET_TOKEN",
+      "BearerSecret",
+      "name:password",
+      "API_SECRET",
+      "stack-user:stack-pass",
+      "STACK_SECRET",
+    ]) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
   it("handles cycles and bounds oversized values", () => {
     const cyclic: Record<string, unknown> = { safe: "kept" };
     cyclic.self = cyclic;

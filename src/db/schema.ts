@@ -65,7 +65,11 @@ export const items = pgTable(
     check("items_shown_count_check", sql`${table.shownCount} >= 0`),
     check(
       "items_embedding_metadata_check",
-      sql`(${table.embedding} is null and ${table.embeddingDim} is null and ${table.embeddingVersion} is null) or (${table.embedding} is not null and ${table.embeddingDim} > 0 and ${table.embeddingVersion} >= 0)`,
+      sql`(${table.embedding} is null and ${table.embeddingDim} is null and ${table.embeddingVersion} is null) or (${table.embedding} is not null and ${table.embeddingDim} is not null and ${table.embeddingVersion} is not null and ${table.embeddingDim} > 0 and ${table.embeddingVersion} >= 0)`,
+    ),
+    check(
+      "items_embedding_dimension_check",
+      sql`${table.embedding} is null or vector_dims(${table.embedding}) = ${table.embeddingDim}`,
     ),
     check(
       "items_completed_tags_check",

@@ -1,0 +1,3 @@
+ALTER TABLE "items" DROP CONSTRAINT "items_embedding_metadata_check";--> statement-breakpoint
+ALTER TABLE "items" ADD CONSTRAINT "items_embedding_dimension_check" CHECK ("items"."embedding" is null or vector_dims("items"."embedding") = "items"."embedding_dim");--> statement-breakpoint
+ALTER TABLE "items" ADD CONSTRAINT "items_embedding_metadata_check" CHECK (("items"."embedding" is null and "items"."embedding_dim" is null and "items"."embedding_version" is null) or ("items"."embedding" is not null and "items"."embedding_dim" is not null and "items"."embedding_version" is not null and "items"."embedding_dim" > 0 and "items"."embedding_version" >= 0));

@@ -43,6 +43,32 @@ afterAll(async () => {
 });
 
 describe("pgvector exact cosine scan", () => {
+  it("rejects embeddings without required metadata", async () => {
+    await expect(
+      pool.query(
+        `insert into items
+          (url, url_canonical, type, status, source, tags, embedding)
+         values
+          ('https://example.com/missing-metadata', 'https://example.com/missing-metadata',
+           'web', 'completed', 'admin', array['vector', 'invalid', 'fixture'], '[1,2]'::vector)`,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("rejects embeddings whose declared dimension does not match the vector", async () => {
+    await expect(
+      pool.query(
+        `insert into items
+          (url, url_canonical, type, status, source, tags,
+           embedding, embedding_dim, embedding_version)
+         values
+          ('https://example.com/wrong-dimension', 'https://example.com/wrong-dimension',
+           'web', 'completed', 'admin', array['vector', 'invalid', 'fixture'],
+           '[1,2]'::vector, 3, 1)`,
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
   it("stores mixed dimensions and filters before distance evaluation", async () => {
     const common = {
       type: "web" as const,
