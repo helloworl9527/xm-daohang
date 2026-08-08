@@ -164,3 +164,26 @@
 - 环境：`.env.example` 新增无真实值的 `LOGIN_IP_HASH_KEY`；至少 32 字节。
 - 工具链：忽略 Next 自动维护的 `next-env.d.ts`，避免构建后 ESLint 检查生成的 triple-slash 声明。
 - 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: admin login with throttle and route guard$' -1)"`。
+
+## 2026-08-09 - Task: T07 密钥加密与设置读写
+
+### What was done
+
+- 实现 AES-256-GCM secretbox：32 字节 base64 环境密钥、随机 96-bit IV、认证标签、版本化 payload 与固定 AAD。
+- 解密严格校验版本、段数、IV/tag 长度和 canonical base64url；格式、环境密钥或认证异常均 fail closed。
+- 设置服务维护 `app_settings` 单行记录；DTO 只返回 Key 掩码，不返回明文或数据库密文。
+- `getDecryptedSecret` 仅提供服务端字段白名单；LLM、Embedding、Telegram secret 相互隔离。
+- `updateSettings` 只加密明确提供的新 Key，省略字段时保留旧密文。
+
+### Testing
+
+- 红灯：`vitest run tests/unit/secretbox.test.ts tests/integration/settings.test.ts` 退出 1，secretbox 与设置服务不存在。
+- 绿灯：同一命令连接真实 PostgreSQL 后退出 0，2 个文件、5 个测试通过。
+- 覆盖：随机密文与还原、tag 篡改、畸形 payload、错误密钥长度、DTO 掩码、明文/密文不外泄、旧 Key 保留及三类 secret 隔离。
+- `pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 均退出 0。
+
+### Notes
+
+- 环境：`.env.example` 新增无真实值的 `APP_ENCRYPTION_KEY`，格式为 base64 编码的 32 字节密钥。
+- 未新增第三方依赖，使用 Node.js `crypto` 权威实现。
+- 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: encrypted secrets and settings service$' -1)"`。
