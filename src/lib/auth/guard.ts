@@ -32,9 +32,18 @@ function readCookie(header: string, name: string): string | null {
 }
 
 function unauthorized(): Response {
+  return apiError("AUTH_REQUIRED", "需要登录管理端。", 401);
+}
+
+export function apiError(
+  code: string,
+  message: string,
+  status: number,
+  retryable = false,
+): Response {
   return Response.json(
-    { error: { code: "AUTH_REQUIRED", message: "需要登录管理端。", retryable: false } },
-    { status: 401, headers: { "Cache-Control": "no-store" } },
+    { error: { code, message, retryable } },
+    { status, headers: { "Cache-Control": "no-store" } },
   );
 }
 
@@ -47,6 +56,29 @@ async function resolveAdminSession(token: string | null): Promise<AdminSession |
 export async function requireAdminApi(request: Request): Promise<AdminSession | Response> {
   const token = readCookie(request.headers.get("cookie") ?? "", SESSION_COOKIE_NAME);
   return (await resolveAdminSession(token)) ?? unauthorized();
+}
+
+export async function requireAdminWrite(request: Request): Promise<AdminSession | Response> {
+  const session = await requireAdminApi(request);
+  if (session instanceof Response) return session;
+
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host");
+  if (!origin || !host) return apiError("CSRF_INVALID", "请求来源无效。", 403);
+  try {
+    if (new URL(origin).host !== host) return apiError("CSRF_INVALID", "请求来源无效。", 403);
+  } catch {
+    return apiError("CSRF_INVALID", "请求来源无效。", 403);
+  }
+
+  const csrf = request.headers.get(CSRF_HEADER_NAME);
+  if (!csrf || !verifyCsrfToken(session.token, csrf)) {
+    return apiError("CSRF_INVALID", "请求校验失败。", 403);
+  }
+  if (!request.headers.get("content-type")?.startsWith("application/json")) {
+    return apiError("VALIDATION", "请求格式无效。", 415);
+  }
+  return session;
 }
 
 export async function requireAdminPage(): Promise<AdminSession> {

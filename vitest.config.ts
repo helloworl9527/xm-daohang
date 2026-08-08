@@ -8,6 +8,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     fileParallelism: false,
+    include: ["tests/unit/**/*.test.{ts,tsx}", "tests/integration/**/*.test.ts"],
     setupFiles: ["./tests/setup.ts"],
   },
   resolve: {

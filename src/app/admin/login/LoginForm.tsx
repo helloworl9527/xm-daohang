@@ -23,7 +23,13 @@ export function LoginForm({ state }: { state?: LoginActionState }) {
       <form action={state ? undefined : formAction} className="admin-login-form">
         <label>
           <span>用户名</span>
-          <input autoComplete="username" disabled={locked || pending} name="username" required />
+          <input
+            autoComplete="username"
+            disabled={locked || pending}
+            name="username"
+            required
+            spellCheck={false}
+          />
         </label>
         <label>
           <span>密码</span>

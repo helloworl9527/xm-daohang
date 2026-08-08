@@ -187,3 +187,30 @@
 - 环境：`.env.example` 新增无真实值的 `APP_ENCRYPTION_KEY`，格式为 base64 编码的 32 字节密钥。
 - 未新增第三方依赖，使用 Node.js `crypto` 权威实现。
 - 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: encrypted secrets and settings service$' -1)"`。
+
+## 2026-08-09 - Task: T08 模型配置、实测维度与版本化重建
+
+### What was done
+
+- 实现 OpenAI 兼容 LLM/Embedding live probe；测试草稿只存在当前请求，保存前服务端强制重新探测。
+- Embedding 单次请求使用固定中文查询、2 条正样本和 2 条负样本；严格校验返回数量、非空、有限值、同维度与非零范数，正负余弦无严格间隔时拒绝，cutoff 取模型实测间隔中点。
+- 保存 embedding 时锁定 `app_settings`；baseURL/model/实测维度 identity 变化仅递增一次版本，以同一事务递增全部 completed 条目 generation 并写 pending `processing_requests`，状态置 `building`。
+- 管理 API 按 session→Origin/Host→session 绑定 CSRF→JSON Content-Type→Zod→live probe 顺序 fail closed；统一 no-store 错误响应，敏感错误只经 logger allowlist。
+- 实现对话/嵌入两组独立设置表单及 default/testing/saving/tested/saved/error/disabled 状态；Key 只显示掩码，重建中仅禁用 embedding 组。
+- 增加每请求 nonce CSP；生产策略不含 `unsafe-inline`，浏览器资源同源；根 layout 动态读取请求头以确保 Next 脚本/样式获得 nonce。
+- 新增 `openai@7.4.0`（Apache-2.0，OpenAI 兼容客户端）与开发依赖 `@playwright/test@1.62.1`（Apache-2.0，e2e）；生产审计无已知漏洞。
+
+### Testing
+
+- 红灯：`vitest run tests/integration/modelSettings.test.ts` 退出 1，模型配置服务不存在。
+- 服务/API/UI 绿灯：2 个目标文件、12 个测试通过；覆盖 1024 维、空/NaN/漂移/不可分拒绝、失败保护旧配置、cutoff、单次增版、completed 全覆盖及 auth/origin/CSRF/content-type 反向门禁。
+- CSP 反向探针先在静态/开发运行中捕获 inline style/script 阻断并使 e2e 退出 1；动态 nonce + 生产运行修复后，桌面 1440px 与移动 390px e2e 2/2 通过，控制台零 error，CSP 不含 `unsafe-inline`，浏览器请求来源集合仅为应用同源。
+- 截图：`.workflow/screenshots/t08-model-settings-desktop.png` 与 `t08-model-settings-mobile.png`；人工核对无重叠、截断或外部资源。
+- Web Interface Guidelines：补齐 autocomplete/spellcheck、明确测试/保存文案、离页草稿提醒、hover/tap、标题换行与安全区；复核无未解决发现。
+- 全量 `pnpm test`：15 files / 77 tests 通过；Vitest 明确只收 unit/integration，e2e 独立由 `pnpm e2e` 执行。
+- `pnpm typecheck`、`pnpm lint`、`pnpm audit --prod`、`pnpm db:migrate` 均退出 0；`pnpm e2e` 内含生产 `next build` 并通过。
+
+### Notes
+
+- e2e 使用本地 OpenAI 兼容 HTTP fixture 与专用 PostgreSQL 测试库，不访问真实模型供应商，不操作生产数据。
+- 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: model settings with connectivity test and vector rebuild$' -1)"`。
