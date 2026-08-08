@@ -140,3 +140,27 @@
 
 - 变更：`src/lib/auth/password.ts`、`src/lib/auth/session.ts`、两份对应测试、`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`。
 - 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: password hashing and db sessions$' -1)"`。
+
+## 2026-08-09 - Task: T06 登录限流、登录动作与管理守卫
+
+### What was done
+
+- 登录 IP 经规范化后使用独立 `LOGIN_IP_HASH_KEY` 做 HMAC-SHA256，数据库不存明文 IP；缺失/过短密钥或非法 IP 均 fail closed。
+- 登录事务按 IP hash 获取 PostgreSQL advisory transaction lock；15 分钟窗口内连续 5 次失败后锁定，成功记录会重置连续失败序列。
+- 未知用户名与错误密码共用统一响应，并以固定 argon2id dummy hash 缓解用户名枚举时序差异；成功记录与 session 创建在同一事务。
+- 登录 cookie 固定 `HttpOnly; Secure; SameSite=Lax; Path=/admin`；页面守卫重定向登录，API 守卫返回统一 `AUTH_REQUIRED` 401 与 `no-store`。
+- 登录/退出 server action 检查 Origin/Host 与表单 Content-Type；输入使用 Zod；登录页覆盖 default/loading/error/locked，消费 T01 primitives。
+- 新增运行时依赖 `zod@4.1.5`（MIT，输入边界校验）；生产审计无已知漏洞。
+
+### Testing
+
+- 红灯：`vitest run tests/integration/login.test.ts tests/unit/loginPage.test.tsx` 退出 1，登录、限流、守卫和页面模块不存在。
+- 绿灯：登录集成、页面状态与页面守卫共 3 个文件、6 个测试通过；真实 PostgreSQL 验证成功会话、错误不建会话、HMAC IP、5 次锁定、API 401 和页面重定向。
+- `next build` 成功，确认 `/admin` 为动态受保护路由、`/admin/login` 可构建。
+- `pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 均退出 0。
+
+### Notes
+
+- 环境：`.env.example` 新增无真实值的 `LOGIN_IP_HASH_KEY`；至少 32 字节。
+- 工具链：忽略 Next 自动维护的 `next-env.d.ts`，避免构建后 ESLint 检查生成的 triple-slash 声明。
+- 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: admin login with throttle and route guard$' -1)"`。

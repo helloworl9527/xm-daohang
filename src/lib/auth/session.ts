@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { PoolClient } from "pg";
 
 import { pool } from "@/db/client";
 
@@ -36,11 +37,12 @@ export function hashSessionToken(token: string): string {
 }
 
 export async function createSession(
-  options: { now?: Date } = {},
+  options: { now?: Date; client?: PoolClient } = {},
 ): Promise<{ token: string; session: SessionRecord }> {
   const now = options.now ?? new Date();
   const token = randomBytes(32).toString("base64url");
-  const result = await pool.query<SessionRow>(
+  const queryable = options.client ?? pool;
+  const result = await queryable.query<SessionRow>(
     `insert into sessions
       (token_hash, created_at, last_seen_at, idle_expires_at, absolute_expires_at)
      values ($1, $2, $2, $3, $4)
