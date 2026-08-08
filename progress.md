@@ -250,3 +250,22 @@
 
 - 新增运行时依赖：`@mozilla/readability@0.6.0` (Apache-2.0，HTML 正文)、`jsdom@26.1.0` (MIT，DOM 解析)、`pdfjs-dist@4.10.38` (Apache-2.0，PDF 解析)；选定版本与项目 Node.js >=20 约束兼容。
 - `GITHUB_PUBLIC_API_TOKEN` 只提高公开 API 配额，不解锁私有仓库，不进入 UI/DB/日志。
+
+## 2026-08-09 - Task: T10 模型客户端与受约束中文总结
+
+### What was done
+
+- LLM 和 Embedding 默认客户端在服务端读取已配置的 OpenAI 兼容 endpoint/model/解密 Key；未配置与上游失败均转为稳定错误码，不携带不可信上游文本。
+- `summarizeContent` 要求严格 JSON 对象、2–4 句中文总结、3–5 个唯一标签和 500 字符上限；允许 JSON code fence 容错。
+- 首次输出不合格时只再请求一次格式/语言修正；第二次仍不合格抛可重试 `UPSTREAM_INVALID_OUTPUT`，不本地翻译、截断或猜测。
+- Embedding 输出必须等于当前实测维度、所有元素有限且不能为全零向量。
+
+### Testing
+
+- 红灯：`vitest run tests/unit/summarize.test.ts` 退出 1，AI 模块不存在。
+- 绿灯：同一命令 1 file / 10 tests 通过，覆盖英文、超长、句数、标签数、最多一次修正、JSON fence、维度、NaN 与全零向量。
+- `pnpm typecheck` 与 `pnpm lint` 均退出 0。
+
+### Notes
+
+- 未新增依赖；复用 `openai@7.4.0` 与 `zod@4.1.5`。
