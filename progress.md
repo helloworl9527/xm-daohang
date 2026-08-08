@@ -118,3 +118,25 @@
 - `progress.md`：追加 T04 施工与验证证据。
 - DEV-001 实施结果：原 T04 扩展启用已收敛至 `0000_initial.sql` 首句；T04 的 `0001_exact_vector_scan.sql` 只承载过滤索引与统计信息，无数据模型或检索语义变化。
 - 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: enable pgvector exact cosine search$' -1)"`。
+
+## 2026-08-09 - Task: T05 密码哈希与数据库会话
+
+### What was done
+
+- 实现 12–128 个 Unicode 字符且不得等于用户名的共享密码校验。
+- 使用 argon2id 哈希密码；校验异常统一 fail closed，不泄露密码。
+- 会话令牌使用 32 字节安全随机数，客户端持有原令牌，数据库仅存 SHA-256。
+- 会话同时执行 24 小时 idle 与 7 天 absolute 过期；刷新由单条条件更新完成，以 `greatest/least` 保证并发刷新单调且不越过 absolute。
+- 新增运行时依赖 `argon2@0.44.0`（MIT，密码哈希）；仅为该包开放 pnpm 安装脚本，真实 hash/verify 探针通过，生产审计无已知漏洞。
+
+### Testing
+
+- 红灯：`vitest run tests/unit/password.test.ts tests/integration/session.test.ts` 退出 1，两个认证模块不存在。
+- 绿灯：同一命令连接真实 PostgreSQL 16 后退出 0，2 个文件、7 个测试通过。
+- 覆盖：argon2id hash/verify、11/12/128/129 边界、Unicode、密码等于用户名、令牌哈希存储、idle/absolute 任一过期、并发刷新单调、absolute 封顶及销毁失效。
+- `pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 均退出 0。
+
+### Notes
+
+- 变更：`src/lib/auth/password.ts`、`src/lib/auth/session.ts`、两份对应测试、`package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`。
+- 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: password hashing and db sessions$' -1)"`。
