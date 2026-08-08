@@ -33,3 +33,33 @@
 - `docs/development.md`：记录运行时、共享 UI 与日志边界。
 - `progress.md`：追加本任务施工与验证证据。
 - 回滚点：基线提交 `7a8fa58`；T01 提交后可执行 `git revert --no-edit "$(git log --format=%H --grep='^chore: scaffold next+ts, logger with redaction$' -1)"` 产生可审计回滚。
+
+## 2026-08-08 - Task: T02 SSRF 防护、受控 fetch 与 URL 标准化
+
+### What was done
+
+- 实现 HTTP/HTTPS URL 解析与标准化，拒绝用户信息、非 HTTP 协议和缺失主机。
+- 使用 `ipaddr.js` 审查直接 IP 与 DNS 返回的所有 A/AAAA 地址；任一回环、私网、链路本地、保留、组播、未指定或 metadata 地址使整个目标失败。
+- 实现基于 `undici` 自定义 lookup 的受控出口，连接只使用当跳已审查 IP；手动处理最多 5 跳重定向，每跳重新审查。
+- 对 HTTPS→HTTP 降级、循环/超限重定向、非 2xx、错误 MIME、Content-Length/流式字节超限和 DNS 在内的全链路超时实施 fail closed。
+- 新增运行时依赖 `ipaddr.js@2.5.0` （MIT，IP 分类）与 `undici@6.28.0` （MIT，受控 HTTP 连接）；生产审计无已知漏洞。
+
+### Testing
+
+- 红灯：`corepack pnpm vitest run tests/unit/urlGuard.test.ts tests/integration/safeFetch.test.ts` 退出 1，两个安全模块尚不存在。
+- 反向超时测试：将 DNS resolver 设为永不返回后，`--testTimeout=100` 初次退出 1，证明旧实现未覆盖 DNS 挂起；全链路竞态修复后同一用例退出 0。
+- 绿灯：`corepack pnpm vitest run tests/unit/urlGuard.test.ts tests/integration/safeFetch.test.ts` 退出 0，2 个文件、29 个测试全部通过。
+- `corepack pnpm typecheck` 退出 0。
+- `corepack pnpm lint` 退出 0，无 error/warning。
+- `corepack pnpm audit --prod` 退出 0，无已知漏洞。
+
+### Notes
+
+- `package.json`、`pnpm-lock.yaml`：锁定 T02 的 `ipaddr.js` 与 `undici` 依赖。
+- `src/lib/fetch/urlGuard.ts`：新增 URL 标准化、DNS 解析和公网地址门禁。
+- `src/lib/fetch/safeFetch.ts`：新增固定 IP 连接、逐跳重定向审查与有界响应读取。
+- `tests/unit/urlGuard.test.ts`：覆盖 URL 与 IPv4/IPv6/DNS 地址边界。
+- `tests/integration/safeFetch.test.ts`：覆盖重定向、固定地址、协议降级、MIME、体积与总超时。
+- `docs/development.md`：增加唯一外部网络出口开发约束。
+- `progress.md`：追加 T02 施工与验证证据。
+- 回滚：执行 `git revert --no-edit "$(git log --format=%H --grep='^feat: SSRF guard and URL canonicalization$' -1)"`。
