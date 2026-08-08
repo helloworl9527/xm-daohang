@@ -62,6 +62,23 @@ describe("safeFetch", () => {
     expect(transport).toHaveBeenCalledTimes(3);
   });
 
+  it("does not forward caller request headers across origins", async () => {
+    const { fetch, transport } = harness({
+      "https://api.example/start": response(302, { location: "https://cdn.example/final" }),
+      "https://cdn.example/final": response(200, { "content-type": "text/plain" }, ["ok"]),
+    });
+
+    await fetch("https://api.example/start", {
+      maxBytes: 32,
+      timeoutMs: 1_000,
+      allowedMime: ["text/plain"],
+      requestHeaders: { authorization: "Bearer must-not-leak" },
+    });
+
+    expect(transport.mock.calls[0][3]).toEqual({ authorization: "Bearer must-not-leak" });
+    expect(transport.mock.calls[1][3]).toBeUndefined();
+  });
+
   it("rejects a redirect to a private target before transport", async () => {
     const { fetch, transport } = harness({
       "https://public.example/start": response(302, { location: "https://private.example/secret" }),

@@ -13,6 +13,8 @@ export interface SafeFetchOptions {
   maxBytes: number;
   timeoutMs: number;
   allowedMime: string[];
+  acceptedStatuses?: number[];
+  requestHeaders?: Record<string, string>;
 }
 
 export interface BoundedResponse {
@@ -37,6 +39,7 @@ export interface SafeFetchDependencies {
     url: string,
     addresses: ResolvedAddress[],
     signal: AbortSignal,
+    headers?: Record<string, string>,
   ) => Promise<TransportResponse>;
 }
 
@@ -73,7 +76,7 @@ function normalizeHeaders(headers: Record<string, string | string[] | undefined>
   return normalized;
 }
 
-const undiciTransport: SafeFetchDependencies["transport"] = async (url, addresses, signal) => {
+const undiciTransport: SafeFetchDependencies["transport"] = async (url, addresses, signal, headers) => {
   const dispatcher = new Agent({ connect: { lookup: fixedLookup(addresses) } });
   try {
     const result = await request(url, {
@@ -81,7 +84,7 @@ const undiciTransport: SafeFetchDependencies["transport"] = async (url, addresse
       method: "GET",
       maxRedirections: 0,
       signal,
-      headers: { accept: "text/html, text/plain, application/pdf" },
+      headers: headers ?? { accept: "text/html, text/plain, application/pdf" },
     });
     return {
       status: result.statusCode,
@@ -132,6 +135,11 @@ function validateOptions(options: SafeFetchOptions): void {
     throw new SafeFetchError("FETCH_INVALID_TIMEOUT");
   }
   if (options.allowedMime.length === 0) throw new SafeFetchError("FETCH_MIME_REQUIRED");
+  if (options.acceptedStatuses?.some(
+    (status) => !Number.isInteger(status) || status < 100 || status > 599,
+  )) {
+    throw new SafeFetchError("FETCH_INVALID_ACCEPTED_STATUS");
+  }
 }
 
 export function createSafeFetch(dependencies: SafeFetchDependencies) {
@@ -149,6 +157,7 @@ export function createSafeFetch(dependencies: SafeFetchDependencies) {
 
     const operation = async (): Promise<BoundedResponse> => {
       let currentUrl = rawUrl;
+      const requestOrigin = new URL(rawUrl).origin;
       let redirects = 0;
       const visited = new Set<string>();
 
@@ -162,6 +171,7 @@ export function createSafeFetch(dependencies: SafeFetchDependencies) {
           currentUrl,
           target.addresses,
           abortController.signal,
+          new URL(currentUrl).origin === requestOrigin ? options.requestHeaders : undefined,
         );
 
         if (response.status >= 300 && response.status < 400) {
@@ -183,7 +193,10 @@ export function createSafeFetch(dependencies: SafeFetchDependencies) {
           continue;
         }
 
-        if (response.status < 200 || response.status >= 300) {
+        if (
+          (response.status < 200 || response.status >= 300) &&
+          !options.acceptedStatuses?.includes(response.status)
+        ) {
           await response.discard();
           await response.close?.();
           throw new SafeFetchError("FETCH_HTTP_STATUS");

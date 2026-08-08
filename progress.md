@@ -228,3 +228,25 @@
 - 红灯：真实路由边界模拟上游 401 在 `Error.message` 回显草稿 Key，2 个回归用例均捕获 logger 序列化结果中的 `sk-DRAFT-MUST-NOT-LOG-9876` 并失败。
 - 绿灯：`vitest run tests/integration/modelSettings.test.ts` 退出 0，1 个文件、10 个测试通过；测试与保存路由的响应及日志均不含草稿 Key，且日志字段精确限定为 allowlist。
 - 同类点排查：`src` 中产品 logger 调用仅余这两处，均已收敛；定向 `typecheck` 与 `lint` 退出 0。
+
+## 2026-08-09 - Task: T09 有界内容提取、GitHub 抓取与指纹
+
+### What was done
+
+- HTML 通过 Readability + JSDOM 提取正文并移除 script/style/noscript/template；`text/plain` 使用严格 UTF-8 解码。
+- PDF 同时校验 `application/pdf` 与 `%PDF-` 魔数，禁止加密文档，限制 2 MiB/100 页，使用 pdfjs-dist 提取文本；解析后内容有字符上限。
+- GitHub 只解析 `https://github.com/{owner}/{repo}` 并访问固定 `api.github.com` API，组合 README/描述/topics/主要语言/star；API `private=true` 无条件拒绝。
+- 403 remaining=0/429 映射为 `GITHUB_RATE_LIMITED{retryAt}`，优先 Retry-After/reset，否则使用最高 1h 的指数退避加有界 jitter；普通 403 不误分类。
+- 可选 `GITHUB_PUBLIC_API_TOKEN` 仅作为固定公开 API 的 Authorization 请求头；safeFetch 跨源重定向自动丢弃请求头，错误与日志不携带 Token。
+- 内容指纹对 Unicode 和空白做稳定规范化后计算 SHA-256。
+
+### Testing
+
+- 红灯：`vitest run tests/unit/webExtract.test.ts tests/unit/github.test.ts` 退出 1，两个待实现模块均不存在。
+- 绿灯：T09 两个单测加 safeFetch 集成共 3 files / 19 tests 通过，含现场构造真实 PDF 走默认 pdfjs-dist 提取。
+- `pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 均退出 0，生产依赖无已知漏洞。
+
+### Notes
+
+- 新增运行时依赖：`@mozilla/readability@0.6.0` (Apache-2.0，HTML 正文)、`jsdom@26.1.0` (MIT，DOM 解析)、`pdfjs-dist@4.10.38` (Apache-2.0，PDF 解析)；选定版本与项目 Node.js >=20 约束兼容。
+- `GITHUB_PUBLIC_API_TOKEN` 只提高公开 API 配额，不解锁私有仓库，不进入 UI/DB/日志。

@@ -18,11 +18,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@mozilla/readability": "0.6.0",
     "argon2": "0.44.0",
     "drizzle-orm": "0.45.2",
     "ipaddr.js": "2.5.0",
+    "jsdom": "26.1.0",
     "next": "15.5.23",
     "openai": "7.4.0",
+    "pdfjs-dist": "4.10.38",
     "pg": "8.22.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
@@ -35,6 +38,7 @@
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "6.8.0",
     "@testing-library/react": "16.3.0",
+    "@types/jsdom": "21.1.7",
     "@types/node": "24.3.0",
     "@types/pg": "8.21.0",
     "@types/react": "19.1.10",
@@ -42,7 +46,6 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.2",
     "eslint-config-next": "15.5.23",
-    "jsdom": "26.1.0",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
   }
