@@ -10,7 +10,11 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3100",
-    extraHTTPHeaders: { "x-real-ip": "203.0.113.77" },
+    extraHTTPHeaders: {
+      "x-real-ip": "203.0.113.77",
+      "x-real-client-ip": "203.0.113.77",
+      "x-proxy-auth": "e2e-proxy-shared-secret-with-at-least-32-bytes",
+    },
     trace: "retain-on-failure",
   },
   webServer: {
@@ -22,6 +26,8 @@ export default defineConfig({
     env: {
       DATABASE_URL: databaseUrl,
       APP_TIMEZONE: "Asia/Shanghai",
+      IP_HASH_KEY: "e2e-public-ip-hash-key-with-at-least-32-bytes",
+      PROXY_SHARED_SECRET: "e2e-proxy-shared-secret-with-at-least-32-bytes",
       LOGIN_IP_HASH_KEY: "e2e-login-hash-key-with-at-least-32-bytes",
       APP_ENCRYPTION_KEY: Buffer.alloc(32, 13).toString("base64"),
     },

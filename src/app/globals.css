@@ -1159,6 +1159,248 @@ a {
   }
 }
 
+/* Unified admin settings */
+.settings-workspace {
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: 40px 36px max(80px, env(safe-area-inset-bottom));
+}
+
+.settings-workspace > .admin-settings-header > * {
+  margin: 0;
+}
+
+.settings-workspace > .admin-settings-header > p:first-child,
+.settings-panel > header > p:first-child {
+  color: var(--color-search);
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.settings-workspace > .admin-settings-header h1 {
+  margin-top: 5px;
+  font-size: 1.875rem;
+}
+
+.settings-workspace > .admin-settings-header > p:last-child,
+.settings-panel > header > p:last-child {
+  max-width: 680px;
+  margin-top: 10px;
+  color: color-mix(in srgb, var(--color-ink) 68%, transparent);
+  line-height: 1.65;
+}
+
+.settings-nav {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  gap: 2px;
+  margin: 28px -4px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+  background: color-mix(in srgb, var(--color-mist) 92%, transparent);
+  padding: 8px 4px 0;
+  backdrop-filter: blur(16px);
+}
+
+.settings-nav a {
+  min-height: 44px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  color: var(--color-ink);
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+
+.settings-nav a:hover,
+.settings-nav a:focus-visible {
+  border-color: var(--color-search);
+  color: var(--color-search);
+}
+
+.settings-panel {
+  scroll-margin-top: 72px;
+  border-top: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+  padding: 34px 0 40px;
+}
+
+.settings-panel:first-of-type {
+  border-top: 0;
+}
+
+.settings-panel > header > * {
+  margin: 0;
+}
+
+.settings-panel > header h2 {
+  margin-top: 4px;
+  font-size: 1.35rem;
+  text-wrap: balance;
+}
+
+.settings-panel form {
+  margin-top: 24px;
+}
+
+.settings-panel fieldset {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.settings-panel label:not(.settings-toggle) {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  color: color-mix(in srgb, var(--color-ink) 76%, transparent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.settings-panel input:not([type="checkbox"]),
+.settings-panel textarea,
+.settings-panel select {
+  min-width: 0;
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 28%, transparent);
+  border-radius: 6px;
+  background: var(--color-white);
+  padding: 9px 11px;
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.settings-panel textarea {
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+
+.settings-panel button {
+  min-height: 44px;
+  justify-self: start;
+  border: 1px solid var(--color-search);
+  border-radius: 6px;
+  background: var(--color-search);
+  color: var(--color-white);
+  cursor: pointer;
+  padding: 9px 14px;
+  font-weight: 750;
+  touch-action: manipulation;
+}
+
+.settings-panel button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-search) 84%, var(--color-ink));
+}
+
+.settings-panel :disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.settings-panel output {
+  min-height: 1.4em;
+  color: var(--color-search);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.settings-toggle {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: start;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.settings-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-search);
+}
+
+.settings-field-grid,
+.settings-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settings-facts {
+  margin: 0;
+  border-block: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+  padding: 12px 0;
+}
+
+.settings-facts > div {
+  min-width: 0;
+}
+
+.settings-facts dt {
+  color: color-mix(in srgb, var(--color-ink) 58%, transparent);
+  font-size: 0.75rem;
+}
+
+.settings-facts dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font: 700 0.8125rem/1.4 "SFMono-Regular", Consolas, monospace;
+}
+
+.settings-usage {
+  margin: 0;
+  border-left: 3px solid var(--color-signal);
+  background: color-mix(in srgb, var(--color-signal) 7%, var(--color-white));
+  padding: 10px 12px;
+  font: 700 0.8125rem/1.5 "SFMono-Regular", Consolas, monospace;
+}
+
+#settings-models .model-settings {
+  margin-top: 24px;
+}
+
+#settings-models .model-settings-group {
+  border-top: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+  padding-block: 22px;
+}
+
+@media (max-width: 820px) {
+  .settings-workspace { padding: 28px 20px 72px; }
+  .settings-nav { top: 62px; }
+  .settings-panel { scroll-margin-top: 126px; }
+}
+
+@media (max-width: 560px) {
+  .settings-field-grid,
+  .settings-facts { grid-template-columns: 1fr; }
+  .settings-panel button { width: 100%; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .settings-nav {
+    background: var(--color-mist);
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .settings-nav {
+    background: var(--color-white);
+    border-color: var(--color-ink);
+  }
+}
+
 /* Public collection experience */
 .sr-only {
   position: absolute;

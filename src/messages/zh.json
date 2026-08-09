@@ -43,6 +43,15 @@
     "models": {
       "eyebrow": "设置", "title": "模型配置", "llm": "对话模型", "embedding": "嵌入模型", "testing": "测试中…", "saving": "保存中…", "connected": "连接成功", "saved": "已保存", "error": "连接失败，原配置未更改。",
       "keyPlaceholder": "输入 API Key", "modelName": "模型名", "test": "测试{title}", "save": "保存{title}", "probe": "实测 {dimension} 维 · 阈值 {cutoff}", "rebuilding": "向量重建中，公开检索暂不可用。完成后将自动恢复。"
+    },
+    "settings": {
+      "eyebrow": "站点配置", "title": "设置", "description": "管理模型、自动任务、公开额度、安全、Telegram 与语言。", "modelsEyebrow": "AI", "modelsTitle": "模型配置",
+      "nav": { "label": "设置分类", "models": "模型", "refetch": "定时重抓", "rate": "公开限流", "security": "安全", "telegram": "Telegram", "locale": "语言" },
+      "refetch": { "eyebrow": "自动化", "title": "定时重抓", "description": "按固定间隔检查已完成条目，内容变更时更新总结与向量。", "enabled": "启用定时重抓", "interval": "间隔天数", "lastRun": "上次运行", "nextRun": "下次运行", "never": "尚未运行", "disabled": "已关闭", "saving": "保存中…", "save": "保存定时设置", "saved": "定时设置已保存。", "error": "保存失败，请重试。" },
+      "rate": { "eyebrow": "公开边界", "title": "公开提问限流", "description": "服务端按单 IP 和全站两层每日额度强制执行。", "enabled": "启用公开限流", "ipDaily": "单 IP 每日上限", "globalDaily": "全站每日上限", "usage": "{day} 全站已用 {used} / {limit}", "saving": "保存中…", "save": "保存限流设置", "saved": "限流设置已保存。", "error": "保存失败，请重试。" },
+      "security": { "eyebrow": "身份", "title": "安全", "description": "修改密码后将撤销当前与所有其他会话，需使用新密码重新登录。", "current": "当前密码", "next": "新密码", "saving": "更新中…", "save": "修改密码并撤销会话", "error": "密码未更新，请核对当前密码和强度。" },
+      "telegram": { "eyebrow": "私有入口", "title": "Telegram", "description": "Bot Token 加密保存；仅白名单用户 ID 会收到响应。", "token": "Bot Token", "tokenPlaceholder": "输入 Bot Token", "allowedIds": "用户 ID 白名单（逗号或换行分隔）", "saving": "保存中…", "save": "保存 Telegram 设置", "saved": "Telegram 设置已保存。", "error": "配置无效或保存失败。" },
+      "locale": { "eyebrow": "显示", "title": "语言", "description": "公开端与管理端共用界面语言，AI 总结和回答仍保持中文。", "language": "默认界面语言", "zh": "中文", "en": "English", "saving": "保存中…", "save": "保存语言", "saved": "语言已保存。", "error": "语言保存失败。" }
     }
   }
 }

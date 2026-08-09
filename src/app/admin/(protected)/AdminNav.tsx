@@ -8,7 +8,7 @@ export function AdminNav() {
   const links = [
     { href: "/admin", label: t("add") },
     { href: "/admin/library", label: t("library") },
-    { href: "/admin/settings/models", label: t("settings") },
+    { href: "/admin/settings", label: t("settings") },
   ] as const;
   return (
     <aside className="admin-sidebar">
