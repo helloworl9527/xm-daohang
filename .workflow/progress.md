@@ -53,3 +53,11 @@
 - 新增运行时依赖：`next-intl@4.13.5`，用于 Next App Router SSR/客户端国际化，MIT License。初选 4.3.12 被 `pnpm audit --prod` 检出 2 个 Moderate 公告后立即升级；4.13.5 审计为无已知漏洞。不使用的 `@parcel/watcher`/`@swc/core` 传递安装脚本在 pnpm 策略中显式拒绝，冻结锁文件安装、生产构建与 E2E 均通过。修复提交 `9b754b0`。
 - 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 32 files / 202 tests PASS（精确向量基准 100/500/1000 行 recall@10=1，P95 均 <1ms）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、`pnpm db:migrate`、独立生产 `next build` 通过；生产 `next build + next start` Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
 - Web Interface Guidelines 新鲜审查后，语言切换按钮补齐 44px 触控目标、hover 反馈与全局 `focus-visible`；桌面/移动截图无重叠或横向溢出。证据：`.workflow/screenshots/t19-i18n-en-desktop.png`、`.workflow/screenshots/t19-i18n-en-mobile.png`（提交 `3d1d64c`）。
+
+## 2026-08-09：阶段验收返工 R11
+
+- 红灯：新增业务日测试引用的 `businessDay`/`pickDailyForNow` 不存在，2 个套件退出 1；验收探针已证明旧限流实现使用 UTC `toISOString()` 切日，上海零点后仍写前一日。
+- 修复：新增集中 `businessDay(now)`，用 `Intl.DateTimeFormat.formatToParts` 与经校验的 `APP_TIMEZONE` 生成 `YYYY-MM-DD`；限流的 `ask_counters.day` 和 IP HMAC day 共用该值。配置缺失、无效或时刻无效时报 `APP_TIMEZONE_INVALID`，限流事务回滚并 fail-closed 为 `MODEL_UNAVAILABLE`，不生成计数。
+- 每日轮换核对：旧 `pickDaily(day)` 只消费显式业务日，本身没有 UTC 取日；本次新增 `pickDailyForNow(now)` 并复用同一 `businessDay()`，供 T23 公开首页调用。集成测试在 `2026-08-09T16:30Z` 同时执行限流与每日选择，两表 day 均为 `2026-08-10`。
+- 回归：覆盖上海零点 `UTC 16:00±`、UTC 零点不误换日、缺失/非法时区零写入、计数/HMAC scope 同步轮换、限流/每日选择同时刻一致；定向 39/39 PASS。提交 `6d8de26`。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 33 files / 210 tests PASS（精确向量基准 recall@10=1，P95 均 <1ms）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、`pnpm db:migrate`、独立 `next build` 通过；生产 Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
