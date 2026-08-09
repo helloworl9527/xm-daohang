@@ -1,19 +1,29 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
+
+import { LocaleSwitcher } from "@/lib/i18n/LocaleSwitcher";
 
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "收藏系统",
-  description: "个人收藏整理与语义检索系统",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta");
+  return { title: t("title"), description: t("description") };
+}
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   await headers();
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
   return (
-    <html lang="zh-CN">
-      <body>{children}</body>
+    <html lang={locale === "zh" ? "zh-CN" : "en"}>
+      <body>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <LocaleSwitcher />
+          {children}
+        </NextIntlClientProvider>
+      </body>
     </html>
   );
 }

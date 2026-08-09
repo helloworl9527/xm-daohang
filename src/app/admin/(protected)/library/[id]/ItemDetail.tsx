@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -13,19 +14,17 @@ type DetailState =
   | { kind: "error"; message: string }
   | { kind: "loaded"; item: LibraryItemDto; etag: string };
 
-const statusLabels = { processing: "处理中", completed: "已完成", failed: "失败" } as const;
-const sourceLabels = { admin: "管理端", telegram: "Telegram" } as const;
-
-async function errorMessage(response: Response, fallback: string): Promise<string> {
-  try {
-    const payload = await response.json() as { error?: { message?: string } };
-    return payload.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
+async function discardError(response: Response): Promise<void> {
+  await response.json().catch(() => undefined);
 }
 
 export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: string }) {
+  const locale = useLocale();
+  const t = useTranslations("admin.detail");
+  const library = useTranslations("admin.library");
+  const common = useTranslations("common");
+  const statusLabels = { processing: common("processing"), completed: common("completed"), failed: common("failed") };
+  const sourceLabels = { admin: common("adminSource"), telegram: common("telegramSource") };
   const router = useRouter();
   const [state, setState] = useState<DetailState>({ kind: "loading" });
   const [notice, setNotice] = useState("");
@@ -37,15 +36,16 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
     try {
       const response = await fetch(`/admin/api/items/${itemId}`, { cache: "no-store" });
       if (!response.ok) {
-        setState({ kind: "error", message: await errorMessage(response, "条目暂时无法读取。") });
+        await discardError(response);
+        setState({ kind: "error", message: t("loadError") });
         return;
       }
       const payload = await response.json() as { item: LibraryItemDto };
       setState({ kind: "loaded", item: payload.item, etag: response.headers.get("etag") ?? "" });
     } catch {
-      setState({ kind: "error", message: "条目暂时无法读取。" });
+      setState({ kind: "error", message: t("loadError") });
     }
-  }, [itemId]);
+  }, [itemId, t]);
 
   useEffect(() => {
     void load();
@@ -66,15 +66,16 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
         body: JSON.stringify({ summary }),
       });
       if (!response.ok) {
-        setActionError(await errorMessage(response, "保存失败，请稍后重试。"));
+        await discardError(response);
+        setActionError(t("savingError"));
         return false;
       }
       const payload = await response.json() as { item: LibraryItemDto };
       setState({ kind: "loaded", item: payload.item, etag: response.headers.get("etag") ?? state.etag });
-      setNotice("总结已保存。");
+      setNotice(t("saved"));
       return true;
     } catch {
-      setActionError("保存失败，请检查连接后重试。");
+      setActionError(t("savingNetworkError"));
       return false;
     }
   };
@@ -91,13 +92,14 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
         body: "{}",
       });
       if (!response.ok) {
-        setActionError(await errorMessage(response, "重抓失败，请稍后重试。"));
+        await discardError(response);
+        setActionError(t("refetchError"));
         return;
       }
       setState({ ...state, item: { ...state.item, status: "processing", failReason: null } });
-      setNotice("已加入重抓队列。");
+      setNotice(t("queued"));
     } catch {
-      setActionError("重抓失败，请检查连接后重试。");
+      setActionError(t("refetchNetworkError"));
     } finally {
       setRefetching(false);
     }
@@ -112,26 +114,27 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
         body: "{}",
       });
       if (!response.ok) {
-        setActionError(await errorMessage(response, "删除失败，条目已保留。"));
+        await discardError(response);
+        setActionError(t("deleteError"));
         return false;
       }
-      setNotice("条目已删除。");
+      setNotice(t("deleted"));
       router.replace("/admin/library");
       return true;
     } catch {
-      setActionError("删除失败，条目已保留。");
+      setActionError(t("deleteError"));
       return false;
     }
   };
 
   if (state.kind === "loading") {
-    return <div className="item-detail-state" role="status">正在读取条目…</div>;
+    return <div className="item-detail-state" role="status">{t("loading")}</div>;
   }
   if (state.kind === "error") {
     return (
       <div className="item-detail-state">
         <p role="alert">{state.message}</p>
-        <button onClick={() => void load()} type="button">重试</button>
+        <button onClick={() => void load()} type="button">{common("retry")}</button>
       </div>
     );
   }
@@ -141,7 +144,7 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
   return (
     <article aria-labelledby="item-detail-title" className="item-detail">
       <header className="item-detail-header">
-        <Link href="/admin/library">返回收藏库</Link>
+        <Link href="/admin/library">{t("back")}</Link>
         <div>
           <span className={`library-status library-status--${item.status}`}>{statusLabels[item.status]}</span>
           <h1 id="item-detail-title">{item.title || item.url}</h1>
@@ -156,28 +159,28 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
           manual={item.summaryManual}
           onSave={saveSummary}
         />
-        <aside aria-label="条目信息" className="item-detail-meta">
-          <h2>条目信息</h2>
+        <aside aria-label={t("infoLabel")} className="item-detail-meta">
+          <h2>{t("info")}</h2>
           <dl>
-            <div><dt>状态</dt><dd>{statusLabels[item.status]}</dd></div>
-            <div><dt>来源</dt><dd>{sourceLabels[item.source]}</dd></div>
-            <div><dt>更新</dt><dd><time dateTime={item.updatedAt}>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "long" }).format(new Date(item.updatedAt))}</time></dd></div>
+            <div><dt>{t("status")}</dt><dd>{statusLabels[item.status]}</dd></div>
+            <div><dt>{t("source")}</dt><dd>{sourceLabels[item.source]}</dd></div>
+            <div><dt>{t("updated")}</dt><dd><time dateTime={item.updatedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(item.updatedAt))}</time></dd></div>
           </dl>
-          <ul aria-label="条目标签" className="library-tags">
+          <ul aria-label={common("itemTags")} className="library-tags">
             {item.tags.map((tag) => <li key={tag}>{tag}</li>)}
           </ul>
-          {item.failReason ? <p className="library-item-failure">失败原因：{item.failReason}</p> : null}
+          {item.failReason ? <p className="library-item-failure">{library("failureReason", { reason: item.failReason })}</p> : null}
         </aside>
       </div>
 
       <section aria-labelledby="item-actions-title" className="item-detail-actions">
         <div>
-          <h2 id="item-actions-title">条目操作</h2>
-          <p>重抓会重新获取公开内容；人工总结不会被自动覆盖。</p>
+          <h2 id="item-actions-title">{t("actions")}</h2>
+          <p>{t("actionsDescription")}</p>
         </div>
         <div className="item-action-buttons">
           <button disabled={refetchDisabled} id="refetch" onClick={() => void refetch()} type="button">
-            {refetchDisabled ? "正在处理" : "手动重抓"}
+            {refetchDisabled ? t("refetching") : t("refetch")}
           </button>
           <DeleteItemDialog onConfirm={remove} />
         </div>

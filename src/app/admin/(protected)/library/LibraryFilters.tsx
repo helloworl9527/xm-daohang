@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
+import { useTranslations } from "next-intl";
 
 import { Pressable } from "@/components/ui/Pressable";
 
@@ -23,6 +24,8 @@ export function LibraryFilters({
   onClear: () => void;
   onSubmit: () => void;
 }) {
+  const t = useTranslations("admin.library");
+  const common = useTranslations("common");
   const submit = (event: FormEvent) => {
     event.preventDefault();
     onSubmit();
@@ -31,20 +34,20 @@ export function LibraryFilters({
   return (
     <form className="library-filters" onSubmit={submit}>
       <label>
-        <span>关键词</span>
+        <span>{t("keyword")}</span>
         <input
           autoComplete="off"
           disabled={disabled}
           maxLength={200}
           name="q"
           onChange={(event) => onChange({ ...value, q: event.target.value })}
-          placeholder="例如 PostgreSQL…"
+          placeholder={t("keywordPlaceholder")}
           type="search"
           value={value.q}
         />
       </label>
       <label>
-        <span>标签</span>
+        <span>{t("tags")}</span>
         <input
           autoComplete="off"
           disabled={disabled}
@@ -53,12 +56,12 @@ export function LibraryFilters({
             ...value,
             tags: event.target.value.split(",").map((tag) => tag.trim()),
           })}
-          placeholder="例如 数据库, 后端…"
+          placeholder={t("tagsPlaceholder")}
           value={value.tags.join(", ")}
         />
       </label>
       <label>
-        <span>状态</span>
+        <span>{t("status")}</span>
         <select
           autoComplete="off"
           disabled={disabled}
@@ -69,15 +72,15 @@ export function LibraryFilters({
           })}
           value={value.status}
         >
-          <option value="">全部状态</option>
-          <option value="completed">已完成</option>
-          <option value="processing">处理中</option>
-          <option value="failed">失败</option>
+          <option value="">{t("allStatuses")}</option>
+          <option value="completed">{common("completed")}</option>
+          <option value="processing">{common("processing")}</option>
+          <option value="failed">{common("failed")}</option>
         </select>
       </label>
       <div className="library-filter-actions">
-        <Pressable disabled={disabled} type="submit">筛选</Pressable>
-        <button disabled={disabled} onClick={onClear} type="button">清除</button>
+        <Pressable disabled={disabled} type="submit">{t("filter")}</Pressable>
+        <button disabled={disabled} onClick={onClear} type="button">{t("clear")}</button>
       </div>
     </form>
   );

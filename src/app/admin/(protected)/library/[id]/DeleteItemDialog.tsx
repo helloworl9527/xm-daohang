@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 export function DeleteItemDialog({ onConfirm }: { onConfirm: () => Promise<boolean> }) {
+  const t = useTranslations("admin.detail");
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -38,7 +40,7 @@ export function DeleteItemDialog({ onConfirm }: { onConfirm: () => Promise<boole
   return (
     <>
       <button className="item-delete-trigger" onClick={open} ref={triggerRef} type="button">
-        删除条目
+        {t("delete")}
       </button>
       <dialog
         aria-labelledby="delete-item-title"
@@ -46,12 +48,12 @@ export function DeleteItemDialog({ onConfirm }: { onConfirm: () => Promise<boole
         onClose={() => triggerRef.current?.focus()}
         ref={dialogRef}
       >
-        <h2 id="delete-item-title">确认删除条目</h2>
-        <p>删除后将同时移除向量与公开检索来源，且无法恢复。</p>
+        <h2 id="delete-item-title">{t("deleteTitle")}</h2>
+        <p>{t("deleteDescription")}</p>
         <div className="item-dialog-actions">
-          <button disabled={deleting} onClick={close} ref={cancelRef} type="button">取消</button>
+          <button disabled={deleting} onClick={close} ref={cancelRef} type="button">{t("cancel")}</button>
           <button disabled={deleting} onClick={() => void confirm()} type="button">
-            {deleting ? "删除中…" : "确认删除"}
+            {deleting ? t("deleting") : t("confirmDelete")}
           </button>
         </div>
       </dialog>

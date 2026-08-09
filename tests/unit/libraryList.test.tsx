@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LibraryView } from "@/app/admin/(protected)/library/LibraryView";
+import { render } from "../render";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));

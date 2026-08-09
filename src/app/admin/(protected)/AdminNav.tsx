@@ -1,22 +1,25 @@
-import Link from "next/link";
+"use client";
 
-const links = [
-  { href: "/admin", label: "添加内容" },
-  { href: "/admin/library", label: "收藏库" },
-  { href: "/admin/settings/models", label: "设置" },
-] as const;
+import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export function AdminNav() {
+  const t = useTranslations("admin.nav");
+  const links = [
+    { href: "/admin", label: t("add") },
+    { href: "/admin/library", label: t("library") },
+    { href: "/admin/settings/models", label: t("settings") },
+  ] as const;
   return (
     <aside className="admin-sidebar">
       <header className="admin-brand">
         <span aria-hidden="true">CS</span>
         <div>
-          <strong>收藏系统</strong>
-          <small>站主工作台</small>
+          <strong>{t("brand")}</strong>
+          <small>{t("workspace")}</small>
         </div>
       </header>
-      <nav aria-label="管理端主导航" className="admin-nav">
+      <nav aria-label={t("label")} className="admin-nav">
         {links.map((link) => (
           <Link href={link.href} key={link.href} prefetch={false}>{link.label}</Link>
         ))}

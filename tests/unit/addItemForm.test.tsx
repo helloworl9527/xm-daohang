@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AddItemForm } from "@/app/admin/(protected)/add/AddItemForm";
+import { render } from "../render";
 
 afterEach(() => {
   cleanup();

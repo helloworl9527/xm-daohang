@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 
 import { loginAction, type LoginActionState } from "@/app/admin/login/actions";
 import { MaterialSurface } from "@/components/ui/MaterialSurface";
@@ -9,6 +10,7 @@ import { Pressable } from "@/components/ui/Pressable";
 const INITIAL_STATE: LoginActionState = { status: "idle" };
 
 export function LoginForm({ state }: { state?: LoginActionState }) {
+  const t = useTranslations("admin.login");
   const [actionState, formAction, pending] = useActionState(loginAction, INITIAL_STATE);
   const current = state ?? actionState;
   const locked = current.status === "locked";
@@ -17,12 +19,12 @@ export function LoginForm({ state }: { state?: LoginActionState }) {
   return (
     <MaterialSurface as="section" className="admin-login-panel" variant="floating">
       <header className="admin-login-heading">
-        <p>收藏系统</p>
-        <h1>登录管理端</h1>
+        <p>{t("brand")}</p>
+        <h1>{t("title")}</h1>
       </header>
       <form action={state ? undefined : formAction} className="admin-login-form">
         <label>
-          <span>用户名</span>
+          <span>{t("username")}</span>
           <input
             autoComplete="username"
             disabled={locked || pending}
@@ -32,7 +34,7 @@ export function LoginForm({ state }: { state?: LoginActionState }) {
           />
         </label>
         <label>
-          <span>密码</span>
+          <span>{t("password")}</span>
           <input
             autoComplete="current-password"
             disabled={locked || pending}
@@ -42,11 +44,11 @@ export function LoginForm({ state }: { state?: LoginActionState }) {
           />
         </label>
         {current.status === "error" ? (
-          <p role="alert">用户名或密码不正确。失败次数已记录。</p>
+          <p role="alert">{t("invalid")}</p>
         ) : null}
-        {locked ? <p role="alert">登录已临时锁定，请在 {waitMinutes} 分钟后重试。</p> : null}
+        {locked ? <p role="alert">{t("locked", { minutes: waitMinutes })}</p> : null}
         <Pressable disabled={locked || pending} type="submit">
-          {pending ? "登录中…" : "登录管理端"}
+          {pending ? t("pending") : t("submit")}
         </Pressable>
       </form>
     </MaterialSurface>

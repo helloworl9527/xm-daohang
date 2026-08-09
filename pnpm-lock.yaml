@@ -30,6 +30,9 @@ importers:
       next:
         specifier: 15.5.23
         version: 15.5.23(@playwright/test@1.62.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      next-intl:
+        specifier: 4.3.12
+        version: 4.3.12(next@15.5.23(@playwright/test@1.62.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)(typescript@5.9.2)
       openai:
         specifier: 7.4.0
         version: 7.4.0(ws@8.21.3)(zod@4.1.5)
@@ -657,6 +660,18 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@formatjs/fast-memoize@3.1.7':
+    resolution: {integrity: sha512-zXfhLpvA6T7+efdt9JLbBwZ00tT7NsBMDVnDu8rpHeNNv8KfRZAMo2gkG0k9lK/Nzc//3kJ9pImsfuJxk3KhUA==}
+
+  '@formatjs/icu-messageformat-parser@3.5.16':
+    resolution: {integrity: sha512-kl6b/4D56gjGZi4ZewSmvXbalHwjOUI5ogEHPZqw42goeXTTrL7/yuPzvdrvr0QigDtvaOeb+UeMf62jks43Yg==}
+
+  '@formatjs/icu-skeleton-parser@2.1.11':
+    resolution: {integrity: sha512-j8cUmOJzVgkHuS0QiQ6ga76UIoLOFSAMWhs7aZJztH3aAdCOAE6vpC8KVvFB4cU10ON0y2/5oOVmPJ43s2lTwA==}
+
+  '@formatjs/intl-localematcher@0.5.10':
+    resolution: {integrity: sha512-af3qATX+m4Rnd9+wHcjJ4w2ijq+rAVP3CCinJQvFv1kgSu1W6jypUmvleJxcewdxmutM8dmIRZFxO/IQBZmP2Q==}
+
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
     engines: {node: '>=18.18.0'}
@@ -1161,6 +1176,9 @@ packages:
 
   '@rushstack/eslint-patch@1.16.1':
     resolution: {integrity: sha512-TvZbIpeKqGQQ7X0zSCvPH9riMSFQFSggnfBjFZ1mEoILW+UuXCKwOoPcgjMwiUtRqFZ8jWhPJc4um14vC6I4ag==}
+
+  '@schummar/icu-type-parser@1.21.5':
+    resolution: {integrity: sha512-bXHSaW5jRTmke9Vd0h5P7BtWZG9Znqb8gSDxZnxaGSJnGwPLDPfS+3g0BKzeWqzgZPsIVZkM7m2tbo18cm5HBw==}
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -2145,6 +2163,9 @@ packages:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
 
+  icu-minify@4.13.5:
+    resolution: {integrity: sha512-sGCVm06cfsk/t9F4s9vYBCCI5k5cf2SuH21uPm6L9uK8i+bWY9NDMSUsYzYsZ4lxohTvGa3oGixtlQvZMMz5fg==}
+
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
@@ -2168,6 +2189,9 @@ packages:
   internal-slot@1.1.0:
     resolution: {integrity: sha512-4gd7VpWNQNB4UKKCFFVcp1AVv+FMOgs9NKzjHKusc8jTMhd5eL1NqQqOpE0KzMds804/yHlglp3uxgluOqAPLw==}
     engines: {node: '>= 0.4'}
+
+  intl-messageformat@11.2.13:
+    resolution: {integrity: sha512-JaPaE6TIX+TAS5XLhDUh41geLw4QfBHX4s5pW8Km+L9fVC8HzB9yOuhbh4EMR/F1+8C6b9qk4763Cv+LdOG1kg==}
 
   ipaddr.js@2.5.0:
     resolution: {integrity: sha512-aq+t5NAc+cS6rZQQVWC2x98CPqGtKKTMDd4Gaodv0wShnItdKg/51djkGJ1hqH+Oy0ivDftCbSLCQob8zso01w==}
@@ -2412,6 +2436,20 @@ packages:
 
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
+
+  negotiator@1.0.0:
+    resolution: {integrity: sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg==}
+    engines: {node: '>= 0.6'}
+
+  next-intl@4.3.12:
+    resolution: {integrity: sha512-yAmrQ3yx0zpNva/knniDvam3jT2d01Lv2aRgRxUIDL9zm9O4AsDjWbDIxX13t5RNf0KVnKkxH+iRcqEAmWecPg==}
+    peerDependencies:
+      next: ^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0
+      typescript: ^5.0.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   next@15.5.23:
     resolution: {integrity: sha512-Gvd2WKgvxIXCGotxcI1im/Uf3rS3J3oZGw0g/uskg6AVBZhyE3aAbujkYWzS3xLmEPEtTLfkaVQUKK0KMTSIkA==}
@@ -2974,6 +3012,11 @@ packages:
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
+  use-intl@4.13.5:
+    resolution: {integrity: sha512-oYpi0M6Cd7V0ZAvOPakB3kUCVzpwsVbod47G/xbZV5dvrqFMAw4fcwOS+sKpAjVdNW+CbQUeBk4Vnyzmk/07Bw==}
+    peerDependencies:
+      react: ^17.0.0 || ^18.0.0 || >=19.0.0-rc <19.0.0 || ^19.0.0
+
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
@@ -3473,6 +3516,18 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@formatjs/fast-memoize@3.1.7': {}
+
+  '@formatjs/icu-messageformat-parser@3.5.16':
+    dependencies:
+      '@formatjs/icu-skeleton-parser': 2.1.11
+
+  '@formatjs/icu-skeleton-parser@2.1.11': {}
+
+  '@formatjs/intl-localematcher@0.5.10':
+    dependencies:
+      tslib: 2.8.1
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -3786,6 +3841,8 @@ snapshots:
   '@rtsao/scc@1.1.0': {}
 
   '@rushstack/eslint-patch@1.16.1': {}
+
+  '@schummar/icu-type-parser@1.21.5': {}
 
   '@swc/helpers@0.5.15':
     dependencies:
@@ -4933,6 +4990,10 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
+  icu-minify@4.13.5:
+    dependencies:
+      '@formatjs/icu-messageformat-parser': 3.5.16
+
   ignore@5.3.2: {}
 
   ignore@7.0.6: {}
@@ -4951,6 +5012,11 @@ snapshots:
       es-errors: 1.3.0
       hasown: 2.0.4
       side-channel: 1.1.1
+
+  intl-messageformat@11.2.13:
+    dependencies:
+      '@formatjs/fast-memoize': 3.1.7
+      '@formatjs/icu-messageformat-parser': 3.5.16
 
   ipaddr.js@2.5.0: {}
 
@@ -5202,6 +5268,18 @@ snapshots:
   napi-postinstall@0.3.4: {}
 
   natural-compare@1.4.0: {}
+
+  negotiator@1.0.0: {}
+
+  next-intl@4.3.12(next@15.5.23(@playwright/test@1.62.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)(typescript@5.9.2):
+    dependencies:
+      '@formatjs/intl-localematcher': 0.5.10
+      negotiator: 1.0.0
+      next: 15.5.23(@playwright/test@1.62.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      react: 19.1.1
+      use-intl: 4.13.5(react@19.1.1)
+    optionalDependencies:
+      typescript: 5.9.2
 
   next@15.5.23(@playwright/test@1.62.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:
@@ -5873,6 +5951,14 @@ snapshots:
   uri-js@4.4.1:
     dependencies:
       punycode: 2.3.1
+
+  use-intl@4.13.5(react@19.1.1):
+    dependencies:
+      '@formatjs/fast-memoize': 3.1.7
+      '@schummar/icu-type-parser': 1.21.5
+      icu-minify: 4.13.5
+      intl-messageformat: 11.2.13
+      react: 19.1.1
 
   vite-node@3.2.4(@types/node@24.3.0)(supports-color@7.2.0)(tsx@4.23.11):
     dependencies:

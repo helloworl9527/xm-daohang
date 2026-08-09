@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LoginForm } from "@/app/admin/login/LoginForm";
+import { render } from "../render";
 
 describe("admin login page", () => {
   it("shows the approved default, failure, and locked copy", () => {

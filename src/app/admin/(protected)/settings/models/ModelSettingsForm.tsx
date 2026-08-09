@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Pressable } from "@/components/ui/Pressable";
 import type { Settings } from "@/lib/config/settings";
@@ -54,6 +55,7 @@ function ModelGroup({
   disabled = false,
   onSaved,
 }: ModelGroupProps) {
+  const t = useTranslations("admin.models");
   const [draft, setDraft] = useState(initial);
   const [status, setStatus] = useState<FormStatus>("idle");
   const [probeDetail, setProbeDetail] = useState("");
@@ -87,7 +89,7 @@ function ModelGroup({
         setDraft((current) => ({ ...current, apiKey: "" }));
       }
       if (kind === "embedding" && typeof payload.dimension === "number") {
-        setProbeDetail(`实测 ${payload.dimension} 维 · 阈值 ${Number(payload.cutoff).toFixed(3)}`);
+        setProbeDetail(t("probe", { dimension: payload.dimension, cutoff: Number(payload.cutoff).toFixed(3) }));
       }
       setStatus(mode === "test" ? "tested" : "saved");
       navigator.vibrate?.(7);
@@ -101,11 +103,11 @@ function ModelGroup({
       <div className="model-settings-group__heading">
         <h2 id={`${kind}-model-title`}>{title}</h2>
         <output aria-live="polite">
-          {status === "testing" ? "测试中…" : null}
-          {status === "saving" ? "保存中…" : null}
-          {status === "tested" ? probeDetail || "连接成功" : null}
-          {status === "saved" ? "已保存" : null}
-          {status === "error" ? "连接失败，原配置未更改。" : null}
+          {status === "testing" ? t("testing") : null}
+          {status === "saving" ? t("saving") : null}
+          {status === "tested" ? probeDetail || t("connected") : null}
+          {status === "saved" ? t("saved") : null}
+          {status === "error" ? t("error") : null}
         </output>
       </div>
       <form
@@ -133,13 +135,13 @@ function ModelGroup({
               autoComplete="off"
               name={`${kind}-api-key`}
               onChange={(event) => setDraft((current) => ({ ...current, apiKey: event.target.value }))}
-              placeholder={keyMask ?? "输入 API Key"}
+              placeholder={keyMask ?? t("keyPlaceholder")}
               type="password"
               value={draft.apiKey}
             />
           </label>
           <label>
-            <span>模型名</span>
+            <span>{t("modelName")}</span>
             <input
               autoComplete="off"
               name={`${kind}-model`}
@@ -151,10 +153,10 @@ function ModelGroup({
           </label>
           <div className="model-settings-actions">
             <Pressable name="intent" onClick={() => void submit("test")} type="button">
-              {status === "testing" ? "测试中…" : `测试${title}`}
+              {status === "testing" ? t("testing") : t("test", { title })}
             </Pressable>
             <Pressable type="submit">
-              {status === "saving" ? "保存中…" : `保存${title}`}
+              {status === "saving" ? t("saving") : t("save", { title })}
             </Pressable>
           </div>
         </fieldset>
@@ -170,6 +172,7 @@ export function ModelSettingsForm({
   initialSettings: Settings;
   csrfToken: string;
 }) {
+  const t = useTranslations("admin.models");
   const [settings, setSettings] = useState(initialSettings);
   const rebuilding = settings.embRebuildStatus === "building";
 
@@ -185,7 +188,7 @@ export function ModelSettingsForm({
         keyMask={settings.llmKeyMasked}
         kind="llm"
         onSaved={setSettings}
-        title="对话模型"
+        title={t("llm")}
       />
       <ModelGroup
         csrfToken={csrfToken}
@@ -198,11 +201,11 @@ export function ModelSettingsForm({
         keyMask={settings.embKeyMasked}
         kind="embedding"
         onSaved={setSettings}
-        title="嵌入模型"
+        title={t("embedding")}
       />
       {rebuilding ? (
         <p className="model-rebuild-status" role="status">
-          向量重建中，公开检索暂不可用。完成后将自动恢复。
+          {t("rebuilding")}
         </p>
       ) : null}
     </div>

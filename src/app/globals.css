@@ -22,6 +22,30 @@ body {
   background: var(--color-mist);
 }
 
+.locale-switcher {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 50;
+}
+
+.locale-switcher button {
+  background: var(--color-white);
+  border: 1px solid #C8CCD0;
+  color: var(--color-ink);
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+.locale-switcher button[aria-pressed="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+  color: var(--color-white);
+}
+
 .skip-link {
   position: fixed;
   z-index: 100;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -28,6 +29,8 @@ function queryFor(filters: LibraryFiltersValue, cursor?: string) {
 }
 
 export function LibraryView({ initialFilters }: { initialFilters: LibraryFiltersValue }) {
+  const t = useTranslations("admin.library");
+  const common = useTranslations("common");
   const router = useRouter();
   const [draft, setDraft] = useState(initialFilters);
   const [state, setState] = useState<LoadState>({ kind: "loading" });
@@ -83,9 +86,9 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
   return (
     <section aria-labelledby="library-title" className="admin-work-section library-section">
       <div className="admin-section-heading">
-        <p>管理</p>
-        <h1 id="library-title">收藏库</h1>
-        <p>查看全部条目，按关键词、标签和处理状态组合筛选。</p>
+        <p>{t("eyebrow")}</p>
+        <h1 id="library-title">{t("title")}</h1>
+        <p>{t("description")}</p>
       </div>
 
       <LibraryFilters
@@ -99,7 +102,7 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
       <div aria-live="polite" className="library-results">
         {state.kind === "loading" ? (
           <div className="library-loading" role="status">
-            <p>正在读取收藏库…</p>
+            <p>{t("loading")}</p>
             <ol aria-hidden="true" className="library-list library-skeleton">
               {Array.from({ length: 3 }, (_, index) => (
                 <li className="library-item library-skeleton-row" key={index}>
@@ -121,28 +124,28 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
         ) : null}
         {state.kind === "error" ? (
           <div className="library-state">
-            <p role="alert">收藏库暂时无法读取。</p>
-            <button onClick={() => void load()} type="button">重试</button>
+            <p role="alert">{t("error")}</p>
+            <button onClick={() => void load()} type="button">{common("retry")}</button>
           </div>
         ) : null}
         {state.kind === "loaded" && state.payload.items.length === 0 ? (
           <div className="library-state">
             {hasFilters ? (
               <>
-                <p>没有符合当前筛选的条目</p>
-                <button onClick={() => router.replace("/admin/library")} type="button">清除筛选</button>
+                <p>{t("noMatch")}</p>
+                <button onClick={() => router.replace("/admin/library")} type="button">{t("clearFilters")}</button>
               </>
             ) : (
               <>
-                <p>收藏库还没有条目</p>
-                <Link href="/admin/add">添加第一条内容</Link>
+                <p>{t("empty")}</p>
+                <Link href="/admin/add">{t("addFirst")}</Link>
               </>
             )}
           </div>
         ) : null}
         {state.kind === "loaded" && state.payload.items.length > 0 ? (
           <>
-            <p className="library-result-count">当前已显示 {state.payload.items.length} 条</p>
+            <p className="library-result-count">{t("count", { count: state.payload.items.length })}</p>
             <LibraryList items={state.payload.items} />
             {state.payload.nextCursor ? (
               <button
@@ -151,7 +154,7 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
                 onClick={() => void loadMore(state.payload)}
                 type="button"
               >
-                {loadingMore ? "加载中…" : "加载更多"}
+                {loadingMore ? t("loadingMore") : t("loadMore")}
               </button>
             ) : null}
           </>

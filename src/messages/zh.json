@@ -1,0 +1,39 @@
+{
+  "meta": { "title": "收藏系统", "description": "个人收藏整理与语义检索系统" },
+  "locale": { "label": "界面语言", "zh": "中文", "en": "English" },
+  "common": {
+    "retry": "重试", "processing": "处理中", "completed": "已完成", "failed": "失败",
+    "adminSource": "管理端", "telegramSource": "Telegram", "itemTags": "条目标签"
+  },
+  "admin": {
+    "skip": "跳到主要内容",
+    "nav": { "brand": "收藏系统", "workspace": "站主工作台", "label": "管理端主导航", "add": "添加内容", "library": "收藏库", "settings": "设置" },
+    "login": {
+      "brand": "收藏系统", "title": "登录管理端", "username": "用户名", "password": "密码",
+      "invalid": "用户名或密码不正确。失败次数已记录。", "locked": "登录已临时锁定，请在 {minutes} 分钟后重试。",
+      "pending": "登录中…", "submit": "登录管理端"
+    },
+    "add": {
+      "eyebrow": "入库", "title": "添加内容", "description": "支持公开网页、文档与 GitHub 公开仓库。完成条目可能通过公开问答返回。",
+      "configureTitle": "先完成模型配置", "configureDescription": "对话模型和嵌入模型均可用后才能添加内容。", "configureLink": "前往模型设置",
+      "url": "公开链接", "adding": "添加中…", "submit": "添加到收藏库", "success": "已加入，正在抓取总结中。", "duplicate": "该链接已收藏。",
+      "view": "查看条目", "viewRefetch": "查看并重抓", "error": "添加失败，请稍后重试。", "networkError": "添加失败，请检查连接后重试。"
+    },
+    "library": {
+      "eyebrow": "管理", "title": "收藏库", "description": "查看全部条目，按关键词、标签和处理状态组合筛选。",
+      "keyword": "关键词", "keywordPlaceholder": "例如 PostgreSQL…", "tags": "标签", "tagsPlaceholder": "例如 数据库, 后端…", "status": "状态", "allStatuses": "全部状态", "filter": "筛选", "clear": "清除",
+      "itemsLabel": "收藏库条目", "loading": "正在读取收藏库…", "error": "收藏库暂时无法读取。", "noMatch": "没有符合当前筛选的条目", "clearFilters": "清除筛选", "empty": "收藏库还没有条目", "addFirst": "添加第一条内容",
+      "count": "当前已显示 {count} 条", "loadingMore": "加载中…", "loadMore": "加载更多", "generating": "正在生成总结…", "noSummary": "暂无总结", "failureReason": "失败原因：{reason}", "manual": "人工编辑", "viewLabel": "查看 {label}", "viewDetail": "查看详情"
+    },
+    "detail": {
+      "loadError": "条目暂时无法读取。", "savingError": "保存失败，请稍后重试。", "savingNetworkError": "保存失败，请检查连接后重试。", "saved": "总结已保存。",
+      "refetchError": "重抓失败，请稍后重试。", "refetchNetworkError": "重抓失败，请检查连接后重试。", "queued": "已加入重抓队列。", "deleteError": "删除失败，条目已保留。", "deleted": "条目已删除。",
+      "loading": "正在读取条目…", "back": "返回收藏库", "infoLabel": "条目信息", "info": "条目信息", "status": "状态", "source": "来源", "updated": "更新", "actions": "条目操作", "actionsDescription": "重抓会重新获取公开内容；人工总结不会被自动覆盖。", "refetching": "正在处理", "refetch": "手动重抓",
+      "summary": "总结", "manual": "已标记为人工编辑", "saving": "保存中…", "save": "保存总结", "delete": "删除条目", "deleteTitle": "确认删除条目", "deleteDescription": "删除后将同时移除向量与公开检索来源，且无法恢复。", "cancel": "取消", "deleting": "删除中…", "confirmDelete": "确认删除"
+    },
+    "models": {
+      "eyebrow": "设置", "title": "模型配置", "llm": "对话模型", "embedding": "嵌入模型", "testing": "测试中…", "saving": "保存中…", "connected": "连接成功", "saved": "已保存", "error": "连接失败，原配置未更改。",
+      "keyPlaceholder": "输入 API Key", "modelName": "模型名", "test": "测试{title}", "save": "保存{title}", "probe": "实测 {dimension} 维 · 阈值 {cutoff}", "rebuilding": "向量重建中，公开检索暂不可用。完成后将自动恢复。"
+    }
+  }
+}

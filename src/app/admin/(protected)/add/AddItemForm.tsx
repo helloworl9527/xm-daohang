@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 import { Pressable } from "@/components/ui/Pressable";
@@ -25,6 +26,7 @@ export function AddItemForm({
   csrfToken: string;
   modelConfigured: boolean;
 }) {
+  const t = useTranslations("admin.add");
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<AddStatus>({ kind: "idle" });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,7 +51,7 @@ export function AddItemForm({
       if (!response.ok || !payload.id) {
         setStatus({
           kind: "error",
-          message: payload.error?.message ?? "添加失败，请稍后重试。",
+          message: t("error"),
         });
         inputRef.current?.focus();
         return;
@@ -59,7 +61,7 @@ export function AddItemForm({
         : { kind: "success", id: payload.id });
       navigator.vibrate?.(7);
     } catch {
-      setStatus({ kind: "error", message: "添加失败，请检查连接后重试。" });
+      setStatus({ kind: "error", message: t("networkError") });
       inputRef.current?.focus();
     }
   };
@@ -67,16 +69,16 @@ export function AddItemForm({
   return (
     <section aria-labelledby="add-item-title" className="admin-work-section">
       <div className="admin-section-heading">
-        <p>入库</p>
-        <h1 id="add-item-title">添加内容</h1>
-        <p>支持公开网页、文档与 GitHub 公开仓库。完成条目可能通过公开问答返回。</p>
+        <p>{t("eyebrow")}</p>
+        <h1 id="add-item-title">{t("title")}</h1>
+        <p>{t("description")}</p>
       </div>
 
       {!modelConfigured ? (
         <div className="admin-inline-notice" role="status">
-          <strong>先完成模型配置</strong>
-          <span>对话模型和嵌入模型均可用后才能添加内容。</span>
-          <Link href="/admin/settings/models">前往模型设置</Link>
+          <strong>{t("configureTitle")}</strong>
+          <span>{t("configureDescription")}</span>
+          <Link href="/admin/settings/models">{t("configureLink")}</Link>
         </div>
       ) : null}
 
@@ -87,7 +89,7 @@ export function AddItemForm({
           void submit();
         }}
       >
-        <label htmlFor="add-item-url">公开链接</label>
+        <label htmlFor="add-item-url">{t("url")}</label>
         <div className="add-item-input-row">
           <input
             aria-describedby="add-item-status"
@@ -109,20 +111,20 @@ export function AddItemForm({
             value={url}
           />
           <Pressable disabled={!modelConfigured || busy} type="submit">
-            {busy ? "添加中…" : "添加到收藏库"}
+            {busy ? t("adding") : t("submit")}
           </Pressable>
         </div>
       </form>
 
       <div aria-live="polite" className="add-item-status" id="add-item-status">
         {status.kind === "success" ? (
-          <p>已加入，正在抓取总结中。 <Link href={`/admin/library/${status.id}`} prefetch={false}>查看条目</Link></p>
+          <p>{t("success")} <Link href={`/admin/library/${status.id}`} prefetch={false}>{t("view")}</Link></p>
         ) : null}
         {status.kind === "duplicate" ? (
           <p>
-            该链接已收藏。
-            {" "}<Link href={`/admin/library/${status.id}`} prefetch={false}>查看条目</Link>
-            {" "}<Link href={`/admin/library/${status.id}#refetch`} prefetch={false}>查看并重抓</Link>
+            {t("duplicate")}
+            {" "}<Link href={`/admin/library/${status.id}`} prefetch={false}>{t("view")}</Link>
+            {" "}<Link href={`/admin/library/${status.id}#refetch`} prefetch={false}>{t("viewRefetch")}</Link>
           </p>
         ) : null}
         {status.kind === "error" ? <p role="alert">{status.message}</p> : null}

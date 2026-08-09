@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ItemDetail } from "@/app/admin/(protected)/library/[id]/ItemDetail";
+import { render } from "../render";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
@@ -52,7 +53,7 @@ describe("ItemDetail", () => {
     fireEvent.change(editor, { target: { value: "未保存的人工总结。" } });
     fireEvent.click(screen.getByRole("button", { name: "保存总结" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("保存失败。");
+    expect(await screen.findByRole("alert")).toHaveTextContent("保存失败，请稍后重试。");
     expect(editor).toHaveValue("未保存的人工总结。");
     expect(fetchMock).toHaveBeenLastCalledWith(
       `/admin/api/items/${completedItem.id}`,
