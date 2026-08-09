@@ -7,12 +7,22 @@ import { manualRefetch } from "@/lib/items/refetch";
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
+const emptyBodySchema = z.object({}).strict();
 
 export async function POST(request: Request, context: RouteContext): Promise<Response> {
   const auth = await requireAdminWrite(request);
   if (auth instanceof Response) return auth;
   const parsedId = z.string().uuid().safeParse((await context.params).id);
   if (!parsedId.success) return apiError("VALIDATION", "条目编号无效。", 400);
+  let input: unknown;
+  try {
+    input = await request.json();
+  } catch {
+    return apiError("VALIDATION", "请求内容无效。", 400);
+  }
+  if (!emptyBodySchema.safeParse(input).success) {
+    return apiError("VALIDATION", "请求内容无效。", 400);
+  }
 
   try {
     const result = await manualRefetch(parsedId.data);

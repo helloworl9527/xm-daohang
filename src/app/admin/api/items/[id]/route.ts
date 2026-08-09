@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 const idSchema = z.string().uuid();
 const patchSchema = z.object({ summary: z.string().trim().min(1).max(10_000) }).strict();
+const emptyBodySchema = z.object({}).strict();
 type RouteContext = { params: Promise<{ id: string }> };
 
 async function itemId(context: RouteContext): Promise<string | null> {
@@ -79,6 +80,15 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
   if (auth instanceof Response) return auth;
   const id = await itemId(context);
   if (!id) return apiError("VALIDATION", "条目编号无效。", 400);
+  let input: unknown;
+  try {
+    input = await request.json();
+  } catch {
+    return apiError("VALIDATION", "请求内容无效。", 400);
+  }
+  if (!emptyBodySchema.safeParse(input).success) {
+    return apiError("VALIDATION", "请求内容无效。", 400);
+  }
   try {
     await deleteItem(id);
     return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });

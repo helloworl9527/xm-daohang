@@ -249,6 +249,32 @@ describe("admin item detail API", () => {
     expect(await db.select().from(processingRequests)).toHaveLength(1);
   });
 
+  it.each([
+    ["malformed JSON", { rawBody: "not-json" }],
+    ["an array", { body: [] }],
+    ["an extra field", { body: { force: true } }],
+  ])("rejects %s before refetching", async (_case, bodyOptions) => {
+    const item = await seedItem("failed");
+    const response = await POST_REFETCH(await request("POST", item.id, bodyOptions), params(item.id));
+
+    expect(response.status).toBe(400);
+    const [saved] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(saved).toMatchObject({ status: "failed", processGeneration: 0 });
+    expect(await db.select().from(processingRequests)).toHaveLength(0);
+  });
+
+  it.each([
+    ["malformed JSON", { rawBody: "not-json" }],
+    ["an array", { body: [] }],
+    ["an extra field", { body: { force: true } }],
+  ])("rejects %s before deleting", async (_case, bodyOptions) => {
+    const item = await seedItem();
+    const response = await DELETE(await request("DELETE", item.id, bodyOptions), params(item.id));
+
+    expect(response.status).toBe(400);
+    expect(await db.select().from(items).where(eq(items.id, item.id))).toHaveLength(1);
+  });
+
   it("rejects malformed IDs and returns a stable not-found envelope", async () => {
     const malformed = await GET(await request("GET", "not-a-uuid"), params("not-a-uuid"));
     expect(malformed.status).toBe(400);
