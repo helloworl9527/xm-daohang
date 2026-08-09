@@ -36,3 +36,10 @@
 - R10 红灯：加载状态内 `.library-skeleton-row` 数量为 0。修复后提供 3 行与真实列表一致的主内容/元信息网格骨架，桌面双列、移动单列，保留可读 `role=status` 文案；组件 3/3 与生产 E2E 桌面/移动 2/2 PASS。提交 `d9b256d`。
 - 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 27 files / 161 tests PASS（精确向量基准 recall@10 均为 1）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；`pnpm db:migrate` 成功；生产 `next build + next start` Playwright 8/8 PASS。
 - 新增视觉证据：`.workflow/screenshots/t15-admin-library-loading-desktop.png`、`.workflow/screenshots/t15-admin-library-loading-mobile.png`。
+
+## 2026-08-09：阶段验收 R6 残留项窄修
+
+- 红灯：有效 session/CSRF/同源下，`Content-Type: application/json; charset` 被 Node `MIMEType` 容错为 `application/json`，DELETE 实际返回 204 并删除条目。
+- 修复：统一 `requireAdminWrite` 不再依赖容错 MIME 解析，改为对原始 Header 整串做严格白名单校验；仅接受 `application/json` 或单一且值为 `utf-8` 的 `charset` 参数（大小写不敏感），裸参数、空值、未知/多参数和重复分号均在业务写入前返回 415。
+- 回归：详情集成测试覆盖 8 类非法 Content-Type 且确认零删除，同时验证无参数、`charset=utf-8` 与大小写变体合法；定向共享写管线 29/29 PASS。代码提交 `0068b51`。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 27 files / 162 tests PASS（精确向量基准 recall@10 均为 1）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；`pnpm db:migrate` 成功；生产 `next build + next start` Playwright 桌面/移动 8/8 PASS；工作流校验器 PASS（stage=implementation, revision=5）。
