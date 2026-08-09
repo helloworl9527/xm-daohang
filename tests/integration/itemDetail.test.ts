@@ -223,7 +223,13 @@ describe("admin item detail API", () => {
 
   it("requires the complete request origin before a destructive write", async () => {
     const item = await seedItem();
-    for (const origin of ["http://admin.example", "https://evil.example", null, "not-an-origin"]) {
+    for (const origin of [
+      "http://admin.example",
+      "https://admin.example:444",
+      "https://evil.example",
+      null,
+      "not-an-origin",
+    ]) {
       const response = await DELETE(await request("DELETE", item.id, { origin }), params(item.id));
       expect(response.status).toBe(403);
       expect(await db.select().from(items).where(eq(items.id, item.id))).toHaveLength(1);

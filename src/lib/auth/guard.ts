@@ -64,12 +64,13 @@ export async function requireAdminWrite(request: Request): Promise<AdminSession 
   if (session instanceof Response) return session;
 
   const origin = request.headers.get("origin");
-  if (!origin) return apiError("CSRF_INVALID", "请求来源无效。", 403);
+  const host = request.headers.get("host");
+  if (!origin || !host) return apiError("CSRF_INVALID", "请求来源无效。", 403);
   try {
     const supplied = new URL(origin);
-    const expected = new URL(request.url);
+    const expectedProtocol = new URL(request.url).protocol;
     if (
-      supplied.origin !== expected.origin ||
+      supplied.protocol !== expectedProtocol || supplied.host !== host ||
       supplied.username || supplied.password ||
       supplied.pathname !== "/" || supplied.search || supplied.hash
     ) {
