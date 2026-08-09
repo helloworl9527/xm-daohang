@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { MIMEType } from "node:util";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -63,10 +64,17 @@ export async function requireAdminWrite(request: Request): Promise<AdminSession 
   if (session instanceof Response) return session;
 
   const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (!origin || !host) return apiError("CSRF_INVALID", "请求来源无效。", 403);
+  if (!origin) return apiError("CSRF_INVALID", "请求来源无效。", 403);
   try {
-    if (new URL(origin).host !== host) return apiError("CSRF_INVALID", "请求来源无效。", 403);
+    const supplied = new URL(origin);
+    const expected = new URL(request.url);
+    if (
+      supplied.origin !== expected.origin ||
+      supplied.username || supplied.password ||
+      supplied.pathname !== "/" || supplied.search || supplied.hash
+    ) {
+      return apiError("CSRF_INVALID", "请求来源无效。", 403);
+    }
   } catch {
     return apiError("CSRF_INVALID", "请求来源无效。", 403);
   }
@@ -75,7 +83,12 @@ export async function requireAdminWrite(request: Request): Promise<AdminSession 
   if (!csrf || !verifyCsrfToken(session.token, csrf)) {
     return apiError("CSRF_INVALID", "请求校验失败。", 403);
   }
-  if (!request.headers.get("content-type")?.startsWith("application/json")) {
+  const contentType = request.headers.get("content-type");
+  try {
+    if (!contentType || new MIMEType(contentType).essence !== "application/json") {
+      return apiError("VALIDATION", "请求格式无效。", 415);
+    }
+  } catch {
     return apiError("VALIDATION", "请求格式无效。", 415);
   }
   return session;

@@ -65,15 +65,25 @@ async function seedItem(status: "completed" | "failed" | "processing" = "complet
 async function request(
   method: "GET" | "PATCH" | "DELETE" | "POST",
   id: string,
-  options: { body?: unknown; etag?: string; authenticated?: boolean; csrf?: string } = {},
+  options: {
+    body?: unknown;
+    contentType?: string | null;
+    etag?: string;
+    authenticated?: boolean;
+    csrf?: string;
+    origin?: string | null;
+    rawBody?: string;
+  } = {},
 ) {
   const headers: Record<string, string> = { host: "admin.example" };
   if (options.authenticated !== false) {
     const { token } = await createSession();
     headers.cookie = `admin_session=${token}`;
     if (method !== "GET") {
-      headers.origin = "https://admin.example";
-      headers["content-type"] = "application/json";
+      if (options.origin !== null) headers.origin = options.origin ?? "https://admin.example";
+      if (options.contentType !== null) {
+        headers["content-type"] = options.contentType ?? "application/json";
+      }
       headers["x-csrf-token"] = options.csrf ?? createCsrfToken(token);
     }
   }
@@ -82,7 +92,7 @@ async function request(
   return new Request(`https://admin.example/admin/api/items/${id}${suffix}`, {
     method,
     headers,
-    body: method === "GET" ? undefined : JSON.stringify(options.body ?? {}),
+    body: method === "GET" ? undefined : options.rawBody ?? JSON.stringify(options.body ?? {}),
   });
 }
 
@@ -193,6 +203,36 @@ describe("admin item detail API", () => {
       "select id from items where status = 'completed' and embedding is not null",
     );
     expect(retrievable.rows).toHaveLength(0);
+  });
+
+  it("rejects non-JSON media types before a destructive write", async () => {
+    const item = await seedItem();
+    for (const contentType of ["application/jsonp", "text/plain", null]) {
+      const response = await DELETE(await request("DELETE", item.id, {
+        contentType,
+      }), params(item.id));
+      expect(response.status).toBe(415);
+      expect(await db.select().from(items).where(eq(items.id, item.id))).toHaveLength(1);
+    }
+
+    const valid = await DELETE(await request("DELETE", item.id, {
+      contentType: "application/json; charset=utf-8",
+    }), params(item.id));
+    expect(valid.status).toBe(204);
+  });
+
+  it("requires the complete request origin before a destructive write", async () => {
+    const item = await seedItem();
+    for (const origin of ["http://admin.example", "https://evil.example", null, "not-an-origin"]) {
+      const response = await DELETE(await request("DELETE", item.id, { origin }), params(item.id));
+      expect(response.status).toBe(403);
+      expect(await db.select().from(items).where(eq(items.id, item.id))).toHaveLength(1);
+    }
+
+    const valid = await DELETE(await request("DELETE", item.id, {
+      origin: "https://admin.example",
+    }), params(item.id));
+    expect(valid.status).toBe(204);
   });
 
   it("queues a failed item once and rejects refetch while processing", async () => {
