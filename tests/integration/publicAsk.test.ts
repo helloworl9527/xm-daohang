@@ -3,9 +3,9 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createAskHandler } from "@/app/(public)/ask/route";
 import { db, pool } from "@/db/client";
 import { appSettings, askCounters } from "@/db/schema";
+import { createAskHandler } from "@/lib/ask/handler";
 import { getTrustedClientIp } from "@/lib/http/clientIp";
 
 const PROXY_SECRET = "proxy-test-secret-with-at-least-32-bytes";
