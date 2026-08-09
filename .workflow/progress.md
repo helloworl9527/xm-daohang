@@ -61,3 +61,9 @@
 - 每日轮换核对：旧 `pickDaily(day)` 只消费显式业务日，本身没有 UTC 取日；本次新增 `pickDailyForNow(now)` 并复用同一 `businessDay()`，供 T23 公开首页调用。集成测试在 `2026-08-09T16:30Z` 同时执行限流与每日选择，两表 day 均为 `2026-08-10`。
 - 回归：覆盖上海零点 `UTC 16:00±`、UTC 零点不误换日、缺失/非法时区零写入、计数/HMAC scope 同步轮换、限流/每日选择同时刻一致；定向 39/39 PASS。提交 `6d8de26`。
 - 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 33 files / 210 tests PASS（精确向量基准 recall@10=1，P95 均 <1ms）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、`pnpm db:migrate`、独立 `next build` 通过；生产 Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
+
+## 2026-08-09：阶段验收返工 R11b
+
+- 红灯：`ratelimit_enabled=false` 且 `APP_TIMEZONE` 缺失/非法时，`consumePublicAsk` 在业务日校验前提前 commit，2 个反向用例均错误解析为 `{allowed:true}`。
+- 修复：将 `businessDay(now)` 前移到 disabled 早退之前；限流开关只决定是否写计数，不绕过业务日配置门禁。回归确认 disabled+缺失/非法时区在 service 层拒绝、handler 503、retrieve/answer=0、counter=0；disabled+合法时区仍正常放行且零计数。定向 35/35 PASS，提交 `fdb8762`。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 33 files / 213 tests PASS（recall@10=1，P95 均 <1ms）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、`pnpm db:migrate`、独立 `next build` 通过；生产 Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
