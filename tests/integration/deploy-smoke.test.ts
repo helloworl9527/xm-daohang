@@ -1,0 +1,79 @@
+// @vitest-environment node
+
+import { readFile } from "node:fs/promises";
+
+import { Pool } from "pg";
+import { afterAll, describe, expect, it } from "vitest";
+
+import { GET as live } from "@/app/api/health/live/route";
+import { GET as ready } from "@/app/api/health/ready/route";
+import { createWorkerRuntime } from "@/worker/index";
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is required");
+const pool = new Pool({ connectionString });
+
+describe("deployment contracts", () => {
+  afterAll(async () => pool.end());
+
+  it("keeps liveness dependency-free and readiness migration-aware", async () => {
+    await expect(live()).resolves.toMatchObject({ status: 200 });
+    const response = await ready();
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ status: "ready" });
+  });
+
+  it("ships a four-service internal topology with only Caddy publishing ports", async () => {
+    const [compose, workerHealth] = await Promise.all([
+      readFile("docker-compose.yml", "utf8"),
+      readFile("scripts/check-worker-health.ts", "utf8"),
+    ]);
+    for (const service of ["app", "worker", "postgres", "caddy"]) {
+      expect(compose).toMatch(new RegExp(`^  ${service}:`, "m"));
+    }
+    expect(compose.match(/^    ports:/gm)).toHaveLength(1);
+    expect(compose).toContain("internal: true");
+    expect(compose).toContain("/api/health/ready");
+    expect(workerHealth).toContain("worker_heartbeats");
+  });
+
+  it("strips spoofable proxy headers before injecting authenticated single-value headers", async () => {
+    const caddy = await readFile("Caddyfile", "utf8");
+    expect(caddy).toContain("header_up -X-Real-Client-IP");
+    expect(caddy).toContain("header_up -X-Proxy-Auth");
+    expect(caddy).toContain("header_up X-Real-Client-IP {remote_host}");
+    expect(caddy).toContain("header_up X-Proxy-Auth {$PROXY_SHARED_SECRET}");
+    expect(caddy).toContain("header_up X-Forwarded-For {remote_host}");
+    expect(caddy).toContain("Strict-Transport-Security");
+  });
+
+  it("uses multi-stage standalone production images and documents every required secret name", async () => {
+    const [dockerfile, env] = await Promise.all([
+      readFile("Dockerfile", "utf8"),
+      readFile(".env.example", "utf8"),
+    ]);
+    expect(dockerfile).toContain("AS builder");
+    expect(dockerfile).toContain("AS app");
+    expect(dockerfile).toContain("AS worker");
+    expect(dockerfile).toContain("pnpm install --prod");
+    expect(dockerfile).toContain(".next/standalone");
+    for (const key of ["DATABASE_URL", "APP_TIMEZONE", "APP_ENCRYPTION_KEY", "IP_HASH_KEY", "LOGIN_IP_HASH_KEY", "TG_ID_HASH_KEY", "PROXY_SHARED_SECRET"]) {
+      expect(env).toMatch(new RegExp(`^${key}=`, "m"));
+    }
+  });
+
+  it("starts a real pg-boss worker, records heartbeat, and stops gracefully", async () => {
+    process.env.WORKER_ID = "deploy-smoke-worker";
+    await pool.query("delete from worker_heartbeats where worker_id = $1", [process.env.WORKER_ID]);
+    await pool.query("insert into app_settings (id) values (1) on conflict (id) do nothing");
+    const runtime = await createWorkerRuntime();
+    try {
+      await expect.poll(async () => (await pool.query(
+        "select version from worker_heartbeats where worker_id = $1",
+        [process.env.WORKER_ID],
+      )).rows[0]?.version).toBe("0.1.0");
+    } finally {
+      await runtime.stop();
+    }
+  });
+});

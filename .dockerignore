@@ -1,0 +1,11 @@
+.git
+.next
+node_modules
+test-results
+playwright-report
+.workflow/screenshots
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

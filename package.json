@@ -9,11 +9,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "db:migrate:prod": "node --experimental-strip-types scripts/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "e2e": "playwright test",
-    "start": "next start",
+    "start": "mkdir -p .next/standalone/.next && cp -R .next/static .next/standalone/.next/ && node .next/standalone/server.js",
     "lint": "eslint .",
+    "init-admin": "node --experimental-strip-types scripts/init-admin.ts",
+    "reset-admin-password": "node --experimental-strip-types scripts/reset-admin-password.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

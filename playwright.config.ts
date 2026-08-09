@@ -19,7 +19,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "corepack pnpm build && corepack pnpm start --hostname 127.0.0.1 --port 3100",
+      "corepack pnpm build && HOSTNAME=127.0.0.1 PORT=3100 corepack pnpm start",
     url: "http://127.0.0.1:3100/admin/login",
     reuseExistingServer: false,
     timeout: 120_000,

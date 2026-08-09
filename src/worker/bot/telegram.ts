@@ -238,9 +238,14 @@ export async function handleTelegramMessage(
   if (text) await handleQuestion(text, message, dependencies);
 }
 
-export async function startTelegramBot(): Promise<void> {
+export interface TelegramRuntime {
+  send(chatId: string, text: string): Promise<void>;
+  stop(): Promise<void>;
+}
+
+export async function launchTelegramBot(): Promise<TelegramRuntime | null> {
   const token = await getDecryptedSecret("telegramToken");
-  if (!token) throw new Error("TELEGRAM_NOT_CONFIGURED");
+  if (!token) return null;
   const bot = new Bot(token);
   bot.on("message:text", async (context) => {
     if (!context.from) return;
@@ -249,5 +254,19 @@ export async function startTelegramBot(): Promise<void> {
       { send: async (chatId, text) => { await bot.api.sendMessage(chatId, text); } },
     );
   });
-  await bot.start();
+  const polling = bot.start().catch(() => {
+    logger.warn("telegram_polling_stopped", { category: "transport" });
+  });
+  return {
+    send: async (chatId, text) => { await bot.api.sendMessage(chatId, text); },
+    stop: async () => {
+      await bot.stop();
+      await polling;
+    },
+  };
+}
+
+export async function startTelegramBot(): Promise<void> {
+  const runtime = await launchTelegramBot();
+  if (!runtime) throw new Error("TELEGRAM_NOT_CONFIGURED");
 }
