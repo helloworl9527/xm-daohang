@@ -67,3 +67,11 @@
 - 红灯：`ratelimit_enabled=false` 且 `APP_TIMEZONE` 缺失/非法时，`consumePublicAsk` 在业务日校验前提前 commit，2 个反向用例均错误解析为 `{allowed:true}`。
 - 修复：将 `businessDay(now)` 前移到 disabled 早退之前；限流开关只决定是否写计数，不绕过业务日配置门禁。回归确认 disabled+缺失/非法时区在 service 层拒绝、handler 503、retrieve/answer=0、counter=0；disabled+合法时区仍正常放行且零计数。定向 35/35 PASS，提交 `fdb8762`。
 - 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 33 files / 213 tests PASS（recall@10=1，P95 均 <1ms）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、`pnpm db:migrate`、独立 `next build` 通过；生产 Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
+
+## 2026-08-09：T20–T21 Telegram 添加、回执与私有提问
+
+- T20 红灯：`tgAdd.test.ts` 与 `tgReceipt.test.ts` 因 bot/dispatcher 模块不存在退出 1。实现 grammY long polling adapter，在解析消息前查询 `tg_allowed_ids` 白名单；单消息去重后最多逐条处理 10 个 URL，复用 `assertPublicUrl` 和 processing outbox，chat ID 仅以按键 HMAC 与随机 AES-GCM 密文入库。
+- T20 回执：dispatcher 用 `FOR UPDATE SKIP LOCKED` 原子领取、30 秒 lease 和超时回收；429 按 `retry_after` 持久退避，无终态 outcome 的异常 ready 记录 fail-closed 不发送。保留已接受 AR-001：Telegram 无幂等键，发送后、标记 sent 前崩溃时重试可重复，第二次 lease 将 `duplicatePossible=true` 供 T22 指标记录。提交 `f0125c8`。
+- T21 红灯：新增 6 个提问/命令用例时 5 个失败，证明旧 handler 对非 URL 消息直接忽略。实现“白名单 → `/refetch|/retry <8 位短 ID>` → URL 添加 → 非空提问”优先级；短 ID 未知或歧义统一回“未找到”，畸形命令不降级为检索。提问在模型/embedding rebuild DB-only readiness 通过后复用 `retrieve` + `answerFromHits`，无命中固定回执且 LLM=0，来源仅由服务端 hits 拼装且最多 10 条；未调用公开限流，`ask_counters` 保持为空。提交 `f6a2877`。
+- 新增运行时依赖：`grammy@1.38.3`，用于 Telegram Bot API long polling 与 `sendMessage` adapter，MIT License；`pnpm audit --prod` 报告无已知漏洞。Telegram 网络在测试中使用注入 transport，未访问真实 Bot API，Token 仅通过服务端 `getDecryptedSecret` 读取。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 36 files / 228 tests PASS（精确向量基准 100/500/1000 行 recall@10=1，P95 均 <1ms）；T20–T21 定向 15/15 PASS；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、干净库 `pnpm db:migrate`、独立 `next build` 通过；生产 `next build + next start` Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
