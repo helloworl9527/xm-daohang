@@ -36,8 +36,13 @@ body {
   background: var(--color-white);
   border: 1px solid #C8CCD0;
   color: var(--color-ink);
-  min-height: 36px;
+  cursor: pointer;
+  min-height: 44px;
   padding: 6px 10px;
+}
+
+.locale-switcher button:hover:not(:disabled) {
+  border-color: var(--color-search);
 }
 
 .locale-switcher button[aria-pressed="true"] {
