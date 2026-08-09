@@ -27,3 +27,12 @@
 - 安全与边界：所有写操作依次执行会话、Origin、CSRF、JSON Content-Type 与 schema 检查；详情 DTO 不返回 embedding、canonical URL、process generation、密文或 internal stack；无新增外部依赖与日志敏感文本。
 - 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 27 files / 153 tests PASS（精确向量基准 100/500/1000 行 recall@10 均为 1）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；`pnpm db:migrate` 成功；生产构建 Playwright 8/8 PASS；Web Interface Guidelines 新鲜规范复核通过。
 - 视觉证据：`.workflow/screenshots/t16-admin-detail-desktop.png`、`.workflow/screenshots/t16-admin-detail-mobile.png`。
+
+## 2026-08-09：阶段验收返工 R6–R10
+
+- R6/R7 红灯：有效 session/CSRF 下，`application/jsonp` 与同 host 跨 scheme Origin 的 DELETE 均实际返回 204 并删除条目。修复后统一 `requireAdminWrite` 用 `MIMEType.essence` 精确接受 `application/json` 及合法参数，Origin 同时匹配请求 scheme 与 Host 的 host+port；跨 scheme/端口/host、缺失和畸形值均在业务前拒绝。共享写管线定向集成 28/28 PASS，生产 Next 运行兼容。提交 `d3e1f25`、`bd58faf`。
+- R8 红灯：refetch 对畸形 JSON/数组/多余字段均返回 202 并入队，DELETE 对同类输入均返回 204 并删除。修复后两路由在写入前完成 JSON 解析与 strict 空对象 Zod 校验，无效输入返回 400 且 generation/outbox/item 零变化。提交 `958afb6`。
+- R9 红灯：canonical `src/app/admin/api/items/route.ts` 的 GET 为 undefined，7/7 集合合同测试失败。修复后 GET/POST 同驻 `/admin/api/items`，前端、集成与 E2E 全部迁移，`/list` 路由与引用已物理删除；定向 14/14 PASS。提交 `ce3b0b7`。
+- R10 红灯：加载状态内 `.library-skeleton-row` 数量为 0。修复后提供 3 行与真实列表一致的主内容/元信息网格骨架，桌面双列、移动单列，保留可读 `role=status` 文案；组件 3/3 与生产 E2E 桌面/移动 2/2 PASS。提交 `d9b256d`。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 27 files / 161 tests PASS（精确向量基准 recall@10 均为 1）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；`pnpm db:migrate` 成功；生产 `next build + next start` Playwright 8/8 PASS。
+- 新增视觉证据：`.workflow/screenshots/t15-admin-library-loading-desktop.png`、`.workflow/screenshots/t15-admin-library-loading-mobile.png`。
