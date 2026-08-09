@@ -39,12 +39,15 @@ async function seed(outcome: "completed" | "failed" = "completed") {
 describe("Telegram receipt dispatcher", () => {
   it("allows only one concurrent dispatcher to claim and send a receipt", async () => {
     await seed();
-    const send = vi.fn(async () => undefined);
+    const send = vi.fn<(chatId: string, text: string, key: string) => Promise<void>>(async () => undefined);
     const results = await Promise.all([
       dispatchTelegramReceipt("worker-a", { send }),
       dispatchTelegramReceipt("worker-b", { send }),
     ]);
     expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0]?.[1]).toBe(
+      "✅ 已收藏\nTitle\n这是一句中文总结。\nhttps://example.com/item",
+    );
     expect(results.filter((result) => result.sent)).toHaveLength(1);
     expect((await db.select().from(telegramReceipts))[0].status).toBe("sent");
   });
@@ -74,5 +77,23 @@ describe("Telegram receipt dispatcher", () => {
     expect(row.nextAttemptAt.getTime()).toBe(now.getTime() + 60_000);
     await expect(dispatchTelegramReceipt("worker-a", { send, now: () => new Date(now.getTime() + 30_000) })).resolves.toMatchObject({ sent: false });
     await expect(dispatchTelegramReceipt("worker-a", { send, now: () => new Date(now.getTime() + 60_000) })).resolves.toMatchObject({ sent: true });
+  });
+
+  it("does not claim a ready receipt without a terminal outcome", async () => {
+    await db.insert(telegramReceipts).values({
+      itemId,
+      processGeneration: 1,
+      chatIdHash: "invalid-ready",
+      chatIdEnc: encryptSecret("4200"),
+      outcome: null,
+      status: "ready",
+      nextAttemptAt: new Date("2026-08-08T00:00:00Z"),
+    });
+    const send = vi.fn();
+    await expect(dispatchTelegramReceipt("worker-a", {
+      send,
+      now: () => new Date("2026-08-09T00:00:00Z"),
+    })).resolves.toEqual({ sent: false });
+    expect(send).not.toHaveBeenCalled();
   });
 });

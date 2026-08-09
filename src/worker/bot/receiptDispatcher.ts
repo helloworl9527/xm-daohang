@@ -32,11 +32,12 @@ export async function dispatchTelegramReceipt(
   const leaseUntil = new Date(now.getTime() + 30_000);
   const claimed = await pool.query<{
     id: string; item_id: string; chat_id_enc: string; outcome: "completed" | "failed";
-    attempts: number; title: string | null; summary: string | null;
+    attempts: number; title: string | null; summary: string | null; url: string;
   }>(
     `with candidate as (
        select id from telegram_receipts
-        where ((status = 'ready' and next_attempt_at <= $1)
+        where outcome is not null
+          and ((status = 'ready' and next_attempt_at <= $1)
            or (status = 'sending' and lease_until < $1))
         order by next_attempt_at, id for update skip locked limit 1
      ), claimed as (
@@ -46,7 +47,7 @@ export async function dispatchTelegramReceipt(
        returning receipt.*
      )
      select claimed.id, claimed.item_id, claimed.chat_id_enc, claimed.outcome,
-            claimed.attempts, item.title, item.summary
+            claimed.attempts, item.title, item.summary, item.url
        from claimed join items item on item.id = claimed.item_id`,
     [now, workerId, leaseUntil],
   );
@@ -55,8 +56,8 @@ export async function dispatchTelegramReceipt(
   const duplicatePossible = receipt.attempts > 1;
   const chatId = decryptSecret(receipt.chat_id_enc);
   const text = receipt.outcome === "completed"
-    ? `✅ 已收藏\n${firstSentence(receipt.summary)}`
-    : "❌ 收藏失败，请稍后手动重试";
+    ? `✅ 已收藏\n${receipt.title?.trim() || receipt.url}\n${firstSentence(receipt.summary)}\n${receipt.url}`
+    : `抓取失败：处理未成功。回复 /retry ${receipt.item_id.slice(0, 8)} 可重试。`;
   try {
     await transport.send(chatId, text, receipt.id);
   } catch (error) {
