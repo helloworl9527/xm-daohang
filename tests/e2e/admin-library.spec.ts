@@ -52,15 +52,33 @@ test("admin filters the library and recovers from a list error", async ({ page }
   await expect(page).toHaveURL(/\/admin$/);
 
   let listRequests = 0;
+  let releaseFirstRequest!: () => void;
+  let markFirstRequestStarted!: () => void;
+  const firstRequestGate = new Promise<void>((resolve) => {
+    releaseFirstRequest = resolve;
+  });
+  const firstRequestStarted = new Promise<void>((resolve) => {
+    markFirstRequestStarted = resolve;
+  });
   await page.route(/\/admin\/api\/items(?:\?.*)?$/, async (route) => {
     listRequests += 1;
     if (listRequests === 1) {
+      markFirstRequestStarted();
+      await firstRequestGate;
       await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
       return;
     }
     await route.continue();
   });
   await page.goto("/admin/library");
+  await firstRequestStarted;
+  await expect(page.locator(".library-skeleton-row")).toHaveCount(3);
+  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
+  await page.screenshot({
+    path: `.workflow/screenshots/t15-admin-library-loading-${suffix}.png`,
+    fullPage: true,
+  });
+  releaseFirstRequest();
   await expect(page.getByText("收藏库暂时无法读取。", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "重试" }).click();
   await expect(page.getByRole("heading", { name: "PostgreSQL 设计" })).toBeVisible();
@@ -78,7 +96,6 @@ test("admin filters the library and recovers from a list error", async ({ page }
   await expect(page.getByRole("heading", { name: "PostgreSQL 设计" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "向量检索" })).toHaveCount(0);
 
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   await page.screenshot({
     path: `.workflow/screenshots/t15-admin-library-${suffix}.png`,
     fullPage: true,

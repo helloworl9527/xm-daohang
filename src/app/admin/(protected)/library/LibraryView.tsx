@@ -98,7 +98,26 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
 
       <div aria-live="polite" className="library-results">
         {state.kind === "loading" ? (
-          <div className="library-loading" role="status">正在读取收藏库…</div>
+          <div className="library-loading" role="status">
+            <p>正在读取收藏库…</p>
+            <ol aria-hidden="true" className="library-list library-skeleton">
+              {Array.from({ length: 3 }, (_, index) => (
+                <li className="library-item library-skeleton-row" key={index}>
+                  <div className="library-skeleton-main">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <div className="library-skeleton-meta">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         ) : null}
         {state.kind === "error" ? (
           <div className="library-state">

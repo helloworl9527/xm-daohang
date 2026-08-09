@@ -295,6 +295,65 @@ body {
   background: var(--color-white);
 }
 
+.library-loading {
+  border-left: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.library-loading > p {
+  margin: 0 0 4px;
+  color: color-mix(in srgb, var(--color-ink) 62%, transparent);
+  font-size: 0.8125rem;
+}
+
+.library-skeleton-row {
+  min-height: 180px;
+}
+
+.library-skeleton-main,
+.library-skeleton-meta {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.library-skeleton-main span,
+.library-skeleton-meta span {
+  display: block;
+  height: 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-ink) 11%, var(--color-white));
+}
+
+.library-skeleton-main span:first-child {
+  width: min(55%, 320px);
+  height: 18px;
+}
+
+.library-skeleton-main span:nth-child(2) {
+  width: min(72%, 460px);
+}
+
+.library-skeleton-main span:nth-child(3) {
+  width: min(92%, 620px);
+  height: 32px;
+}
+
+.library-skeleton-main span:last-child {
+  width: min(38%, 220px);
+}
+
+.library-skeleton-meta span:nth-child(2) {
+  width: 80%;
+}
+
+.library-skeleton-meta span:last-child {
+  width: 65%;
+  height: 32px;
+}
+
 .library-state p {
   margin: 0 0 12px;
 }

@@ -35,7 +35,11 @@ describe("LibraryView", () => {
       resolveFetch = resolve;
     })));
     render(<LibraryView initialFilters={{ q: "", tags: [], status: "" }} />);
-    expect(screen.getByRole("status")).toHaveTextContent("正在读取收藏库…");
+    const loading = screen.getByRole("status");
+    expect(loading).toHaveTextContent("正在读取收藏库…");
+    expect(loading.querySelectorAll(".library-skeleton-row")).toHaveLength(3);
+    expect(loading.querySelectorAll(".library-skeleton-main")).toHaveLength(3);
+    expect(loading.querySelectorAll(".library-skeleton-meta")).toHaveLength(3);
 
     resolveFetch(Response.json({ items: [item], nextCursor: null }));
     expect(await screen.findByRole("heading", { name: "PostgreSQL 入门" })).toBeVisible();
