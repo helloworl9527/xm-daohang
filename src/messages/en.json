@@ -2,6 +2,15 @@
   "meta": { "title": "Collection System", "description": "Personal collection organization and semantic search" },
   "locale": { "label": "Interface language", "zh": "中文", "en": "English" },
   "common": { "retry": "Retry", "processing": "Processing", "completed": "Completed", "failed": "Failed", "adminSource": "Admin", "telegramSource": "Telegram", "itemTags": "Item tags" },
+  "public": {
+    "skip": "Skip to main content", "brand": "Cangzhou", "brandLabel": "Cangzhou home", "owner": "Owner access", "eyebrow": "Today’s rotation · {date}",
+    "title": "Ask the whole collection.", "description": "Start with today’s three saved ideas, or ask directly. Answers use only saved content.",
+    "itemsLabel": "Today’s three saved items", "tagsLabel": "Item tags", "openOriginal": "Open original", "loading": "Loading today’s saved items…", "empty": "The collection has nothing to show yet", "emptyDetail": "Completed items will rotate here each day.", "ownerLogin": "Owner sign in", "dailyError": "Today’s items are temporarily unavailable", "refresh": "Reload",
+    "ask": {
+      "regionLabel": "Public questions", "inputLabel": "Ask the collection", "placeholder": "Ask the collection…", "submit": "Ask", "retry": "Retry", "scope": "Answers only use the collection · Up to 10 sources", "searching": "Searching the collection…", "searchingShort": "Searching…", "resultLabel": "Collection answer", "sourcesLabel": "Answer sources", "openSource": "Open source",
+      "empty": "The collection has no related content", "emptyDetail": "This answer will not be filled with knowledge outside the collection.", "limited": "Today’s question limit has been reached. Try again later", "limitedDetail": "No model was called for this request.", "error": "Questions are temporarily unavailable", "errorDetail": "Your question is preserved. Please retry.", "disabledEmpty": "The collection is empty, so questions are disabled.", "disabledUnavailable": "Questions are not ready yet."
+    }
+  },
   "admin": {
     "skip": "Skip to main content",
     "nav": { "brand": "Collection System", "workspace": "Owner workspace", "label": "Admin navigation", "add": "Add content", "library": "Library", "settings": "Settings" },

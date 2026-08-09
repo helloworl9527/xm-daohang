@@ -21,6 +21,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       DATABASE_URL: databaseUrl,
+      APP_TIMEZONE: "Asia/Shanghai",
       LOGIN_IP_HASH_KEY: "e2e-login-hash-key-with-at-least-32-bytes",
       APP_ENCRYPTION_KEY: Buffer.alloc(32, 13).toString("base64"),
     },

@@ -5,6 +5,15 @@
     "retry": "重试", "processing": "处理中", "completed": "已完成", "failed": "失败",
     "adminSource": "管理端", "telegramSource": "Telegram", "itemTags": "条目标签"
   },
+  "public": {
+    "skip": "跳到主要内容", "brand": "藏舟", "brandLabel": "藏舟首页", "owner": "站主入口", "eyebrow": "今日轮换 · {date}",
+    "title": "问整个收藏库。", "description": "从今日的三条收藏开始，或直接提问。回答只使用已收藏的内容。",
+    "itemsLabel": "今日 3 条收藏", "tagsLabel": "条目标签", "openOriginal": "查看原始链接", "loading": "正在读取每日收藏…", "empty": "收藏库还没有可展示内容", "emptyDetail": "完成的收藏会在这里按日轮换。", "ownerLogin": "站主登录", "dailyError": "每日内容暂时无法读取", "refresh": "重新加载",
+    "ask": {
+      "regionLabel": "公开提问", "inputLabel": "向收藏库提问", "placeholder": "向收藏库提问…", "submit": "提问", "retry": "重试", "scope": "回答仅来自收藏库 · 最多 10 条来源", "searching": "正在检索收藏库…", "searchingShort": "检索中…", "resultLabel": "收藏库回答", "sourcesLabel": "回答来源", "openSource": "查看来源",
+      "empty": "收藏库中没有相关内容", "emptyDetail": "本次不使用收藏库之外的知识补充答案。", "limited": "今日提问已达上限，请稍后再来", "limitedDetail": "本次请求未调用模型。", "error": "问答暂时失败", "errorDetail": "原问题已保留，请重试。", "disabledEmpty": "收藏库为空，暂时无法提问。", "disabledUnavailable": "问答服务暂未就绪。"
+    }
+  },
   "admin": {
     "skip": "跳到主要内容",
     "nav": { "brand": "收藏系统", "workspace": "站主工作台", "label": "管理端主导航", "add": "添加内容", "library": "收藏库", "settings": "设置" },
