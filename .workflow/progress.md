@@ -43,3 +43,13 @@
 - 修复：统一 `requireAdminWrite` 不再依赖容错 MIME 解析，改为对原始 Header 整串做严格白名单校验；仅接受 `application/json` 或单一且值为 `utf-8` 的 `charset` 参数（大小写不敏感），裸参数、空值、未知/多参数和重复分号均在业务写入前返回 415。
 - 回归：详情集成测试覆盖 8 类非法 Content-Type 且确认零删除，同时验证无参数、`charset=utf-8` 与大小写变体合法；定向共享写管线 29/29 PASS。代码提交 `0068b51`。
 - 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 27 files / 162 tests PASS（精确向量基准 recall@10 均为 1）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；`pnpm db:migrate` 成功；生产 `next build + next start` Playwright 桌面/移动 8/8 PASS；工作流校验器 PASS（stage=implementation, revision=5）。
+
+## 2026-08-09：T17–T19 检索、每日轮换与国际化
+
+- T17 红灯：`retrieve`/`pickDaily` 目标模块不存在，2 个计划测试套件退出 1。实现后用真实 pgvector 验证当前 version/dim/status 隔离、动态阈值、Top10 精确余弦排序、非 ready 在 embedding 前 fail-closed；每日选择在 advisory lock 事务内持久化，并发首访同组同序、同日稳定、未展示/最久未展示优先、少于 3 条与删除补位均通过。提交 `fbd4c29`。
+- T18 红灯：公开问答路由、回答 schema 与可信 IP/限流模块不存在，2 个套件退出 1。实现 DB-only readiness 快检与事务内锁后复检，global→IP 固定顺序原子计数，超限/存储异常不调模型，无命中返回固定文案且 LLM=0，归纳仅接受命中 ID 白名单，来源 DTO 由服务端组装。定向 29/29 PASS。提交 `bdc15aa`，Next route 导出合同修复 `a7d8401`。
+- DEV-002（架构师已批准）：Next App Router 不暴露 TCP peer，因此以 Caddy/应用独占 `PROXY_SHARED_SECRET` 常量时间认证代替 socket peer CIDR 校验；仅认证成功才信任单值规范化 `X-Real-Client-IP`，否则 403、零计数、零模型。客户端伪造 XFF/真实 IP 头无有效密钥均不受信；IP 仅以 `HMAC-SHA256(IP_HASH_KEY, day || ip)` 按日不可链接 scope 入库。Caddy 剥离/注入规则依批准计划在 T25 落地，最终报告需再登记失效条件。
+- T19 红灯：中英字典与 request config 不存在，集成套件退出 1；完成 SSR cookie canonical locale、localStorage 单向镜像、递归中文回退、两端共享切换器、当前管理端全状态字典与本地化日期。TSX 静态扫描无未登记中文 UI 字面量；英文 UI 中条目/标签/AI 中文总结保持原样。提交 `fc12606`。
+- 新增运行时依赖：`next-intl@4.13.5`，用于 Next App Router SSR/客户端国际化，MIT License。初选 4.3.12 被 `pnpm audit --prod` 检出 2 个 Moderate 公告后立即升级；4.13.5 审计为无已知漏洞。不使用的 `@parcel/watcher`/`@swc/core` 传递安装脚本在 pnpm 策略中显式拒绝，冻结锁文件安装、生产构建与 E2E 均通过。修复提交 `9b754b0`。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 32 files / 202 tests PASS（精确向量基准 100/500/1000 行 recall@10=1，P95 均 <1ms）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、`pnpm db:migrate`、独立生产 `next build` 通过；生产 `next build + next start` Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
+- Web Interface Guidelines 新鲜审查后，语言切换按钮补齐 44px 触控目标、hover 反馈与全局 `focus-visible`；桌面/移动截图无重叠或横向溢出。证据：`.workflow/screenshots/t19-i18n-en-desktop.png`、`.workflow/screenshots/t19-i18n-en-mobile.png`（提交 `3d1d64c`）。
