@@ -38,7 +38,7 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const response = await fetch(`/admin/api/items/list${activeQuery ? `?${activeQuery}` : ""}`, {
+      const response = await fetch(`/admin/api/items${activeQuery ? `?${activeQuery}` : ""}`, {
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
@@ -63,7 +63,7 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
     setLoadingMore(true);
     try {
       const query = queryFor(initialFilters, payload.nextCursor);
-      const response = await fetch(`/admin/api/items/list?${query}`, {
+      const response = await fetch(`/admin/api/items?${query}`, {
         headers: { Accept: "application/json" },
         cache: "no-store",
       });

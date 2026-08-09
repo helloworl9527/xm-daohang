@@ -3,7 +3,7 @@
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { GET } from "@/app/admin/api/items/list/route";
+import { GET } from "@/app/admin/api/items/route";
 import { db, pool } from "@/db/client";
 import { items, sessions } from "@/db/schema";
 import { createSession } from "@/lib/auth/session";
@@ -28,7 +28,7 @@ afterAll(async () => {
 
 async function authenticatedRequest(query = "") {
   const { token } = await createSession();
-  return new Request(`https://admin.example/admin/api/items/list${query}`, {
+  return new Request(`https://admin.example/admin/api/items${query}`, {
     headers: { cookie: `admin_session=${token}` },
   });
 }
@@ -79,9 +79,9 @@ async function seedLibrary() {
   ]);
 }
 
-describe("GET /admin/api/items/list", () => {
+describe("GET /admin/api/items", () => {
   it("requires an authenticated admin session and disables caching", async () => {
-    const response = await GET(new Request("https://admin.example/admin/api/items/list"));
+    const response = await GET(new Request("https://admin.example/admin/api/items"));
 
     expect(response.status).toBe(401);
     expect(response.headers.get("cache-control")).toBe("no-store");

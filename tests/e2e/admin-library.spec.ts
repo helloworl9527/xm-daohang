@@ -52,7 +52,7 @@ test("admin filters the library and recovers from a list error", async ({ page }
   await expect(page).toHaveURL(/\/admin$/);
 
   let listRequests = 0;
-  await page.route("**/admin/api/items/list**", async (route) => {
+  await page.route(/\/admin\/api\/items(?:\?.*)?$/, async (route) => {
     listRequests += 1;
     if (listRequests === 1) {
       await route.fulfill({ status: 500, contentType: "application/json", body: "{}" });
