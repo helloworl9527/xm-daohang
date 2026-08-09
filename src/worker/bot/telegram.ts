@@ -15,6 +15,7 @@ import {
   type ProcessingReceipt,
 } from "@/lib/items/processing";
 import { getPublicAskReadiness } from "@/lib/ratelimit/publicAsk";
+import { logger } from "@/lib/log/logger";
 import { retrieve, type SearchHit } from "@/lib/search/retrieve";
 
 export interface TelegramMessage {
@@ -178,6 +179,7 @@ async function handleQuestion(
   try {
     await (dependencies.readiness ?? getPublicAskReadiness)();
   } catch {
+    logger.info("tg_ask", { hit: false, ok: false });
     await dependencies.send(message.chatId, "问答服务暂未就绪。");
     return;
   }
@@ -185,12 +187,15 @@ async function handleQuestion(
   try {
     const hits = await (dependencies.retrieve ?? retrieve)(question);
     if (hits.length === 0) {
+      logger.info("tg_ask", { hit: false, ok: true });
       await dependencies.send(message.chatId, "收藏库中没有相关内容。");
       return;
     }
     const result = await (dependencies.answer ?? answerFromHits)(question, hits);
+    logger.info("tg_ask", { hit: true, ok: true });
     await dependencies.send(message.chatId, formatAnswer(result.answer, hits));
   } catch {
+    logger.info("tg_ask", { hit: false, ok: false });
     await dependencies.send(message.chatId, "检索暂时失败，请稍后重试。");
   }
 }
@@ -215,6 +220,9 @@ export async function handleTelegramMessage(
     const selected = allUrls.slice(0, 10);
     for (const url of selected) {
       const outcome = await addFromTelegram(url, message.chatId, dependencies.assertPublicUrl ?? defaultAssertPublicUrl);
+      if (outcome.kind === "added" || outcome.kind === "duplicate") {
+        logger.info("item_added", { source: "telegram", deduped: outcome.kind === "duplicate" });
+      }
       const response = outcome.kind === "duplicate"
         ? `该链接已收藏。回复 /refetch ${shortId(outcome.itemId)} 可重新抓取更新。`
         : {

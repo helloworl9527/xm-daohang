@@ -8,6 +8,7 @@ import {
   getPublicAskReadiness,
   PublicAskUnavailableError,
 } from "@/lib/ratelimit/publicAsk";
+import { logger } from "@/lib/log/logger";
 import { retrieve, type SearchHit } from "@/lib/search/retrieve";
 
 const askSchema = z.object({
@@ -59,6 +60,7 @@ export function createAskHandler(dependencies: AskDependencies = {}) {
     try {
       const limit = await (dependencies.consume ?? consumePublicAsk)(ip);
       if (!limit.allowed) {
+        logger.info("public_ask", { hit: false, empty: false, limited: true });
         return apiError("RATE_LIMITED", "今日提问已达上限，请稍后再来。", 429);
       }
     } catch (error) {
@@ -75,6 +77,7 @@ export function createAskHandler(dependencies: AskDependencies = {}) {
       return apiError("UPSTREAM_ERROR", "检索暂时失败，请稍后重试。", 502, true);
     }
     if (hits.length === 0) {
+      logger.info("public_ask", { hit: false, empty: true, limited: false });
       return Response.json(
         { answer: "收藏库中没有相关内容", sources: [] },
         { headers: { "Cache-Control": "no-store" } },
@@ -84,6 +87,7 @@ export function createAskHandler(dependencies: AskDependencies = {}) {
     try {
       const result = await (dependencies.answer ?? answerFromHits)(parsed.data.question, hits);
       const cited = new Set(result.citationIds);
+      logger.info("public_ask", { hit: true, empty: false, limited: false });
       return Response.json(
         {
           answer: result.answer,

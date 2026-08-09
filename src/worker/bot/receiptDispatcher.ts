@@ -1,5 +1,6 @@
 import { pool } from "@/db/client";
 import { decryptSecret } from "@/lib/crypto/secretbox";
+import { logger } from "@/lib/log/logger";
 
 export class TelegramTransportError extends Error {
   constructor(public readonly status: number, public readonly retryAfterSeconds?: number) {
@@ -79,5 +80,9 @@ export async function dispatchTelegramReceipt(
       where id = $2 and status = 'sending' and leased_by = $3`,
     [now, receipt.id, workerId],
   );
+  logger.info("tg_receipt", {
+    outcome: receipt.outcome,
+    duplicate_possible: duplicatePossible,
+  });
   return { sent: true, duplicatePossible };
 }

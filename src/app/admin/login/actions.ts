@@ -9,6 +9,7 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/guard";
 import { isLockedOut, hashLoginIp, recordAttempt } from "@/lib/auth/loginThrottle";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
+import { logger } from "@/lib/log/logger";
 
 const DUMMY_PASSWORD_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$35Q9zyffqVUedJKurQQMpA$U6SRxLbqKJ+dqVLGvkTvSYzLQWX0H0LEj5Mq8xbk3/g";
@@ -63,6 +64,7 @@ export async function loginWithCredentials(input: {
     const lock = await isLockedOut(ipHash, now, client);
     if (lock.locked) {
       await client.query("commit");
+      logger.info("login", { ok: false });
       return { ok: false, code: "LOCKED", retryAfterSeconds: lock.retryAfterSeconds };
     }
 
@@ -75,11 +77,13 @@ export async function loginWithCredentials(input: {
     await recordAttempt(ipHash, valid, now, client);
     if (!valid) {
       await client.query("commit");
+      logger.info("login", { ok: false });
       return { ok: false, code: "INVALID_CREDENTIALS" };
     }
 
     const created = await createSession({ now, client });
     await client.query("commit");
+    logger.info("login", { ok: true });
     return { ok: true, cookie: sessionCookie(created.token, created.session.absoluteExpiresAt) };
   } catch (error) {
     await client.query("rollback");

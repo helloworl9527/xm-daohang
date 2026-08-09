@@ -8,6 +8,7 @@ import { summarizeContent, type SummaryResult } from "@/lib/ai/summarize";
 import { fingerprintContent } from "@/lib/fetch/fingerprint";
 import { fetchGitHubRepository, GitHubFetchError } from "@/lib/fetch/github";
 import { ContentExtractError, fetchAndExtractContent } from "@/lib/fetch/webExtract";
+import { logger } from "@/lib/log/logger";
 import type { ProcessingJobPayload } from "@/worker/queue/requestPublisher";
 
 export interface FetchedItemContent {
@@ -164,7 +165,7 @@ async function failRequest(
   return { claimed: true, outcome: finalAttempt ? "failed" : "retrying" };
 }
 
-export async function processItemJob(
+async function processItemJobCore(
   payload: ProcessingJobPayload,
   dependencies: ProcessItemDependencies = defaultDependencies,
 ): Promise<ProcessItemOutcome> {
@@ -239,6 +240,31 @@ export async function processItemJob(
     return committed ? { claimed: true, outcome: "completed" } : { claimed: false };
   } catch (error) {
     return failRequest(payload, error, dependencies);
+  }
+}
+
+export async function processItemJob(
+  payload: ProcessingJobPayload,
+  dependencies: ProcessItemDependencies = defaultDependencies,
+): Promise<ProcessItemOutcome> {
+  const startedAt = performance.now();
+  try {
+    const result = await processItemJobCore(payload, dependencies);
+    if (result.claimed) {
+      logger.info("item_processed", {
+        ok: result.outcome === "completed",
+        retries: payload.attempt,
+        ms: Math.max(0, Math.round(performance.now() - startedAt)),
+      });
+    }
+    return result;
+  } catch (error) {
+    logger.info("item_processed", {
+      ok: false,
+      retries: payload.attempt,
+      ms: Math.max(0, Math.round(performance.now() - startedAt)),
+    });
+    throw error;
   }
 }
 

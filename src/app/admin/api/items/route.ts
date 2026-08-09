@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiError, requireAdminApi, requireAdminWrite } from "@/lib/auth/guard";
 import { addItem, AddItemError } from "@/lib/items/add";
 import { libraryQuerySchema, listLibraryItems } from "@/lib/items/list";
+import { logger } from "@/lib/log/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const result = await addItem(parsed.data.url);
+    logger.info("item_added", { source: "admin", deduped: result.deduped });
     return Response.json(result, {
       status: result.deduped ? 200 : 201,
       headers: { "Cache-Control": "no-store" },
