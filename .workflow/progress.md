@@ -18,3 +18,12 @@
 - 界面：实现 loading、空库、筛选无结果、失败/重试、加载更多状态；筛选写入 URL，桌面高密度列表与移动端单列均无溢出。
 - 验证：真实 PostgreSQL 16 + pgvector 定向集成/单元测试 10/10；生产构建 Playwright 桌面/移动 2/2，正常筛选流程控制台零错误且无横向溢出；`pnpm typecheck`、`pnpm lint`、`git diff --check` 退出 0。
 - 视觉证据：`.workflow/screenshots/t15-admin-library-desktop.png`、`.workflow/screenshots/t15-admin-library-mobile.png`。
+
+## 2026-08-09：T16 条目详情编辑、重抓与删除
+
+- 红灯：集成测试因 `/admin/api/items/[id]` 路由不存在退出 1；组件测试因 `ItemDetail` 不存在退出 1。
+- API：新增鉴权 GET/PATCH/DELETE 详情管线与 POST refetch；PATCH 仅允许 summary，用数据库完整 `updated_at` 精度编码 ETag 实现乐观并发，成功后置 `summary_manual=true`；重抓复用 T12 事务且 processing 冲突返回 409；删除依靠既定 FK cascade 清理向量条目、处理 outbox、Telegram 回执与每日选择。
+- UI：实现详情 loading/error/retry，人工总结编辑与失败草稿保留，processing 重抓禁用，原生 modal dialog 二次确认及关闭后焦点返回，保存/重抓/删除统一 `aria-live` 通知；桌面双列与移动单列均通过视觉核对。
+- 安全与边界：所有写操作依次执行会话、Origin、CSRF、JSON Content-Type 与 schema 检查；详情 DTO 不返回 embedding、canonical URL、process generation、密文或 internal stack；无新增外部依赖与日志敏感文本。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 27 files / 153 tests PASS（精确向量基准 100/500/1000 行 recall@10 均为 1）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；`pnpm db:migrate` 成功；生产构建 Playwright 8/8 PASS；Web Interface Guidelines 新鲜规范复核通过。
+- 视觉证据：`.workflow/screenshots/t16-admin-detail-desktop.png`、`.workflow/screenshots/t16-admin-detail-mobile.png`。

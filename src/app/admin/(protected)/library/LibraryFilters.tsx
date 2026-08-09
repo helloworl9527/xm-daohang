@@ -33,10 +33,12 @@ export function LibraryFilters({
       <label>
         <span>关键词</span>
         <input
+          autoComplete="off"
           disabled={disabled}
           maxLength={200}
+          name="q"
           onChange={(event) => onChange({ ...value, q: event.target.value })}
-          placeholder="标题、总结或链接"
+          placeholder="例如 PostgreSQL…"
           type="search"
           value={value.q}
         />
@@ -44,19 +46,23 @@ export function LibraryFilters({
       <label>
         <span>标签</span>
         <input
+          autoComplete="off"
           disabled={disabled}
+          name="tag"
           onChange={(event) => onChange({
             ...value,
             tags: event.target.value.split(",").map((tag) => tag.trim()),
           })}
-          placeholder="多个标签用逗号分隔"
+          placeholder="例如 数据库, 后端…"
           value={value.tags.join(", ")}
         />
       </label>
       <label>
         <span>状态</span>
         <select
+          autoComplete="off"
           disabled={disabled}
+          name="status"
           onChange={(event) => onChange({
             ...value,
             status: event.target.value as LibraryFiltersValue["status"],
