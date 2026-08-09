@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { pool } from "@/db/client";
+import { businessDay } from "@/lib/time/businessDay";
 
 export interface DailyItem {
   id: string;
@@ -91,4 +92,8 @@ export async function pickDaily(day: string): Promise<DailyItem[]> {
   } finally {
     client.release();
   }
+}
+
+export async function pickDailyForNow(now = new Date()): Promise<DailyItem[]> {
+  return pickDaily(businessDay(now));
 }

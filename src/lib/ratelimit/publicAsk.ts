@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 
 import { pool } from "@/db/client";
+import { businessDay } from "@/lib/time/businessDay";
 
 interface ReadinessRow extends QueryResultRow {
   llm_base_url: string | null;
@@ -65,10 +66,6 @@ export async function getPublicAskReadiness(queryable: Queryable = pool): Promis
   await readReadiness(queryable, false);
 }
 
-function dayString(now: Date): string {
-  return now.toISOString().slice(0, 10);
-}
-
 function hashIp(ip: string, day: string): string {
   const key = process.env.IP_HASH_KEY;
   if (!key || Buffer.byteLength(key) < 32) throw new PublicAskUnavailableError();
@@ -89,7 +86,7 @@ export async function consumePublicAsk(ip: string, now = new Date()): Promise<Pu
       return { allowed: true };
     }
 
-    const day = dayString(now);
+    const day = businessDay(now);
     const ipScope = `ip:${hashIp(ip, day)}`;
     for (const scope of ["global", ipScope]) {
       await client.query(

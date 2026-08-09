@@ -4,9 +4,12 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
-import { appSettings, askCounters } from "@/db/schema";
+import { appSettings, askCounters, dailySelections, items } from "@/db/schema";
 import { createAskHandler } from "@/lib/ask/handler";
 import { getTrustedClientIp } from "@/lib/http/clientIp";
+import { pickDailyForNow } from "@/lib/items/daily";
+import { consumePublicAsk } from "@/lib/ratelimit/publicAsk";
+import { businessDay } from "@/lib/time/businessDay";
 
 const PROXY_SECRET = "proxy-test-secret-with-at-least-32-bytes";
 const hit = {
@@ -41,6 +44,7 @@ async function counters() {
 beforeAll(async () => {
   process.env.PROXY_SHARED_SECRET = PROXY_SECRET;
   process.env.IP_HASH_KEY = "public-ask-ip-key-with-at-least-32-bytes";
+  process.env.APP_TIMEZONE = "Asia/Shanghai";
   const database = await pool.query<{ current_database: string }>("select current_database()");
   if (database.rows[0]?.current_database !== "collection_system_test") {
     throw new Error("Public ask tests require the dedicated collection_system_test database");
@@ -51,6 +55,8 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await db.delete(askCounters);
+  await db.delete(dailySelections);
+  await db.delete(items);
   await db.delete(appSettings);
   await db.insert(appSettings).values({
     id: 1,
@@ -223,5 +229,61 @@ describe("public ask readiness and atomic limits", () => {
     expect(await counters()).toEqual([]);
     expect(retrieve).not.toHaveBeenCalled();
     expect(answer).not.toHaveBeenCalled();
+  });
+
+  it("rotates counters and IP HMAC scope at the Shanghai business-day boundary", async () => {
+    await db.update(appSettings).set({ ratelimitIpDaily: 10, ratelimitGlobalDaily: 20 });
+    await consumePublicAsk("203.0.113.7", new Date("2026-08-09T15:59:59.999Z"));
+    await consumePublicAsk("203.0.113.7", new Date("2026-08-09T16:00:00.000Z"));
+
+    const rows = await counters();
+    expect(rows.map((row) => row.day).sort()).toEqual([
+      "2026-08-09", "2026-08-09", "2026-08-10", "2026-08-10",
+    ]);
+    const ipScopes = rows.filter((row) => row.scope.startsWith("ip:")).map((row) => row.scope);
+    expect(new Set(ipScopes)).toHaveLength(2);
+  });
+
+  it("does not rotate the Shanghai business day at the UTC midnight boundary", async () => {
+    await db.update(appSettings).set({ ratelimitIpDaily: 10, ratelimitGlobalDaily: 20 });
+    await consumePublicAsk("203.0.113.7", new Date("2026-08-09T23:59:59.999Z"));
+    await consumePublicAsk("203.0.113.7", new Date("2026-08-10T00:00:00.000Z"));
+
+    const rows = await counters();
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.day === "2026-08-10" && row.count === 2)).toBe(true);
+  });
+
+  it("fails closed for a missing or invalid APP_TIMEZONE", async () => {
+    const original = process.env.APP_TIMEZONE;
+    for (const value of [undefined, "Not/A-Timezone"]) {
+      if (value === undefined) delete process.env.APP_TIMEZONE;
+      else process.env.APP_TIMEZONE = value;
+      await expect(consumePublicAsk("203.0.113.7")).rejects.toMatchObject({
+        code: "MODEL_UNAVAILABLE",
+      });
+      expect(await counters()).toEqual([]);
+    }
+    process.env.APP_TIMEZONE = original;
+  });
+
+  it("uses the same business day for public limits and daily selection", async () => {
+    const now = new Date("2026-08-09T16:30:00.000Z");
+    await db.insert(items).values({
+      url: "https://example.com/business-day",
+      urlCanonical: "https://example.com/business-day",
+      type: "web",
+      title: "business day",
+      tags: ["time", "daily", "fixture"],
+      status: "completed",
+      source: "admin",
+    });
+    await pickDailyForNow(now);
+    await consumePublicAsk("203.0.113.7", now);
+
+    const [selection] = await db.select().from(dailySelections);
+    const rows = await counters();
+    expect(selection?.day).toBe(businessDay(now));
+    expect(rows.every((row) => row.day === selection?.day)).toBe(true);
   });
 });
