@@ -264,7 +264,38 @@ describe("public ask readiness and atomic limits", () => {
       });
       expect(await counters()).toEqual([]);
     }
-    process.env.APP_TIMEZONE = original;
+    if (original === undefined) delete process.env.APP_TIMEZONE;
+    else process.env.APP_TIMEZONE = original;
+  });
+
+  it.each([undefined, "Not/A-Timezone"])(
+    "fails closed before retrieval when limits are disabled and APP_TIMEZONE is %s",
+    async (timezone) => {
+      await db.update(appSettings).set({ ratelimitEnabled: false });
+      const original = process.env.APP_TIMEZONE;
+      if (timezone === undefined) delete process.env.APP_TIMEZONE;
+      else process.env.APP_TIMEZONE = timezone;
+
+      await expect(consumePublicAsk("203.0.113.7")).rejects.toMatchObject({
+        code: "MODEL_UNAVAILABLE",
+      });
+      const retrieve = vi.fn(async () => [hit]);
+      const answer = vi.fn();
+      const response = await createAskHandler({ retrieve, answer })(request());
+      expect(response.status).toBe(503);
+      expect(await counters()).toEqual([]);
+      expect(retrieve).not.toHaveBeenCalled();
+      expect(answer).not.toHaveBeenCalled();
+
+      if (original === undefined) delete process.env.APP_TIMEZONE;
+      else process.env.APP_TIMEZONE = original;
+    },
+  );
+
+  it("allows disabled limits with a valid timezone without writing counters", async () => {
+    await db.update(appSettings).set({ ratelimitEnabled: false });
+    await expect(consumePublicAsk("203.0.113.7")).resolves.toEqual({ allowed: true });
+    expect(await counters()).toEqual([]);
   });
 
   it("uses the same business day for public limits and daily selection", async () => {

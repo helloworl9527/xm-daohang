@@ -80,13 +80,13 @@ export async function consumePublicAsk(ip: string, now = new Date()): Promise<Pu
   try {
     await client.query("begin");
     const settings = await readReadiness(client, true);
+    const day = businessDay(now);
     if (!settings.ratelimit_enabled) {
       await client.query("commit");
       settled = true;
       return { allowed: true };
     }
 
-    const day = businessDay(now);
     const ipScope = `ip:${hashIp(ip, day)}`;
     for (const scope of ["global", ipScope]) {
       await client.query(
