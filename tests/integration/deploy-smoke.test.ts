@@ -1,6 +1,10 @@
 // @vitest-environment node
 
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 
 import { Pool } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
@@ -12,6 +16,7 @@ import { createWorkerRuntime } from "@/worker/index";
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required");
 const pool = new Pool({ connectionString });
+const execFileAsync = promisify(execFile);
 
 describe("deployment contracts", () => {
   afterAll(async () => pool.end());
@@ -57,9 +62,24 @@ describe("deployment contracts", () => {
     expect(dockerfile).toContain("AS worker");
     expect(dockerfile).toContain("pnpm install --prod");
     expect(dockerfile).toContain(".next/standalone");
+    expect(dockerfile).toContain("RUN pnpm build");
+    expect(dockerfile).toContain("pnpm_config_verify_deps_before_run=false");
     for (const key of ["DATABASE_URL", "APP_TIMEZONE", "APP_ENCRYPTION_KEY", "IP_HASH_KEY", "LOGIN_IP_HASH_KEY", "TG_ID_HASH_KEY", "PROXY_SHARED_SECRET"]) {
       expect(env).toMatch(new RegExp(`^${key}=`, "m"));
     }
+  });
+
+  it("excludes every root devDependency from the standalone production filesystem", async () => {
+    const manifest = JSON.parse(await readFile("package.json", "utf8")) as { devDependencies: Record<string, string> };
+    const result = await execFileAsync(process.execPath, ["scripts/verify-production-artifact.mjs", ".next/standalone"]);
+    expect(result.stdout).toContain(`excludes ${Object.keys(manifest.devDependencies).length} root devDependencies`);
+  });
+
+  it("fails closed when a root devDependency is reintroduced", async () => {
+    const artifact = await mkdtemp(path.join(tmpdir(), "collection-production-gate-"));
+    await mkdir(path.join(artifact, "node_modules", "typescript"), { recursive: true });
+    await expect(execFileAsync(process.execPath, ["scripts/verify-production-artifact.mjs", artifact]))
+      .rejects.toMatchObject({ stderr: expect.stringContaining("DEV_DEPENDENCIES_PRESENT:typescript") });
   });
 
   it("starts a real pg-boss worker, records heartbeat, and stops gracefully", async () => {

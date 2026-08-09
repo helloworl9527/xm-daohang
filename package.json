@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/verify-production-artifact.mjs --prune .next/standalone",
     "db:migrate:prod": "node --experimental-strip-types scripts/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

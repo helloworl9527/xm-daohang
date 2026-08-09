@@ -41,11 +41,11 @@
 | `corepack pnpm audit --prod` | PASS，`No known vulnerabilities found` |
 | `DATABASE_URL=... corepack pnpm db:migrate` | PASS，3 条迁移已应用/幂等 |
 | `DATABASE_URL=... corepack pnpm db:migrate:prod` | PASS，生产 drizzle-orm migrator 幂等 |
-| `corepack pnpm test`（真实 PG16+pgvector） | PASS，41 files / 252 tests，0 failed，22.04s |
-| T25 定向 `deploy-smoke/adminRecovery/retention` | PASS，3 files / 12 tests；含真实 pg-boss heartbeat + graceful stop |
+| `corepack pnpm test`（真实 PG16+pgvector） | PASS，41 files / 254 tests，0 failed，34.82s |
+| T25 定向 `deploy-smoke` | PASS，7/7；含全根 devDependency 正向/反向门禁、真实 pg-boss heartbeat + graceful stop |
 | `corepack pnpm typecheck` | PASS，0 errors |
 | `corepack pnpm lint` | PASS，0 errors |
-| 独立 `corepack pnpm build` | PASS，Next.js 15.5.23 standalone，22 个 route，编译/类型/静态生成完成 |
+| 独立 `corepack pnpm build` | PASS，Next.js 15.5.23 standalone，22 个 route，编译/类型/静态生成完成；构建末尾 prune 后 15/15 根 devDependencies 均不存在 |
 | `corepack pnpm e2e` | PASS，22/22；Chromium desktop 11、mobile 11；生产 standalone server |
 | `sh -n scripts/backup.sh scripts/restore-smoke.sh` | PASS |
 | README 命令/路径/链接静态核验 | PASS：manifest 脚本、相对链接、目录、环境变量名与 compose target 均存在；部署命令仅核验定义，未执行外部状态操作 |
@@ -58,13 +58,13 @@ UI 证据：T23/T24 桌面 1440 与移动 390 截图位于 `.workflow/screenshot
 
 ### 无 daemon 实测
 
-- `du -sh .next/standalone`：`61M`（62,816 KiB）；其中 standalone `node_modules` 为 `55M`。静态资源另为 `1.0M`，Dockerfile 会复制到同一最终文件系统。
+- 独立 `next build` 完成并执行生产 prune 后，`du -sh .next/standalone` 为 `52M`，其中 standalone `node_modules` 为 `46M`；静态资源另为 `1.0M`，Dockerfile 会复制到同一最终文件系统。Playwright 启动脚本会把静态资源复制进 standalone，故 E2E 后再次查看目录为 `53M`，镜像估算按两者合计计算，不重复计入。
 - 临时目录执行 `pnpm install --prod --ignore-scripts --frozen-lockfile --offline` 后 `du -sh node_modules`：`514M`（526,092 KiB），devDependencies 明确 skipped。最终镜像没有复制这棵完整依赖树，只复制 standalone tracing 产物及生产迁移需要的 `drizzle-orm`（约 `16M`），因此不会把 514M 全量带入镜像。
 - 基础镜像：`node:22.22.0-bookworm-slim`，Docker Hub 官方 tag API 对本机目标 `linux/arm64` 报 `79,443,440` bytes（75.8MiB）压缩大小，manifest digest `sha256:5e22e6fb4448236070fdb260662e49fd58779876855baf95388534475c3dcd11`。从官方 registry 按该 manifest 流式解压五个 layer 得 `251,815,936` bytes（240.2MiB）。来源：`https://hub.docker.com/v2/repositories/library/node/tags/22.22.0-bookworm-slim` 与 `https://registry-1.docker.io/v2/library/node/manifests/<digest>`。同一 tag 的官方 `linux/amd64` 压缩大小为 `79,425,362` bytes。
 
 ### 估算方法与区间
 
-`docker images` 展示的本地虚拟大小可按基础层解压 240.2MiB + standalone/静态约 62MiB + 单独复制的 drizzle-orm 约 16MiB + 迁移/脚本/用户与元数据少量开销估算。app 与 worker target 共享相同文件系统，worker 只增加 ENV/CMD 元数据，因此二者估算均为 **310–340MiB**。这是基于官方 layer 与本地产物的估算区间，不是真实 `docker images` 输出。
+`docker images` 展示的本地虚拟大小可按基础层解压 240.2MiB + standalone/静态约 53M + 单独复制的 drizzle-orm 约 16M + 迁移/脚本/用户与元数据少量开销估算。app 与 worker target 共享相同文件系统，worker 只增加 ENV/CMD 元数据，因此二者估算均约为 **300–325MiB**。这是基于官方 layer 与本地产物的估算区间，不是真实 `docker images` 输出。
 
 完整 `--prod` 依赖树偏大主要来自 Next/SWC 平台包、pdfjs-dist 和可选原生包；当前 standalone tracing 已是主要瘦身措施。后续可评估按 app/worker 分离 trace、只保留目标架构二进制、将迁移器做成更小的一次性 target，但不得在无回归/restore drill 证据时删除 PDF 或运行依赖。
 
@@ -87,6 +87,7 @@ scripts/restore-smoke.sh ./backups/实际备份.dump ./restore-admin-password.se
 - **DEV-001（已批准）**：把 `CREATE EXTENSION IF NOT EXISTS vector` 前移为初始迁移第一条语句，确保建 `embedding vector` 列前类型已存在。影响仅迁移顺序，不改变列、数据模型、索引类型或检索语义。
 - **DEV-002（已批准）**：可信客户端 IP 使用 Caddy 剥离客户端头后注入 `X-Real-Client-IP` + `X-Proxy-Auth` 共享密钥。应用只有在常量时间校验 `PROXY_SHARED_SECRET` 后才信任单值 IP；无/错密钥时 403、零计数、零模型调用。替代 socket peer CIDR 校验，等价满足防伪造属性。多副本/更换反代时必须同步密钥和剥离规则。
 - 实现级选择：Next standalone 通过 `src/instrumentation.ts` 在 `WORKER_MODE=1` 时装载 worker；运维 TS 脚本使用 Node 22 type stripping；生产迁移使用已有 drizzle-orm migrator，不把 drizzle-kit/devDependencies 复制进最终镜像。该选择不改变产品行为或数据边界。
+- **R13（最终验收返工，已修复）**：修复前 standalone tracing 从 builder 误带根 devDependency `typescript`（约 9.1M），原报告关于生产产物纯净的断言不准确。现由 `scripts/verify-production-artifact.mjs` 在构建末尾删除全部根 devDependency 的顶层入口和 pnpm store 实体，并在 builder 产物及最终 app/worker 文件系统分别 fail-closed 校验 15/15 项；反向 fixture 重新放入 `typescript` 时稳定报 `DEV_DEPENDENCIES_PRESENT:typescript`。最终镜像还设置 `pnpm_config_verify_deps_before_run=false`，防止运维脚本启动时 pnpm 因依赖同步检查自动安装完整依赖；迁移和改密脚本在模拟最终文件系统内均已直接运行通过，运行前后门禁均保持通过。
 
 ## 残余风险与观察项
 
