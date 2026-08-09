@@ -7,7 +7,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { Pool } from "pg";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { GET as live } from "@/app/api/health/live/route";
 import { GET as ready } from "@/app/api/health/ready/route";
@@ -17,9 +17,18 @@ const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required");
 const pool = new Pool({ connectionString });
 const execFileAsync = promisify(execFile);
+const originalTimezone = process.env.APP_TIMEZONE;
 
 describe("deployment contracts", () => {
-  afterAll(async () => pool.end());
+  beforeAll(() => {
+    process.env.APP_TIMEZONE = "Asia/Shanghai";
+  });
+
+  afterAll(async () => {
+    await pool.end();
+    if (originalTimezone === undefined) delete process.env.APP_TIMEZONE;
+    else process.env.APP_TIMEZONE = originalTimezone;
+  });
 
   it("keeps liveness dependency-free and readiness migration-aware", async () => {
     await expect(live()).resolves.toMatchObject({ status: 200 });
@@ -63,6 +72,7 @@ describe("deployment contracts", () => {
     expect(dockerfile).toContain("pnpm install --prod");
     expect(dockerfile).toContain(".next/standalone");
     expect(dockerfile).toContain("RUN pnpm build");
+    expect(dockerfile).toContain("ENV DATABASE_URL=postgresql://placeholder:");
     expect(dockerfile).toContain("pnpm_config_verify_deps_before_run=false");
     for (const key of ["DATABASE_URL", "APP_TIMEZONE", "APP_ENCRYPTION_KEY", "IP_HASH_KEY", "LOGIN_IP_HASH_KEY", "TG_ID_HASH_KEY", "PROXY_SHARED_SECRET"]) {
       expect(env).toMatch(new RegExp(`^${key}=`, "m"));

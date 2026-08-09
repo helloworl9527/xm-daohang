@@ -41,11 +41,13 @@
 | `corepack pnpm audit --prod` | PASS，`No known vulnerabilities found` |
 | `DATABASE_URL=... corepack pnpm db:migrate` | PASS，3 条迁移已应用/幂等 |
 | `DATABASE_URL=... corepack pnpm db:migrate:prod` | PASS，生产 drizzle-orm migrator 幂等 |
-| `corepack pnpm test`（真实 PG16+pgvector） | PASS，41 files / 254 tests，0 failed，34.82s |
+| `corepack pnpm test`（真实 PG16+pgvector） | PASS，42 files / 255 tests，0 failed，23.35s |
 | T25 定向 `deploy-smoke` | PASS，7/7；含全根 devDependency 正向/反向门禁、真实 pg-boss heartbeat + graceful stop |
 | `corepack pnpm typecheck` | PASS，0 errors |
 | `corepack pnpm lint` | PASS，0 errors |
 | 独立 `corepack pnpm build` | PASS，Next.js 15.5.23 standalone，22 个 route，编译/类型/静态生成完成；构建末尾 prune 后 15/15 根 devDependencies 均不存在 |
+| `env -u DATABASE_URL corepack pnpm build`（PA-01） | PASS，数据库模块加载不再读取连接配置；首次实际 `query/connect` 才严格校验；Docker builder 另注入非生产占位 URL |
+| `env -u APP_TIMEZONE ... vitest retention/deploy-smoke`（OBS-A） | PASS，2 files / 9 tests；用例自行设置并恢复 `Asia/Shanghai`，不依赖 ambient 时区 |
 | `corepack pnpm e2e` | PASS，22/22；Chromium desktop 11、mobile 11；生产 standalone server |
 | `sh -n scripts/backup.sh scripts/restore-smoke.sh` | PASS |
 | README 命令/路径/链接静态核验 | PASS：manifest 脚本、相对链接、目录、环境变量名与 compose target 均存在；部署命令仅核验定义，未执行外部状态操作 |
@@ -70,16 +72,24 @@ UI 证据：T23/T24 桌面 1440 与移动 390 截图位于 `.workflow/screenshot
 
 ### 环境阻塞与复现命令
 
-本机没有 Docker CLI/daemon（`docker: command not found`），所以未执行镜像构建、`docker images` SIZE、`docker compose config/up`、Caddy 实际加载和 backup→restore 容器演练。不得把估算冒充真实值。有 Docker 的主机应执行：
+本机没有 Docker CLI/daemon（`docker: command not found`），所以未执行镜像构建、`docker images` SIZE、`docker compose config/up`、Caddy 实际加载和 backup→restore 容器演练。不得把估算冒充真实值。有 Docker 的主机在准备好 `.env` 与权限为 `0600` 的 `restore-admin-password.secret` 后，应从项目根目录一次执行以下复验：
 
 ```bash
+set -eu
 docker build --target app -t collection-system-app:local .
 docker build --target worker -t collection-system-worker:local .
 docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' collection-system-app:local
 docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' collection-system-worker:local
 docker compose config
-scripts/backup.sh ./backups
-scripts/restore-smoke.sh ./backups/实际备份.dump ./restore-admin-password.secret
+docker compose up -d --build --wait
+docker compose ps
+docker compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/health/live').then(r=>{if(!r.ok)process.exit(1)})"
+docker compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)})"
+docker compose exec -T worker node --experimental-strip-types scripts/check-worker-health.ts
+docker compose exec -T postgres sh -eu -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+docker compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+backup=$(scripts/backup.sh ./backups | tail -n 1)
+scripts/restore-smoke.sh "$backup" ./restore-admin-password.secret
 ```
 
 ## 已批准偏差与实现级选择
@@ -88,6 +98,9 @@ scripts/restore-smoke.sh ./backups/实际备份.dump ./restore-admin-password.se
 - **DEV-002（已批准）**：可信客户端 IP 使用 Caddy 剥离客户端头后注入 `X-Real-Client-IP` + `X-Proxy-Auth` 共享密钥。应用只有在常量时间校验 `PROXY_SHARED_SECRET` 后才信任单值 IP；无/错密钥时 403、零计数、零模型调用。替代 socket peer CIDR 校验，等价满足防伪造属性。多副本/更换反代时必须同步密钥和剥离规则。
 - 实现级选择：Next standalone 通过 `src/instrumentation.ts` 在 `WORKER_MODE=1` 时装载 worker；运维 TS 脚本使用 Node 22 type stripping；生产迁移使用已有 drizzle-orm migrator，不把 drizzle-kit/devDependencies 复制进最终镜像。该选择不改变产品行为或数据边界。
 - **R13（最终验收返工，已修复）**：修复前 standalone tracing 从 builder 误带根 devDependency `typescript`（约 9.1M），原报告关于生产产物纯净的断言不准确。现由 `scripts/verify-production-artifact.mjs` 在构建末尾删除全部根 devDependency 的顶层入口和 pnpm store 实体，并在 builder 产物及最终 app/worker 文件系统分别 fail-closed 校验 15/15 项；反向 fixture 重新放入 `typescript` 时稳定报 `DEV_DEPENDENCIES_PRESENT:typescript`。最终镜像还设置 `pnpm_config_verify_deps_before_run=false`，防止运维脚本启动时 pnpm 因依赖同步检查自动安装完整依赖；迁移和改密脚本在模拟最终文件系统内均已直接运行通过，运行前后门禁均保持通过。
+- **PA-01（实施后审计 High，已修复）**：此前各次本机构建均带有 ambient `DATABASE_URL`，不能证明无构建期数据库配置的 Docker builder 可用；原 `src/db/client.ts` 又在模块导入时急抛错，故原报告的 build PASS 对文档化镜像路径证据不足。现数据库客户端改为首次实际 `query/connect` 时才创建连接池并严格校验 `DATABASE_URL`，模块加载不连接数据库；Docker builder 同时注入只存在于构建阶段的 localhost 占位 URL 作为防御纵深。已显式移除 `DATABASE_URL` 实跑完整 `pnpm build` 并通过，首次无配置查询仍稳定拒绝。
+- **PA-02（报告准确性，已修复）**：本报告已明确区分修复前 ambient `DATABASE_URL` 掩盖的问题、修复后的无变量构建证据，以及仍未在本机执行的真实 Docker 证据，不再用前者推断后者。
+- **OBS-A（已落实）**：`retention` 与 `deploy-smoke` 集成测试在生命周期内自行设置并恢复 `APP_TIMEZONE=Asia/Shanghai`；显式移除 ambient 时区后 9/9 通过。
 
 ## 残余风险与观察项
 

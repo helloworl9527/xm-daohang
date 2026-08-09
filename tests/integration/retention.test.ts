@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { Pool } from "pg";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { cleanupRetention, recordWorkerHeartbeat } from "@/worker/jobs/maintenance";
 
@@ -9,15 +9,23 @@ const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required");
 const pool = new Pool({ connectionString });
 const now = new Date("2026-08-09T12:00:00.000Z");
+const originalTimezone = process.env.APP_TIMEZONE;
 
 describe("worker maintenance", () => {
+  beforeAll(() => {
+    process.env.APP_TIMEZONE = "Asia/Shanghai";
+  });
   beforeEach(async () => {
     await pool.query(
       "delete from telegram_receipts; delete from processing_requests; delete from daily_selections; delete from ask_counters; delete from login_attempts; delete from worker_heartbeats; delete from items; delete from app_settings",
     );
     await pool.query("insert into app_settings (id) values (1)");
   });
-  afterAll(async () => pool.end());
+  afterAll(async () => {
+    await pool.end();
+    if (originalTimezone === undefined) delete process.env.APP_TIMEZONE;
+    else process.env.APP_TIMEZONE = originalTimezone;
+  });
 
   it("upserts a versioned worker heartbeat", async () => {
     await recordWorkerHeartbeat("worker-a", "0.1.0", now, pool);

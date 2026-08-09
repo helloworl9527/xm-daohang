@@ -10,6 +10,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 FROM dependencies AS builder
 COPY . .
+ENV DATABASE_URL=postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder
 RUN pnpm build
 
 FROM base AS production-dependencies
