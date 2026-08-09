@@ -96,4 +96,23 @@ describe("Telegram receipt dispatcher", () => {
     })).resolves.toEqual({ sent: false });
     expect(send).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["第一句介绍主题。第二句补充细节。第三句结束。", "第一句介绍主题。"],
+    ["Foo. Bar.", "Foo."],
+    ["这是一段没有句末标点的总结", "这是一段没有句末标点的总结"],
+    [null, "内容已完成处理。"],
+    ["第一句……第二句！？第三句。", "第一句……"],
+  ])("sends exactly one complete sentence from summary %j", async (summary, expected) => {
+    await pool.query("update items set summary = $1 where id = $2", [summary, itemId]);
+    await seed();
+    const send = vi.fn<(chatId: string, text: string, key: string) => Promise<void>>(async () => undefined);
+    await dispatchTelegramReceipt("worker-a", {
+      send,
+      now: () => new Date("2026-08-09T00:00:00Z"),
+    });
+    expect(send.mock.calls[0]?.[1]).toBe(
+      `✅ 已收藏\nTitle\n${expected}\nhttps://example.com/item`,
+    );
+  });
 });

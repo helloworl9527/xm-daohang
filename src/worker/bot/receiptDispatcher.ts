@@ -19,9 +19,10 @@ export interface DispatchResult {
 }
 
 function firstSentence(summary: string | null): string {
-  if (!summary) return "内容已完成处理。";
-  const match = summary.match(/^.*?[。！？!?](?:\s|$)/u);
-  return (match?.[0] ?? summary).trim();
+  const normalized = summary?.trim();
+  if (!normalized) return "内容已完成处理。";
+  const match = normalized.match(/^.*?[。！？!?.…]+/u);
+  return match?.[0] ?? normalized;
 }
 
 export async function dispatchTelegramReceipt(

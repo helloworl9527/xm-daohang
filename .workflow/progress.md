@@ -75,3 +75,10 @@
 - T21 红灯：新增 6 个提问/命令用例时 5 个失败，证明旧 handler 对非 URL 消息直接忽略。实现“白名单 → `/refetch|/retry <8 位短 ID>` → URL 添加 → 非空提问”优先级；短 ID 未知或歧义统一回“未找到”，畸形命令不降级为检索。提问在模型/embedding rebuild DB-only readiness 通过后复用 `retrieve` + `answerFromHits`，无命中固定回执且 LLM=0，来源仅由服务端 hits 拼装且最多 10 条；未调用公开限流，`ask_counters` 保持为空。提交 `f6a2877`。
 - 新增运行时依赖：`grammy@1.38.3`，用于 Telegram Bot API long polling 与 `sendMessage` adapter，MIT License；`pnpm audit --prod` 报告无已知漏洞。Telegram 网络在测试中使用注入 transport，未访问真实 Bot API，Token 仅通过服务端 `getDecryptedSecret` 读取。
 - 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 36 files / 228 tests PASS（精确向量基准 100/500/1000 行 recall@10=1，P95 均 <1ms）；T20–T21 定向 15/15 PASS；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、干净库 `pnpm db:migrate`、独立 `next build` 通过；生产 `next build + next start` Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
+
+## 2026-08-09：阶段验收返工 R12
+
+- 红灯：完成回执对“第一句。第二句。第三句。”与 `Foo. Bar.` 均发送整段，连续省略号也未截断，定向测试 9 例中 3 例失败。
+- 修复：`firstSentence` 在 trim 后以第一组连续中英文句末标点（`。！？!?.…`）为边界，保留完整标点组并截断后文；无句末标点时保留整段，null/空白总结使用固定占位。未改动 dispatcher 领取、lease、退避或发送状态机。
+- 回归：覆盖中文无空格多句、英文句点、无标点、null 与连续省略号/多标点，定向 9/9 PASS。
+- 新鲜全套验证：真实 PostgreSQL 16 + pgvector 下 `pnpm test` 36 files / 233 tests PASS（recall@10=1，P95 均 <1ms）；`pnpm typecheck`、`pnpm lint`、`pnpm audit --prod` 退出 0（无已知漏洞）；冻结锁文件安装、干净库 `pnpm db:migrate`、独立 `next build` 通过；生产 Playwright 桌面/移动 10/10 PASS；workflow validator PASS（stage=implementation, revision=5）。
