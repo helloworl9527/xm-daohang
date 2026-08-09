@@ -207,7 +207,16 @@ describe("admin item detail API", () => {
 
   it("rejects non-JSON media types before a destructive write", async () => {
     const item = await seedItem();
-    for (const contentType of ["application/jsonp", "text/plain", null]) {
+    for (const contentType of [
+      "application/jsonp",
+      "text/plain",
+      null,
+      "application/json; charset",
+      "application/json; charset=",
+      "application/json; foo=bar",
+      "application/json; charset=utf-8; x=1",
+      "application/json;; charset=utf-8",
+    ]) {
       const response = await DELETE(await request("DELETE", item.id, {
         contentType,
       }), params(item.id));
@@ -219,6 +228,15 @@ describe("admin item detail API", () => {
       contentType: "application/json; charset=utf-8",
     }), params(item.id));
     expect(valid.status).toBe(204);
+  });
+
+  it("accepts case-insensitive application/json with a single UTF-8 charset", async () => {
+    const item = await seedItem();
+    const response = await DELETE(await request("DELETE", item.id, {
+      contentType: "Application/JSON; Charset=UTF-8",
+    }), params(item.id));
+
+    expect(response.status).toBe(204);
   });
 
   it("requires the complete request origin before a destructive write", async () => {

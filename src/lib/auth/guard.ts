@@ -1,5 +1,4 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { MIMEType } from "node:util";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -84,12 +83,8 @@ export async function requireAdminWrite(request: Request): Promise<AdminSession 
   if (!csrf || !verifyCsrfToken(session.token, csrf)) {
     return apiError("CSRF_INVALID", "请求校验失败。", 403);
   }
-  const contentType = request.headers.get("content-type");
-  try {
-    if (!contentType || new MIMEType(contentType).essence !== "application/json") {
-      return apiError("VALIDATION", "请求格式无效。", 415);
-    }
-  } catch {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!/^\s*application\/json\s*(?:;\s*charset\s*=\s*utf-8\s*)?$/i.test(contentType)) {
     return apiError("VALIDATION", "请求格式无效。", 415);
   }
   return session;
