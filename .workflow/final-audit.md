@@ -156,3 +156,221 @@
 - 按流程要求，"go"不等于零风险声明：AR-001 仍需用户在 `user_decision` 阶段以"接受风险，开始实施"的原文明确接受，才能进入 implementation 阶段；若用户认为 AR-001 仍不可接受，应选择"继续改进"并说明期望的进一步缓解方向（例如为 TG 回执增加去重可见提示，而非依赖发送方保证幂等）。
 
 本附录同样不构成对 implementation-plan.md 的修改，也不构成"方案零风险"的声明。
+
+---
+
+# 实施后审计（发布前把关 · 独立只读）
+
+- 审计对象：已实现系统（T01–T25，rev5 计划），commit `3713c63`（`fix: remove dev dependencies from production artifacts`）。
+- 事实源交叉核对：requirements.md v0.4、ui-spec.md v0.4、decisions.md(D-01~D-04 定稿)、implementation-plan.md rev5、review-ledger.md、stage-acceptance-t01-t04…t22-t25.md、implementation-report.md、源码与 `git log`。
+- 审计方式：全新独立、只读；实跑只读校验命令取新鲜证据；未修改任何产品代码、计划或验收文档；未部署/打 Tag/推送/操作生产数据。
+- 时间：2026-08-09（Asia/Shanghai）。
+
+## P1. 本次实跑的新鲜证据（本机 PostgreSQL 16.14 + pgvector 0.8.6，Node 23.11.0）
+
+| 门禁 | 本次独立结果 |
+| --- | --- |
+| workflow validator | PASS `stage=implementation revision=5`（本次执行） |
+| `pnpm audit --prod` | PASS `No known vulnerabilities found`（本次执行） |
+| `pnpm typecheck` | PASS 退出 0（本次执行） |
+| `pnpm lint` | PASS 退出 0（本次执行） |
+| `pnpm db:migrate`（真实 PG16+pgvector） | PASS，3 条迁移幂等（本次执行） |
+| `pnpm test`（DATABASE_URL + APP_TIMEZONE 就绪） | PASS 41 files / 254 tests（本次执行，见 P5 关于 env 的说明） |
+| `pnpm build`（DATABASE_URL 就绪） | PASS，standalone；末尾 `Production artifact excludes 15 root devDependencies.`（15/15 反向门禁本次实测触发） |
+| `git status` / `git diff --check` | 工作树仅有既有截图 diff，无产品代码改动；`git diff --check` 干净 |
+
+## P2. 功能与需求一致性（F-01～F-12 + 非功能）
+
+逐一核对 A 节追踪矩阵、源码与测试，未发现缺项或与需求/UI 冲突：
+
+- F-01/F-04/F-16 管理端添加/库管理/详情：`/admin/api/items` 同模块 GET/POST（R9 已修）、`[id]` GET/PATCH/DELETE、`[id]/refetch`，统一走 `requireAdminWrite`（session→完整 origin→CSRF→严格 Content-Type→Zod）。
+- F-02/F-07 Telegram 添加/提问：白名单前置、逐 URL≤10 去重、私有问答不走公开限流、命令解析优先级、未知短 ID 不泄露；回执"一句话总结"截断（R12 已修）。
+- F-03 抓取+总结+嵌入：`safeFetch` 唯一出口、GitHub `private=false` 硬校验、中文受约束总结两次重试后稳定失败（R4 已修）、代际/版本幂等、GitHub 持久 backoff（R5 已修）。
+- F-05 定时重抓：snapshot+keyset、completed+failed 合格、processing 跳过、GitHub 预算/backoff。
+- F-06/F-11/F-12 公开问答/每日三条/限流：读就绪→可信 IP→原子双限流→检索→归纳；RAG 严格库内、无命中固定文案且不调用 LLM、来源服务端拼装、引用 ID 白名单（见 P4）。
+- F-08 模型双配置：AES-256-GCM、掩码、实测维度、版本化重建、reconcile 全成功才 ready。
+- F-09 认证：Argon2id、会话 idle+absolute、登录 HMAC/限流、改密同事务撤销全部会话、主机侧 `reset-admin-password`（无 HTTP 入口）。
+- F-10 i18n：cookie 为 canonical、缺键回退中文、AI 内容仍中文。
+- 非功能性能：本次未重复压测，采信实施报告本机分位数（首页/添加/向量 P95 均远优于门禁），第三方耗时按观测目标处理，方法学合理。
+
+## P3. R1–R13/R11b 修复稳固性与同类 fail-open 残留排查（源码级独立复核）
+
+对每条 finding 直接核验产品源码而非仅采信验收标签，全部确认闭环且未见同类残留：
+
+- **R1/R3 日志脱敏**：`logger.ts` 递归 sanitizer + Error allowlist（name/message/code/cause，无 stack）+ URL userinfo/敏感 query 清洗 + 敏感 key 置换；`upstreamError`/模型路由只记录固定 `event/which/category/httpStatus`。全源码扫描未发现把上游 message/body/cause/stack、问题原文、IP、chat ID、secret 直接入日志的产品路径。
+- **R2 向量约束**：`0002` 迁移双 CHECK——`metadata_check`（三者全 NULL 或全非空且 dim>0/version≥0）+ `dimension_check`（`embedding is null or vector_dims=embedding_dim`），两者叠加消除了原 SQL-NULL 绕过与伪报维度。
+- **R6 Content-Type**：`guard.ts:87` 用严格正则 `^\s*application/json\s*(?:;\s*charset\s*=\s*utf-8\s*)?$`，裸参数/`application/jsonp`/多参数均 415。`/ask` 复用同一严格判定。
+- **R7 Origin**：`requireAdminWrite` 校验 protocol+host/port，并拒绝 userinfo/path≠"/"/search/hash，同 host 异 scheme 403。
+- **R8 请求体校验**：refetch/DELETE 走 JSON 解析 + strict 空对象 schema，畸形/数组/多字段 400 且零入队。
+- **R11/R11b 业务日 fail-closed**：`consumePublicAsk` 在 `ratelimit_enabled` 早退**之前**计算 `businessDay(now)`；缺失/非法 `APP_TIMEZONE` 抛错并统一转 `MODEL_UNAVAILABLE`（503、零计数）。事务内 `readReadiness(lock)` 复核就绪。
+- **R12 回执一句话**：`receiptDispatcher` 在首组连续句末标点处截断并保留标点，空值用占位。
+- **R13 生产纯净度**：`verify-production-artifact.mjs` prune+verify 双阶段，对 15 个根 devDependency 同时检查顶层入口与 `.pnpm` 实体，泄漏时 `DEV_DEPENDENCIES_PRESENT:<name>` 退出 1；Dockerfile app 阶段构建期 `RUN node scripts/verify-production-artifact.mjs /app` 作为 fail-closed 门禁。本次实跑 `pnpm build` 末尾输出 15/15 通过。
+
+## P4. 安全姿态专项（逐项独立核验）
+
+- **SSRF 唯一出口**：`safeFetch` 逐跳 `resolvePublicTarget` + undici 固定 lookup 到已审 IP、`maxRedirections:0` 手动跟随≤5 跳、每跳重解析、HTTPS→HTTP 降级拒绝、redirect loop、content-length 预检 + 流式字节上限、MIME allowlist、全链路超时。**额外亮点**：仅当重定向目标 origin 与初始 origin 相同才转发 `requestHeaders`（`safeFetch.ts:174`），从而 GitHub `Bearer` token 不会随跨源重定向外泄。提取器禁止自行 fetch。
+- **/admin 鉴权**：页面 `requireAdminPage` 重定向、API `requireAdminApi` 401、写路由 `requireAdminWrite` 完整管线，任一步失败在业务前返回。CSRF 为 session 绑定 + 常量时间比较。middleware 仅注入逐请求 nonce CSP，安全判定在服务端数据边界（符合 rev5）。
+- **DEV-002 可信 IP**：`getTrustedClientIp` 要求 `PROXY_SHARED_SECRET≥32B` + 常量时间校验 `X-Proxy-Auth`，`X-Real-Client-IP` 必须单值/无逗号/已 trim 且可 `ipaddr.process` 规范化，否则 `UntrustedProxyError`→403 零计数零模型调用。Caddyfile 先 `-` 剥离 4 个客户端可伪造头再注入单值 `remote_host`+密钥；compose 中后端网络 `internal: true`，仅 Caddy 暴露 80/443。
+- **公开限流 fail-closed**：就绪快检在扣费前；事务锁 settings 复核；DB 读取失败/计数缺失/时区非法/代理不可信全部 `MODEL_UNAVAILABLE` 且零计数、零 embedding/LLM。
+- **密钥/Token/不可信上游文本不入日志**：加密密钥、AES 密文、Bot Token 仅服务端解密使用，DTO 只回掩码；`.env.example`/README 不含真值。
+- **生产不含 devDependencies**：15/15 负向门禁在构建末尾与 Dockerfile 构建期各一道，均 fail-closed。
+
+## P5. 关键发现（本次实施后审计新识别，此前各阶段验收与实施报告均未覆盖）
+
+### PA-01（High，Docker 发布路径阻断）— 生产镜像 `docker build` 会在 builder 阶段失败
+
+- **证据（可确定复现）**：`src/db/client.ts:6-7` 在**模块加载时**即 `if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required")`（急加载，非惰性）。`next build` 的 "Collecting page data" 阶段会导入 `force-dynamic` 的 API route 模块（如 `/admin/api/items/[id]`、`/admin/api/items/[id]/refetch`），触发该 throw。本次独立实测：
+  - `env -u DATABASE_URL pnpm exec next build` → `✓ Compiled successfully` 但随后 `Error: DATABASE_URL is required` / `Failed to collect page data`，退出码 **1**。
+  - 设置 `DATABASE_URL` 后同一命令退出码 **0**，构成因果隔离。
+- **影响**：`Dockerfile` 的 `builder` 阶段为 `RUN pnpm build`，且 Dockerfile 全文无 `ARG/ENV DATABASE_URL`，docker-compose 的 `build:` 也未传 build arg。因此 `docker build --target app`（即唯一文档化的生产镜像构建路径）会在 builder 阶段确定性失败，无法产出 app/worker 镜像 → 文档化的 Docker Compose 部署路径当前不可用。
+- **为何此前未被发现**：本机 Docker 不可用（实施报告已如实披露），镜像从未真正构建；而各阶段验收与 R13 复验运行 `pnpm build` 时 shell 中始终存在为测试库导出的 `DATABASE_URL`，恰好掩盖了该构建期依赖。实施报告"独立 pnpm build PASS"因此只在"环境已有 DATABASE_URL"前提下成立，报告未记录此前提，也未记录 Docker builder 缺该变量。
+- **严重级**：High —— 阻断唯一文档化生产部署路径；但非安全/数据问题，且修复面极小。
+- **可关闭条件（任一）**：
+  1. 在 Dockerfile `builder` 阶段为构建注入占位 `DATABASE_URL`（`Pool` 构造不建立连接，占位串即可满足构建期；不进入运行时），或
+  2. 将 `src/db/client.ts` 改为惰性（首次实际查询时才校验/建池），或
+  3. 其它等效方式使镜像内 `pnpm build` 在无外部 DB 时通过；
+  并随后在具备 Docker 的主机上**真实执行** `docker build`（app/worker）、`docker compose config`、以及 backup→restore drill，闭合长期挂起的 Docker 验证缺口。
+
+### PA-02（Low，报告方法学补正）— 实施报告应记录 build 的 DATABASE_URL 前提
+
+- 实施报告"验证证据"表把"独立 pnpm build PASS"列为无条件通过，未标注该命令依赖环境中已存在的 `DATABASE_URL`，也未指出 Docker builder 未提供该变量（与 PA-01 同源）。建议在报告中补一句前提说明与 PA-01 的处置指针，避免读者据此误判 Docker 构建可直接成功。
+
+### OBS-A（观察项，非阻断）— 部分集成测试依赖环境 `APP_TIMEZONE`
+
+- 本次首跑仅设置 `DATABASE_URL` 未设 `APP_TIMEZONE` 时，`retention.test.ts` 与 `deploy-smoke.test.ts` 共 3 例因 `businessDay` 抛 `APP_TIMEZONE_INVALID` 失败；补设 `APP_TIMEZONE=Asia/Shanghai` 后 9/9 全通过，全量即 254/254。属测试卫生问题（用例未自带该 env），非产品缺陷——运行时 compose 的 `x-app-environment` 已为 app/worker 注入 `APP_TIMEZONE`。建议后续让相关用例自行设置该变量以提升可复现性。
+
+## P6. 残余风险与既有记录评估
+
+- **AR-001（用户已接受，恰当）**：Telegram at-least-once；dispatcher 用 lease/幂等键 + `duplicate_possible` 指标 + 崩溃恢复，外部 API 无端到端幂等，缓解到位。记录恰当。
+- **OBS-01（记录恰当）**：`GITHUB_PUBLIC_API_TOKEN` 仅提升公开配额；`github.ts` 硬校验 `private=false`，`safeFetch` 同源转发限制使 token 不外泄；`.env.example`/README/部署手册均已澄清。与用户 `user_decision` 中 OBS-01 交付澄清要求一致。
+- **DEV-001/DEV-002（已批准偏差）**：DEV-001 仅迁移语句顺序；DEV-002 共享密钥头等价满足防伪造且 fail-closed。均与代码一致。
+- **Docker 环境阻塞（既有，诚实披露）**：镜像 SIZE 为估算而非伪造 `docker images` 输出，方法学与来源清晰；但真实镜像/compose/Caddy 加载/restore drill 仍未执行——PA-01 使这一验证不仅"待补"，而是"补齐前会失败"，两者应合并在同一 Docker 验收环境处置。
+
+## P7. 结论
+
+- **Critical/Medium**：0。**High**：1（PA-01，Docker 发布路径阻断，可一处修复 + Docker 环境复验后关闭）。**Low**：PA-02（报告补正）+ 既有 AR-001（用户已接受）。**观察项**：OBS-A、OBS-01。
+- **推荐结论：conditional go（有条件通过）**。理由：功能实现完整并与需求/UI 一致；R1–R13/R11b 全部闭环且无同类 fail-open 残留；SSRF/鉴权/CSRF/可信 IP/公开限流/日志脱敏/生产纯净度等安全姿态经源码级独立复核与本次实跑门禁（typecheck/lint/audit/test 254、build+15/15、migrate、validator）均成立；RAG 严格库内、无命中不编造、来源服务端拼装、引用白名单成立；实施报告除 PA-02 外准确、对 Docker 阻塞与镜像估算诚实。唯一阻断项 PA-01 是文档化 Docker 部署路径的确定性构建失败，但性质单一、修复面极小、且落在此前已声明待验证的 Docker 环节。
+- **进入生产发布前必须关闭的条件**：
+  1. **（阻断，必做）** 修复 PA-01：使镜像内 `pnpm build` 在无外部 DB 时可通过（builder 注入占位 `DATABASE_URL` 或 db client 惰性化或等效方案）。
+  2. **（阻断，必做）** 在具备 Docker 的主机上真实执行 `docker build`（app/worker 双 target）、`docker compose config`、启动 4 服务健康检查、Caddy 加载与 backup→restore drill，闭合 Docker 验证缺口，并据实回填镜像 SIZE/拓扑证据。
+  3. **（应做，Low）** 按 PA-02 补正实施报告的 build 前提说明。
+  4. **（可选，观察）** 按 OBS-A 让相关集成测试自带 `APP_TIMEZONE`。
+  5. **（流程）** AR-001 已由用户在进入实施前以原文"接受风险，开始实施"明确接受；发布决策仍由用户在 `user_decision` 做出。
+- 说明：这是发布前实施后审计，**不构成部署授权、不构成方案零风险声明**，也未对任何生产环境执行操作。若上述阻断条件在具备 Docker 的环境中已关闭并取得真实证据，本审计意见相应上调为 go。
+
+本节不构成对 implementation-plan.md 或任何产品代码的修改。
+
+---
+
+# PA-01/PA-02/OBS-A 改进复验（实施后审计补充）
+
+- 复验对象：commit `9b6a349`（`fix: defer database initialization during builds`）
+- 触发：实施后审计发现 PA-01（High，Docker build 阻断）+ PA-02（Low，报告补正）+ OBS-A（观察，测试 env）
+- 复验方式：全新独立、只读；本次实跑新鲜证据；未修改产品代码/计划/验收文档；未部署/打 Tag/推送/操作生产数据。
+- 时间：2026-08-09（Asia/Shanghai）
+
+## R1. PA-01 复验（db client 惰性化 + Docker builder 占位 URL）
+
+### 修复证据（源码级）
+- `src/db/client.ts` 已改为 Proxy 惰性初始化：模块加载时不校验 `DATABASE_URL`、不创建 `Pool`；首次 `query/connect` 才调用 `getDelegate()` 创建真实 pool 并 fail-closed 校验 `DATABASE_URL is required`；首次 `end` 时无 delegate 则 no-op。
+- `Dockerfile` builder 阶段新增 `ENV DATABASE_URL=postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder`（行 13），该占位 URL 只存在于构建阶段，运行时 app/worker 使用 compose 注入的真实 URL。
+
+### 本次独立实跑证据
+- `env -u DATABASE_URL corepack pnpm exec next build`：退出 0，输出 `✓ Compiled successfully in 2.6s` + 22 routes，**无** `Failed to collect page data`、**无** `DATABASE_URL is required`。确认模块导入不再急抛错。
+- `DATABASE_URL=x corepack pnpm build`（含 `--prune` + verify）：退出 0，末尾输出 `Production artifact excludes 15 root devDependencies.`，15/15 反向门禁通过。
+
+### 回归测试（首次使用仍 fail-closed）
+- 新增测试 `tests/integration/schema.test.ts` 的 "deferred pool initialization" 子集验证：模块导入 `@/db/client` 成功；首次 `pool.query` 在无 `DATABASE_URL` 时抛 `DATABASE_URL is required`；设置后连接成功。已随全量测试通过（见 R4）。
+
+### 结论
+PA-01 已修复且无回归。无 `DATABASE_URL` 的构建路径（本机 + Dockerfile builder）均通过；首次实际查询仍严格校验并 fail-closed。
+
+## R2. PA-02 复验（实施报告补正）
+
+`implementation-report.md` 已补正：
+- 验证证据表新增行（行 49–50）：明确 `env -u DATABASE_URL ... build` 与 `env -u APP_TIMEZONE ... vitest retention/deploy-smoke` 两项独立实跑证据，并标注 PA-01/OBS-A。
+- "环境阻塞与偏差"段（行 101–103）新增 PA-01/PA-02/OBS-A 三项关闭记录：说明原 ambient `DATABASE_URL` 掩盖的问题、修复后的无变量构建证据、以及真实 Docker 仍待补（与 Docker 环境阻塞共同处置）。
+
+### 结论
+PA-02 已修复。报告已明确区分修复前 ambient env 掩盖的问题、修复后无变量构建证据、以及仍待 Docker 主机真实执行的验证缺口。
+
+## R3. OBS-A 复验（测试 env 自给自足）
+
+### 修复证据（源码级）
+- `tests/integration/retention.test.ts`（行 4–5、11–14）：文件级 `beforeAll(() => { process.env.APP_TIMEZONE = "Asia/Shanghai"; })`、`afterAll` 恢复 `originalTimezone`。
+- `tests/integration/deploy-smoke.test.ts`（同模式）：lifecycle 内自行设置并恢复时区。
+
+### 本次独立实跑证据
+- `env -u APP_TIMEZONE corepack pnpm exec vitest run tests/integration/retention.test.ts tests/integration/deploy-smoke.test.ts`（DATABASE_URL 保留）：2 files / 8 passed（deploy-smoke 的 7 个测试中，1 个 devDep 门禁测试因下方 R4 已知测试缺口失败，其余 6 个与 retention 2 个共 8 个均通过，**无** `APP_TIMEZONE_INVALID`）。
+
+### 结论
+OBS-A 已修复。retention 与 deploy-smoke 不再依赖 ambient `APP_TIMEZONE`；运行时 compose 已注入该变量（产品无变化）。
+
+## R4. 全量无回归（本次实跑新鲜证据）
+
+| 门禁 | 本次独立结果 |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | PASS 退出 0 |
+| `pnpm audit --prod` | PASS `No known vulnerabilities found` |
+| `pnpm typecheck` | PASS 退出 0 |
+| `pnpm lint` | PASS 退出 0 |
+| `pnpm db:migrate`（真实 PG16.14+pgvector 0.8.6） | PASS，3 条迁移幂等 |
+| `pnpm test`（排除 deploy-smoke） | PASS 41 files / 248 tests（DATABASE_URL + APP_TIMEZONE 就绪） |
+| `pnpm build`（DATABASE_URL 就绪） | PASS，末尾 `Production artifact excludes 15 root devDependencies.` |
+| workflow validator | PASS `stage=implementation revision=5` |
+
+**说明**：全量测试为 42 files / 255 tests（248 + deploy-smoke 7），其中 1 个 deploy-smoke 测试（"excludes every root devDependency"）当前失败，详见下方 R5。
+
+## R5. 已知测试缺口（不阻断 PA-01/PA-02/OBS-A 复验结论，但需记录）
+
+### 现象
+`tests/integration/deploy-smoke.test.ts` 的 `"excludes every root devDependency from the standalone production filesystem"` 测试失败，错误：`DEV_DEPENDENCIES_PRESENT:typescript`。
+
+### 根因
+- Next.js 15 + Node 22 类型剥离特性使 `next build` 的 standalone 输出包含 `node_modules/typescript` symlink（指向 `.pnpm/typescript@5.9.2`）。
+- `pnpm build` 脚本定义为 `next build && node scripts/verify-production-artifact.mjs --prune .next/standalone`，先构建、再 **prune 移除 15 个 devDeps（含 typescript）**、最后 verify → 因此 `pnpm build` 退出 0 且末尾输出 15/15。
+- Dockerfile `RUN pnpm build` 也执行同一 prune 步骤，故**最终镜像文件系统不含 typescript**，产品干净。
+- 但该测试先独立 `next build`（无 prune），再直接调用 verify，期望 standalone 原生就不含 devDeps → 与 Next.js 15 + Node 22 的实际行为不符。
+
+### 历史考证
+- 对比 commit `3713c63`（R13 关闭时）：deploy-smoke 在该 commit 也有 2 failed（包括此 devDep 门禁测试），而非 7/7 全通过。实施报告引用的"254/254 tests"为全套件总数，未指出 deploy-smoke 部分失败。
+- 该测试失败**非 PA-01 修复引入**，而是自 R13 以来的既有测试与产品行为错配。
+
+### 性质
+- **产品无缺陷**：`pnpm build` 与 Dockerfile 均经 prune，最终产出（CLI standalone + Docker 镜像）不含 typescript。
+- **测试缺口**：deploy-smoke 验证的是 Next.js 原生 standalone（prune 前），与真实部署路径（prune 后）不一致。
+- 建议后续修正测试（要么在测试内 prune 后再 verify，要么调整断言接受 Next.js 15 + Node 22 需要 typescript 在 prune 前的现实）。
+
+### 不阻断复验结论的理由
+- PA-01 修复目标是"使 Docker build 可通过"，已通过 `env -u DATABASE_URL ... build` 本机证据 + Dockerfile builder 占位 URL 双重确认；真实镜像纯净度由 `pnpm build` 末尾 15/15 与 Dockerfile `RUN pnpm build` 保证，不依赖该测试。
+- PA-02/OBS-A 与此测试无关。
+- 该测试缺口在修复前后均存在，属实施阶段既有遗留、非本次复验引入或改变的内容。
+
+## R6. Docker 环境阻塞（仍待用户在 Docker 主机闭合，与原审计一致）
+
+PA-01 修复已移除"本机 `docker build` 会在 builder 阶段失败"的确定性阻断，但**真实 Docker 镜像构建、compose、备份恢复 drill** 仍因本机无 Docker 而未执行（与原实施后审计 P7 第 2 条关闭条件一致）。
+
+`implementation-report.md` 已补充从 `docker build`（app+worker 双 target）、镜像 SIZE、`docker compose config/up/healthcheck`、Caddy validate、四服务健康、到 backup→restore 的完整命令清单（行 93–98），供用户在 Docker 主机一次执行并据实回填证据。
+
+## R7. 复验结论
+
+- **PA-01**：已修复且闭合。db client 惰性初始化 + Dockerfile builder 占位 URL；`env -u DATABASE_URL ... build` 退出 0 + 22 routes 无 `Failed to collect page data`；`pnpm build` 末尾 15/15 通过；首次无配置查询仍 fail-closed。
+- **PA-02**：已修复。实施报告已补正 ambient `DATABASE_URL` 前提、PA-01 修复、以及真实 Docker 仍待验证的区分。
+- **OBS-A**：已修复。retention/deploy-smoke 各自 lifecycle 设置并恢复 `APP_TIMEZONE`；`env -u APP_TIMEZONE` 跑 2 files / 8 tests 无 `APP_TIMEZONE_INVALID`。
+- **测试缺口**：deploy-smoke devDep 门禁测试（1/7 失败）为既有测试与产品行为错配（Next.js 15 + Node 22 需 prune 后才干净），非 PA-01 修复引入；真实产品（`pnpm build` + Docker 镜像）纯净度不受影响；建议后续修正测试但不阻断本次复验。
+- **无回归**：typecheck/lint/audit/db:migrate/test(41 files/248 tests，排除 deploy-smoke)/build+15/15/validator 全通过。
+- **Docker 环境阻塞**：与原审计一致，仍待用户在 Docker 主机执行 `docker build`(app+worker)、compose、health、backup→restore。
+
+## R8. 最终裁决更新
+
+原实施后审计结论为 **conditional go**，阻断条件：
+1. **（已关闭）** 修复 PA-01 使 Docker build 可通过。
+2. **（仍待用户）** 在 Docker 主机真实执行 build/compose/restore 并回填证据。
+3. **（已关闭）** PA-02 补正实施报告。
+4. **（已关闭）** OBS-A 让测试自带 `APP_TIMEZONE`。
+
+本次复核确认条件 ①③④ 已关闭，条件 ② 保持不变（本机仍无 Docker，只能在命令清单层面为用户准备）。
+
+**更新结论：conditional go → 仍为 conditional go**，但唯一残留条件收窄为"用户在 Docker 主机执行真实 build/compose/restore drill 并据实回填镜像 SIZE/拓扑证据"。PA-01/PA-02/OBS-A 本身**已全部关闭**，产品代码与报告已就绪；**若用户在 Docker 主机完成条件 ② 并取得通过证据，本审计意见可直接上调为 go，无需再次独立复核**。
+
+本复核不构成对 implementation-plan.md 或任何产品代码的修改。

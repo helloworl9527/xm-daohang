@@ -29,7 +29,7 @@ type SessionCookie = {
   value: string;
   options: {
     httpOnly: true;
-    secure: true;
+    secure: boolean;
     sameSite: "lax";
     path: "/admin";
     expires: Date;
@@ -44,7 +44,13 @@ function sessionCookie(token: string, expires: Date): SessionCookie {
   return {
     name: SESSION_COOKIE_NAME,
     value: token,
-    options: { httpOnly: true, secure: true, sameSite: "lax", path: "/admin", expires },
+    options: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV !== "development",
+      sameSite: "lax",
+      path: "/admin",
+      expires,
+    },
   };
 }
 

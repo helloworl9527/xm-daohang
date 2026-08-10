@@ -17,7 +17,7 @@
     "max_cycles": 5,
     "unresolved": {"critical": 0, "high": 0, "medium": 0, "low": 1}
   },
-  "audit": {"verdict": "go", "at": "2026-08-08T22:45:00+08:00", "file": ".workflow/final-audit.md", "note": "rev5 复核：L-AUD-01~04/DOC-001 均确认修复且无回归；仅剩 AR-001（Telegram at-least-once）；OBS-01 非阻断"},
-  "user_decision": {"choice": "接受风险，开始实施", "at": "2026-08-08T22:36:58+08:00", "accepted_risks": ["AR-001"], "notes": ["OBS-01 交付文档澄清 GitHub 可选 token 仅提升公开配额、不解锁私有仓库"]},
-  "updated_at": "2026-08-08T22:36:58+08:00"
+  "audit": {"verdict": "conditional_go", "at": "2026-08-09T16:05:00+08:00", "file": ".workflow/final-audit.md", "phase": "post_implementation", "note": "实施后审计 conditional go；阻断 PA-01(High) db client 急加载 DATABASE_URL 致 docker build 失败；PA-02(Low) 报告补正；OBS-A 测试 env；AR-001 已接受。用户 2026-08-09 选择继续改进，退回实施修 PA-01/PA-02/OBS-A。", "prior_audits": [{"phase": "plan_rev4", "verdict": "conditional_go"}, {"phase": "plan_rev5", "verdict": "go"}]},
+  "user_decision": {"choice": "继续改进", "at": "2026-08-09T20:05:46+08:00", "scope": "修复 PA-01(build 不依赖外部DB + Dockerfile) / PA-02(报告补正) / OBS-A(测试自带 APP_TIMEZONE)；真实 docker build/compose/restore 因本机无 Docker 仍为环境阻塞，交由用户在 Docker 主机执行", "accepted_risks": ["AR-001"]},
+  "updated_at": "2026-08-09T20:05:46+08:00"
 }

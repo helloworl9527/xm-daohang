@@ -17,10 +17,9 @@
 
 ### 安装
 
-当前 Git 仓库未配置远端地址，因此无法提供可核验的 `git clone` 命令。在已有工作区执行：
-
 ```bash
-cd 收藏系统
+git clone https://github.com/helloworl9527/xm-daohang.git
+cd xm-daohang
 corepack pnpm install --frozen-lockfile
 ```
 

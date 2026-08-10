@@ -19,6 +19,14 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
+
+  // 开发模式：自动注入 x-real-ip（生产由 Caddy 注入）
+  if (process.env.NODE_ENV === "development" && !requestHeaders.has("x-real-ip")) {
+    const forwardedFor = requestHeaders.get("x-forwarded-for");
+    const realIp = forwardedFor?.split(",")[0].trim() || "127.0.0.1";
+    requestHeaders.set("x-real-ip", realIp);
+  }
+
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
   return response;

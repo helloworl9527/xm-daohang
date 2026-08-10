@@ -132,6 +132,7 @@ describe("POST /admin/api/items", () => {
     ))).status).toBe(415);
     expect((await POST(await authenticatedRequest({ url: "not-a-url" }))).status).toBe(400);
     expect((await POST(await authenticatedRequest({ url: "http://127.0.0.1/private" }))).status).toBe(400);
+    expect((await POST(await authenticatedRequest({ url: "http://198.18.0.28/fake-ip" }))).status).toBe(400);
     expect(await db.select().from(items)).toHaveLength(0);
   });
 

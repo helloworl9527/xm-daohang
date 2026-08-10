@@ -183,7 +183,27 @@ export async function saveEmbeddingConfig(
       current.emb_model !== resolved.model ||
       current.emb_dim !== probe.dimension;
     const version = current.emb_version + (identityChanged ? 1 : 0);
-    const rebuildStatus = identityChanged ? "building" : current.emb_rebuild_status;
+    let rebuildStatus = current.emb_rebuild_status;
+    if (identityChanged) {
+      const queued = await client.query<{ count: number }>(
+        `with bumped as (
+           update items
+              set process_generation = process_generation + 1,
+                  updated_at = now()
+            where status = 'completed'
+            returning id, process_generation
+         ), queued as (
+           insert into processing_requests
+             (item_id, process_generation, emb_version, attempt, status, next_attempt_at)
+           select id, process_generation, $1, 0, 'pending', now()
+             from bumped
+           returning 1
+         )
+         select count(*)::int as count from queued`,
+        [version],
+      );
+      rebuildStatus = (queued.rows[0]?.count ?? 0) > 0 ? "building" : "ready";
+    }
     const encryptedKey = draft.apiKey === undefined ? null : encryptSecret(resolved.apiKey);
 
     await client.query(
@@ -207,22 +227,6 @@ export async function saveEmbeddingConfig(
       ],
     );
 
-    if (identityChanged) {
-      await client.query(
-        `with bumped as (
-           update items
-              set process_generation = process_generation + 1,
-                  updated_at = now()
-            where status = 'completed'
-            returning id, process_generation
-         )
-         insert into processing_requests
-           (item_id, process_generation, emb_version, attempt, status, next_attempt_at)
-         select id, process_generation, $1, 0, 'pending', now()
-           from bumped`,
-        [version],
-      );
-    }
     await client.query("commit");
   } catch (error) {
     await client.query("rollback");

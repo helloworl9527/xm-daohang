@@ -105,6 +105,18 @@ describe("GET /admin/api/items", () => {
     );
   });
 
+  it("keeps a session valid after one minute and returns the library payload", async () => {
+    await seedLibrary();
+    const { token } = await createSession({ now: new Date(Date.now() - 61_000) });
+    const response = await GET(new Request("https://admin.example/admin/api/items", {
+      headers: { cookie: `admin_session=${token}` },
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.items).toHaveLength(3);
+  });
+
   it.each([
     ["title", "PostgreSQL", "00000000-0000-4000-8000-000000000001"],
     ["summary", "语义检索", "00000000-0000-4000-8000-000000000002"],

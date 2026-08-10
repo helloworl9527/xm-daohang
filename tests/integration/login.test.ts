@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
 import { adminUser, loginAttempts, sessions } from "@/db/schema";
@@ -52,6 +52,24 @@ describe("admin login", () => {
       },
     });
     expect(await db.select().from(sessions)).toHaveLength(1);
+  });
+
+  it("permits the session cookie on local HTTP only in development", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    try {
+      const result = await loginWithCredentials({
+        username: "admin",
+        password: "correct-password-123",
+        ip: TEST_IP,
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        cookie: { options: { httpOnly: true, secure: false, sameSite: "lax", path: "/admin" } },
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("records only an HMAC IP and creates no session for invalid credentials", async () => {

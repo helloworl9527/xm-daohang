@@ -18,6 +18,7 @@ import {
   type ModelProbeAdapter,
 } from "@/lib/config/modelSettings";
 import { getDecryptedSecret, getSettings } from "@/lib/config/settings";
+import { addItem } from "@/lib/items/add";
 import { logger, serializeLog } from "@/lib/log/logger";
 
 function vector(dim: number, first: number, second = 0): number[] {
@@ -125,6 +126,31 @@ describe("model configuration probes", () => {
 });
 
 describe("embedding configuration activation", () => {
+  it("activates an empty library immediately and permits the first item", async () => {
+    const adapter = adapterWith(separableVectors());
+    await saveLlmConfig(
+      { baseUrl: "https://models.example/v1", model: "chat-model", apiKey: "sk-chat-abcd" },
+      adapter,
+    );
+
+    const settings = await saveEmbeddingConfig(embeddingDraft, adapter);
+
+    expect(settings).toMatchObject({
+      embDim: 1_024,
+      embVersion: 1,
+      embRebuildStatus: "ready",
+    });
+    expect(await db.select().from(processingRequests)).toHaveLength(0);
+
+    const added = await addItem("https://example.com/first", {
+      assertPublicUrl: async () => "https://example.com/first",
+    });
+    expect(added).toMatchObject({ status: "processing", deduped: false });
+    expect(await db.select().from(processingRequests)).toEqual([
+      expect.objectContaining({ itemId: added.id, embVersion: 1, status: "pending" }),
+    ]);
+  });
+
   it("increments each changed identity once and queues every completed item", async () => {
     const common = {
       type: "web" as const,
