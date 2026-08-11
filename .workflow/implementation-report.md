@@ -157,3 +157,31 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 - 无需求、架构、安全边界或已接受风险偏差。
 - 未执行生产 `pg_dump`、生产迁移或真实生产 readiness；这些属于发布阶段操作，当前无授权且计划尚未完成。
 - 当前工作树原有 M2 审批产物和 workflow 修改均被保留；Task 1 未整理或覆盖它们。
+
+## M2 Task 2：事务可组合的分类 store
+
+### 实现范围
+
+- 新增 `src/lib/categories/store.ts`，定义稳定 `CategoryError`、显式 `CategoryQueryable`、分类名称 NFKC/trim/长度/控制字符校验与 PostgreSQL 唯一冲突映射。
+- `createCategoryRecord`、`renameCategoryRecord`、`lockCategoryState`、`advanceCategoryVersion` 均只使用调用者传入的 queryable，供后续 Task 6 在同一 apply transaction 中复用。
+- 公共 create/rename/delete 使用短事务并锁 `app_settings(id=1)`；create 原子置 `categories_initialized=true`，所有成功 taxonomy 写只递增一次 `category_version`，删空不回退 initialized。
+- slug 固定为应用生成 UUID 的 `cat-<uuid-without-dashes>`；list 按 sort/name/id 确定性排序。
+- 显式 CRUD delete 返回全部关联条目的 auto/manual 影响数，依赖 FK SET NULL 且不修改 `category_manual`。
+- overview 明确拆分：目录 eligible 的 classified/unclassified/total、全库 manual item 数、completed doc 数，以及各正式分类下全量 auto/manual 关联数。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/categories/store.test.ts` | PASS，1 file / 11 tests |
+| Task 1+2 联合定向测试 | PASS，3 files / 18 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，产品代码 0 error/0 warning；审批原型保留 1 条既有 warning |
+| `git diff --check` | PASS |
+
+覆盖证据包括：全角字符 NFKC、稳定 slug、排序、非法名称、并发规范名冲突、tx helper 不调用全局 `db.insert` 的 spy、调用者事务回滚、not-found/version 不变、FK SET NULL 保留 manual true/false、删空仍 initialized、overview 口径。
+
+### 偏差、未解决项与残余风险
+
+- 无计划语义偏差；AI apply 尚未接入这些内部 helper，按依赖顺序留待 Task 6。
+- 完整回归的两项既有环境/日期失败与 Task 1 记录相同；本批未扩大处理范围。
