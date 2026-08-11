@@ -63,8 +63,7 @@ export async function publishPendingCategoryReclassifications(
   return pending.length;
 }
 
-export async function getCategoryRun(runId: string) {
-  const result = await db.execute<{
+interface CategoryRunRow extends Record<string, unknown> {
     id: string;
     request_key: string;
     mode: string;
@@ -74,17 +73,26 @@ export async function getCategoryRun(runId: string) {
     reclassify_generation: number;
     reclassified: number;
     moved_unclassified: number;
+    added_count: number;
+    renamed_count: number;
+    merged_count: number;
+    deleted_count: number;
+    ignored_count: number;
+    manual_protected: number;
     failed_count: string;
-  }>(sql`
+}
+
+const CATEGORY_RUN_SELECT = sql`
     select r.id, r.request_key, r.mode, r.base_version, r.applied_version, r.status,
            r.reclassify_generation, r.reclassified, r.moved_unclassified,
+           r.added_count, r.renamed_count, r.merged_count, r.deleted_count,
+           r.ignored_count, r.manual_protected,
            count(f.item_id)::text as failed_count
       from category_change_runs r
       left join category_reclassify_failures f on f.run_id = r.id
-     where r.id = ${runId}
-     group by r.id
-  `);
-  const run = result.rows[0];
+`;
+
+function categoryRunDto(run: CategoryRunRow | undefined) {
   if (!run) throw new CategoryRunError("RUN_NOT_FOUND");
   return {
     id: run.id,
@@ -97,7 +105,34 @@ export async function getCategoryRun(runId: string) {
     reclassified: run.reclassified,
     movedUnclassified: run.moved_unclassified,
     failedCount: Number(run.failed_count),
+    manualProtected: run.manual_protected,
+    counts: {
+      added: run.added_count,
+      renamed: run.renamed_count,
+      merged: run.merged_count,
+      deleted: run.deleted_count,
+      ignored: run.ignored_count,
+    },
   };
+}
+
+export async function getCategoryRun(runId: string) {
+  const result = await db.execute<CategoryRunRow>(sql`
+    ${CATEGORY_RUN_SELECT}
+     where r.id = ${runId}
+     group by r.id
+  `);
+  return categoryRunDto(result.rows[0]);
+}
+
+export async function getLatestCategoryRun() {
+  const result = await db.execute<CategoryRunRow>(sql`
+    ${CATEGORY_RUN_SELECT}
+     group by r.id
+     order by r.created_at desc, r.id desc
+     limit 1
+  `);
+  return result.rows[0] ? categoryRunDto(result.rows[0]) : null;
 }
 
 interface RetryDependencies {

@@ -74,7 +74,7 @@ const ignoredDiffSchema = z.discriminatedUnion("kind", [
     ...clientCounts,
   }).strict(),
 ]);
-const applyInputSchema = z.object({
+export const applyCategoriesInputSchema = z.object({
   requestKey: z.string().uuid(),
   mode: z.enum(["supplement", "full"]),
   baseVersion: z.number().int().nonnegative(),
@@ -85,7 +85,7 @@ const applyInputSchema = z.object({
 
 export type AutoDestination = z.infer<typeof destinationSchema>;
 export type AppliedDiff = z.infer<typeof appliedDiffSchema>;
-export type ApplyCategoriesInput = z.infer<typeof applyInputSchema>;
+export type ApplyCategoriesInput = z.infer<typeof applyCategoriesInputSchema>;
 
 export type CategoryApplyErrorCode =
   | "VALIDATION"
@@ -172,7 +172,7 @@ export async function applyCategoryDiff(
   rawInput: ApplyCategoriesInput,
   dependencies: ApplyDependencies = {},
 ): Promise<AppliedRun> {
-  const parsed = applyInputSchema.safeParse(rawInput);
+  const parsed = applyCategoriesInputSchema.safeParse(rawInput);
   if (!parsed.success) throw new CategoryApplyError("VALIDATION");
   const input = parsed.data;
   const requestedSnapshotAt = dependencies.now?.();

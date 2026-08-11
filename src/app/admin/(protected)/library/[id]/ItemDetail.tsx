@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { DeleteItemDialog } from "./DeleteItemDialog";
+import { CategorySelector } from "./CategorySelector";
 import { SummaryEditor } from "./SummaryEditor";
-import type { LibraryItemDto } from "@/lib/items/list";
+import type { ItemDetailDto } from "@/lib/items/detail";
 
 type DetailState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "loaded"; item: LibraryItemDto; etag: string };
+  | { kind: "loaded"; item: ItemDetailDto; etag: string };
 
 async function discardError(response: Response): Promise<void> {
   await response.json().catch(() => undefined);
@@ -40,7 +41,7 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
         setState({ kind: "error", message: t("loadError") });
         return;
       }
-      const payload = await response.json() as { item: LibraryItemDto };
+      const payload = await response.json() as { item: ItemDetailDto };
       setState({ kind: "loaded", item: payload.item, etag: response.headers.get("etag") ?? "" });
     } catch {
       setState({ kind: "error", message: t("loadError") });
@@ -70,7 +71,7 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
         setActionError(t("savingError"));
         return false;
       }
-      const payload = await response.json() as { item: LibraryItemDto };
+      const payload = await response.json() as { item: ItemDetailDto };
       setState({ kind: "loaded", item: payload.item, etag: response.headers.get("etag") ?? state.etag });
       setNotice(t("saved"));
       return true;
@@ -153,12 +154,18 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
       </header>
 
       <div className="item-detail-grid">
-        <SummaryEditor
-          disabled={item.status === "processing"}
-          initialSummary={item.summary ?? ""}
-          manual={item.summaryManual}
-          onSave={saveSummary}
-        />
+        <div className="item-detail-primary">
+          <SummaryEditor disabled={item.status === "processing"} initialSummary={item.summary ?? ""} manual={item.summaryManual} onSave={saveSummary} />
+          <CategorySelector
+            categoryId={item.categoryId}
+            categoryManual={item.categoryManual}
+            csrfToken={csrfToken}
+            disabled={item.status === "processing"}
+            etag={state.etag}
+            itemId={item.id}
+            onSaved={(category, etag) => setState({ kind: "loaded", etag, item: { ...item, ...category } })}
+          />
+        </div>
         <aside aria-label={t("infoLabel")} className="item-detail-meta">
           <h2>{t("info")}</h2>
           <dl>

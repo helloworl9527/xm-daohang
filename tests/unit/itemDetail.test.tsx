@@ -14,6 +14,9 @@ const completedItem = {
   title: "条目详情",
   summary: "原总结。",
   summaryManual: false,
+  categoryId: null,
+  categoryName: null,
+  categoryManual: false,
   tags: ["标签一", "标签二", "标签三"],
   status: "completed",
   failReason: null,
@@ -25,6 +28,8 @@ const completedItem = {
 function detailResponse(item = completedItem, etag = '"etag-one"') {
   return Response.json({ item }, { headers: { ETag: etag } });
 }
+
+const categoryOverviewResponse = () => Response.json({ overview: { categories: [] } });
 
 describe("ItemDetail", () => {
   beforeEach(() => {
@@ -44,6 +49,7 @@ describe("ItemDetail", () => {
   it("loads the detail and preserves a failed summary draft", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(detailResponse())
+      .mockResolvedValueOnce(categoryOverviewResponse())
       .mockResolvedValueOnce(Response.json({ error: { message: "保存失败。" } }, { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
     render(<ItemDetail itemId={completedItem.id} csrfToken="csrf-token" />);
@@ -68,6 +74,7 @@ describe("ItemDetail", () => {
     const saved = { ...completedItem, summary: "人工总结。", summaryManual: true };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(detailResponse())
+      .mockResolvedValueOnce(categoryOverviewResponse())
       .mockResolvedValueOnce(detailResponse(saved, '"etag-two"'))
       .mockResolvedValueOnce(Response.json({ status: "processing", processGeneration: 1 }, { status: 202 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -87,6 +94,7 @@ describe("ItemDetail", () => {
     const processing = { ...completedItem, status: "processing" as const };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(detailResponse(processing))
+      .mockResolvedValueOnce(categoryOverviewResponse())
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
     render(<ItemDetail itemId={completedItem.id} csrfToken="csrf-token" />);

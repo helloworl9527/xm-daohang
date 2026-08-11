@@ -16,7 +16,7 @@
   },
   "admin": {
     "skip": "跳到主要内容",
-    "nav": { "brand": "收藏系统", "workspace": "站主工作台", "label": "管理端主导航", "add": "添加内容", "library": "收藏库", "settings": "设置" },
+    "nav": { "brand": "收藏系统", "workspace": "站主工作台", "label": "管理端主导航", "add": "添加内容", "library": "收藏库", "categories": "分类管理", "settings": "设置" },
     "login": {
       "brand": "收藏系统", "title": "登录管理端", "username": "用户名", "password": "密码",
       "invalid": "用户名或密码不正确。失败次数已记录。", "locked": "登录已临时锁定，请在 {minutes} 分钟后重试。",
@@ -38,7 +38,20 @@
       "loadError": "条目暂时无法读取。", "savingError": "保存失败，请稍后重试。", "savingNetworkError": "保存失败，请检查连接后重试。", "saved": "总结已保存。",
       "refetchError": "重抓失败，请稍后重试。", "refetchNetworkError": "重抓失败，请检查连接后重试。", "queued": "已加入重抓队列。", "deleteError": "删除失败，条目已保留。", "deleted": "条目已删除。",
       "loading": "正在读取条目…", "back": "返回收藏库", "infoLabel": "条目信息", "info": "条目信息", "status": "状态", "source": "来源", "updated": "更新", "actions": "条目操作", "actionsDescription": "重抓会重新获取公开内容；人工总结不会被自动覆盖。", "refetching": "正在处理", "refetch": "手动重抓",
-      "summary": "总结", "manual": "已标记为人工编辑", "saving": "保存中…", "save": "保存总结", "delete": "删除条目", "deleteTitle": "确认删除条目", "deleteDescription": "删除后将同时移除向量与公开检索来源，且无法恢复。", "cancel": "取消", "deleting": "删除中…", "confirmDelete": "确认删除"
+      "summary": "总结", "manual": "已标记为人工编辑", "saving": "保存中…", "save": "保存总结", "delete": "删除条目", "deleteTitle": "确认删除条目", "deleteDescription": "删除后将同时移除向量与公开检索来源，且无法恢复。", "cancel": "取消", "deleting": "删除中…", "confirmDelete": "确认删除",
+      "category": { "title": "主分类", "label": "选择单一主分类", "unclassified": "未分类", "manual": "人工优先", "saving": "保存中…", "save": "保存分类", "saved": "人工分类已保存，后续 AI 不覆盖。", "conflict": "条目已更新，请刷新后再选择。", "error": "分类保存失败，原选择已恢复。" }
+    },
+    "categories": {
+      "eyebrow": "分类工作台", "title": "分类管理", "description": "维护固定分类，审核 AI 建议，并跟踪自动条目重跑。",
+      "protectionTitle": "人工分类始终保护", "protectionBody": "AI 只处理自动分类条目。合并或删除涉及人工条目时，整批操作会停止。",
+      "aiEyebrow": "AI 建议", "aiTitle": "生成分类变更", "supplement": "补充建议", "supplementBody": "仅建议新增分类，适合日常补充。", "full": "全量重拟", "fullBody": "可建议新增、改名、合并与删除，应用前逐项确认。", "generating": "正在生成建议…", "noSuggestions": "本次没有可应用的建议。", "aiUnavailable": "AI 服务暂时不可用，现有分类未改变。", "proposalError": "建议无法安全解析，请稍后重试。",
+      "preview": "变更预览", "discard": "放弃预览", "kind": { "add": "新增", "rename": "改名", "merge": "合并", "delete": "删除" }, "autoShort": "自动", "manualShort": "人工", "newCategory": "新分类", "mergeTarget": "合并目标", "deleteTarget": "删除后去向", "autoDestination": "自动条目去向", "unclassified": "未分类", "decision": "接受或忽略", "accept": "接受", "ignore": "忽略", "decisionSummary": "应用 {accepted} / 忽略 {ignored}", "reviewApply": "检查并应用 {count} 项",
+      "runEyebrow": "应用结果", "run": { "applying": "正在应用", "reclassifying": "正在重跑自动条目", "completed": "应用完成", "partial": "应用完成，部分重跑失败", "failed": "重跑失败", "superseded": "已被更新分类取代" }, "reclassified": "重新分类", "movedUnclassified": "转为未分类", "failedCount": "失败条目", "retryFailures": "重试失败条目",
+      "fixedEyebrow": "固定分类", "fixedTitle": "分类列表", "newName": "新分类名称", "create": "新增分类", "saveRename": "保存改名", "cancelRename": "取消改名", "renameLabel": "重命名 {name}", "rename": "重命名", "deleteLabel": "删除 {name}", "delete": "删除", "missing": "分类不存在",
+      "overview": "目录概况", "fixedCount": "固定分类", "classified": "已归类", "manualProtected": "人工保护", "excludedDocs": "排除的文档",
+      "confirmTitle": "确认应用分类变更", "confirmSummary": "应用 {accepted} / 忽略 {ignored} / 人工保护 {manual}", "reclassify": "应用后重跑自动分类条目", "confirmProtection": "只处理 category_manual=false，人工分类不会被迁移。", "cancel": "取消", "applying": "应用中…", "confirmApply": "确认应用",
+      "deleteTitle": "确认删除分类", "deleteDescription": "删除“{name}”后，其下 {count} 条内容将转为未分类。", "deleteManual": "其中 {count} 条人工条目会保留人工保护标记。", "confirmDelete": "删除并转未分类",
+      "manualConflict": "此处有人工分类条目，请先迁移或在预览忽略该项。", "stale": "分类已更新，请重新生成建议。", "applyError": "变更未应用，请核对预览后重试。", "applyNetworkError": "连接中断；再次应用会复用同一请求，不会重复写入。", "applied": "分类变更已应用。", "retryError": "重试请求失败。", "created": "分类已新增。", "duplicate": "分类名称已存在。", "crudError": "分类操作失败，原数据已保留。", "renamed": "分类已重命名。", "deleted": "分类已删除，关联内容已转为未分类。"
     },
     "models": {
       "eyebrow": "设置", "title": "模型配置", "llm": "对话模型", "embedding": "嵌入模型", "testing": "测试中…", "saving": "保存中…", "connected": "连接成功", "saved": "已保存", "error": "连接失败，原配置未更改。",

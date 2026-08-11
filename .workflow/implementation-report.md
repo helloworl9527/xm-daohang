@@ -285,3 +285,57 @@ R1 修复 destructive impact 的 TOCTOU：事务先锁扫描时已在 source 的
 - 无需求、架构、安全边界或 AR-M2-01 偏差；LLM 均在事务外，AI 不会自动迁移或清空人工分类条目，包括人工选择 NULL。
 - pg-boss 发布失败保留 recoverable `reclassifying` run，由 worker publisher 循环补发；本批未操作生产队列或生产数据。
 - 完整回归为 47/49 files、350/352 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules` 而报 `PRODUCTION_NODE_MODULES_MISSING`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与本批变更面无关，未被掩盖，也不据此宣称完整回归通过。
+
+## M2 Task 8：管理端分类 API 与 C 工作台
+
+### 实现范围
+
+- 新增 `/admin/api/categories` GET/POST、`[id]` PATCH/DELETE、`propose` POST、`apply` POST、`runs/[id]` GET、`runs/[id]/retry` POST 与 `/admin/api/items/[id]/category` PATCH。所有读路由先复用 `requireAdminApi`，所有写路由先复用 `requireAdminWrite` 的 session→Origin→CSRF→Content-Type 门禁，再解析 strict zod body；响应统一 no-store，错误映射为计划规定的稳定 code/HTTP status，不回传模型原文或异常详情。
+- 条目详情 DTO 增加 `categoryId/categoryName/categoryManual`。分类 PATCH 要求现有 If-Match，在短事务中对目标分类取得 `FOR KEY SHARE`、校验存在、按 ETag 条件更新并设置 `category_manual=true`；人工选择 NULL 同样受保护，响应返回新 ETag。该分类行锁与 Task 5–7 destructive source `FOR UPDATE` 串行协议相容。
+- 新增管理端 `/admin/categories` C 工作台：补充建议/全量重拟双入口、常驻人工保护带、四类 diff 的接受/忽略/编辑、自动条目去向、全忽略禁用、放弃预览、独立原生 dialog 确认、默认开启且可关闭的自动重跑、`MANUAL_CATEGORY_CONFLICT` 明确迁移/忽略引导、真实 run 轮询/partial/failed retry、固定分类 CRUD、删除确认与目录概况。
+- 分类 GET 与服务端页面同时读取最近一次持久 run；离页返回可恢复服务端真实状态、应用计数与重跑结果，不依赖客户端伪造历史。应用网络/冲突重试保留同一 requestKey；只有成功应用或放弃预览才清除。
+- 条目详情新增单主分类选择器；保存期间只禁当前选择器，409/网络失败恢复原选择，成功显示人工优先反馈。AdminNav 增加分类管理入口，桌面为 74px 图标侧栏、移动为带文字横向导航。
+- 严格实现批准 UI：桌面 diff 三列、移动单列/整行决策，控件至少 44px，忽略项字段禁用，原生 dialog 支持 ESC/焦点恢复，reduced motion/transparency/contrast、触控按压反馈、显式 focus-visible、长文本换行和 tabular 数字。未引入外部资源或放宽 CSP。
+
+### 依赖与安全审计
+
+- 按最终计划唯一新增 `lucide-react@1.31.0`，精确锁版，用于管理导航、工作台和人工保护图标；许可证 ISC。
+- `corepack pnpm audit --prod`：PASS，`No known vulnerabilities found`。图标从本地 bundle 加载，无 CDN/外部运行时请求。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| Task 1–8 联合定向（categories 全部、migration-nav、processItem、itemDetail、工作台 UI） | PASS，12 files / 137 tests |
+| Task 8 API + reclassify + detail + UI 定向 | PASS，5 files / 45 tests |
+| `corepack pnpm vitest run tests/unit/categoryWorkbench.test.tsx tests/unit/itemDetail.test.tsx` | PASS，2 files / 10 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，产品代码 0 error/0 warning；审批原型保留 1 条既有 unused warning |
+| `git diff --check` | PASS |
+| `env -u DATABASE_URL corepack pnpm build` | PASS，Next.js 15.5.23；28 个动态 route，Task 8 未回归 PA-01；standalone devDependency prune 门禁通过 |
+| `corepack pnpm exec playwright test tests/e2e/admin-categories.spec.ts` | PASS，Chromium desktop 1 + mobile 1；生产 standalone server |
+| `corepack pnpm audit --prod` | PASS，0 known vulnerabilities |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 50/51 files、365/366 tests；1 项既有失败，见下 |
+
+Playwright 在 `1440×1000` 与移动项目上真实覆盖：登录与分类导航、full 四类 diff、名称编辑/自动去向、独立确认、默认重跑、人工冲突引导、忽略后使用同一 requestKey 重试、应用结果、真实 CRUD 新增、删除二次确认、条目人工选择 NULL 与数据库 `category_manual=true`。两端均断言无页面级横向溢出；移动 CRUD 还断言重命名/删除 44px 几何盒不相交并以键盘 Enter 完成删除。预期 409 经 UI 文案断言后从控制台采样中剔除，后续控制台与 pageerror 均为 0。截图位于 `.workflow/screenshots/nav-enhancement/admin-c-diff-{desktop,mobile}.png`。
+
+按最新 Web Interface Guidelines 审计 Task 8 文件并修正：所有图标按钮有 aria-label、装饰图标 aria-hidden、表单均有 label/name/autocomplete、async 反馈有 aria-live/alert、原生 dialog 有 ESC/焦点恢复/overscroll containment、全局 focus-visible 可见、控件 touch-action 与按压 transform 支持 reduced-motion。未发现剩余阻断项。
+
+### 反向门禁
+
+在默认专用测试库上串行临时中和后立即反向补丁恢复，以下六项均由对应命名 Vitest 行为断言捕获、进程 exit 1：
+
+1. 忽略 categories GET 的匿名鉴权响应：期望 401、实际 200。
+2. 条目分类保存不设置 `category_manual=true`：返回 DTO 的 manual 断言失败。
+3. 把 ETag 条件弱化为只要求 `$3` 非空：旧 ETag 第二次更新错误返回 200，期望 `ITEM_CONFLICT` 409。
+4. 把 `MANUAL_CATEGORY_CONFLICT` UI 映射为通用错误：迁移/忽略引导文案断言失败。
+5. 冲突后清除 requestKey：连续两次 apply body 的 requestKey 等值断言失败。首次反证发现测试的 randomUUID 固定值会 fail-open，已改为递增 UUID fixture 后重新验证 exit 1。
+6. 移除“接受数为 0”禁用条件：全忽略命名用例的 disabled 断言失败。
+
+恢复后 API 7/7、工作台 7/7 再次通过，`git diff --check` 通过。E2E 另锁定忽略字段 disabled、same requestKey、人工冲突引导、删除确认、人工 NULL 和移动操作盒不重叠。
+
+### 偏差、未解决项与残余风险
+
+- 无需求、架构、安全边界、UI 决策或 AR-M2-01 偏差；本批无迁移、无生产队列/数据操作、未部署、未推送、未打 Tag。
+- 完整回归唯一失败为既有 `tests/integration/settingsRoutes.test.ts` 固定断言业务日 `2026-08-09`，当前 `Asia/Shanghai` 业务日为 `2026-08-11`，因此实际返回 day `2026-08-11`、usedGlobal `0`。本批未修改该历史用例，也不据此宣称完整回归全绿。
+- 本轮已先生成生产 standalone，因此 `deploy-smoke` 7/7 通过；与早期批次“缺构建产物”的环境失败不矛盾。
