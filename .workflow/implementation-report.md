@@ -250,3 +250,34 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 
 - 无需求、架构、安全边界或已接受风险偏差；人工保护、taxonomy version 与候选存在性三门禁均在 completion transaction 内重验。
 - 完整回归为 44/46 files、310/312 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与 Task 4 变更面无关，本批不扩大处理范围，也不据此宣称完整回归通过。
+
+## M2 Task 5–7：F202 分类建议、原子应用与后台重归类
+
+### 实现范围
+
+- 新增 `src/lib/categories/propose.ts`：按 `(created_at,id)` keyset 每批 40 条读取 snapshot 时点前的 completed web/github 条目；title/summary/tag、prompt 与模型输出均有硬上限。两阶段 map-reduce 不截断尾部 themes，supplement 仅允许 add，full 支持 add/rename/merge/delete；strict zod DTO、中文名称、引用/环/重复 source 校验均 fail closed，模型异常与非法输出映射为稳定错误码。模型与客户端提供的计数一律不可信，最终 auto/manual count 由服务端 snapshot 附加。
+- 新增 `src/lib/categories/apply.ts`：strict `AppliedDiff`/`AutoDestination` 合同在短事务内锁 `app_settings(id=1)`、重验 `baseVersion`、锁 destructive source 关联条目，并原子执行 add→rename→merge/delete、version +1、initialized=true 与 `category_change_runs` 持久化。merge/delete 只要 source 存在任一 `category_manual=true` 条目即整批 `MANUAL_CATEGORY_CONFLICT` 回滚；自动迁移只更新 `category_manual=false`。`request_key` 永久幂等，旧 reclassifying run 在新 taxonomy 提交中原子 supersede；pg-boss publish 只在提交后执行，发布失败保留可恢复 run。
+- 新增 `src/lib/categories/reclassify.ts` 与 `src/worker/jobs/reclassifyCategories.ts`：持久 cursor、generation 与 append-only retry request 支持崩溃恢复和重复投递；相同 retry key 永久返回既有 generation 且不重复 publish，不同活动 key fail closed。模型逐条在 snapshot/commit 事务外调用，提交时按 settings→run→item 锁序重验 version、manual（含人工 NULL）、status/type 和候选存在性；仅更新自动 web/github 条目。失败明细只记录 `AI_UPSTREAM_FAILED`/`AI_OUTPUT_INVALID` 稳定码并递增 attempts，`failedCount` 每次由明细派生而不缓存。
+- `src/worker/index.ts` 注册 category reclassify queue、worker、事务外 pending publisher 与 graceful `offWork`。本批复用 Task 1 已验收 schema，不新增迁移或依赖；API 路由属于 rev11 Task 8，本批未提前实现。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/categories/propose.test.ts tests/categories/apply.test.ts tests/categories/reclassify.test.ts` | PASS，3 files / 36 tests |
+| Task 1–7 联合定向测试 | PASS，8 files / 101 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，产品代码 0 error；审批原型保留 1 条既有 warning |
+| `git diff --check && git diff --cached --check` | PASS |
+| project-delivery-workflow validator | PASS，`stage=implementation revision=11` |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 49 files；346/348 PASS；2 项非本批失败，见下 |
+
+测试覆盖 bounded snapshot/map-reduce、所有 themes 进入 reduce、strict DTO、supplement add-only、四种 full diff、服务端计数、重复名/引用/环/输出上限与脱敏错误；apply 的幂等、并发 stale version、destructive 行锁、人工冲突整批回滚、人工 NULL、拓扑应用、事务 helper、单次 version、initialized、旧 run supersede 与提交后发布；reclassify 的自动条目范围、四态结果、稳定失败明细、attempts、retry key/generation、人工 NULL、version/candidate 三门禁、持久 cursor、重复 delivery、事务外模型与派生失败数。
+
+在隔离 worktree 中逐项中和关键不变量，并串行使用专用测试库运行对应命名用例，以下 15 项均为 Vitest assertion failure、进程 exit 1：重新截断 reduce themes；supplement 放行非 add；strict schema 改为 passthrough；服务端 source counts 固定为 0；移除 apply 人工冲突；移除 apply version 重验；跳过 request-key 幂等返回；移除 destructive source `FOR UPDATE`；移除 reclassify manual、version、candidate 三门禁；重复 retry key 再次 publish；移除重复 delivery cursor guard；把分类模型包入持 settings share 的事务；失败明细 attempts 不递增。首次把四个数据库反测并行运行导致测试间 schema reset 竞争，该轮结果明确作废；上述有效证据均已在无并发 reset 的串行复跑中取得。
+
+### 偏差、未解决项与残余风险
+
+- 无需求、架构、安全边界或 AR-M2-01 偏差；LLM 均在事务外，AI 不会自动迁移或清空人工分类条目，包括人工选择 NULL。
+- pg-boss 发布失败保留 recoverable `reclassifying` run，由 worker publisher 循环补发；本批未操作生产队列或生产数据。
+- 完整回归为 47/49 files、346/348 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules` 而报 `PRODUCTION_NODE_MODULES_MISSING`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与本批变更面无关，未被掩盖，也不据此宣称完整回归通过。

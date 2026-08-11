@@ -4,12 +4,19 @@ import type PgBoss from "pg-boss";
 
 import packageMetadata from "../../package.json";
 import { logger } from "@/lib/log/logger";
+import {
+  CATEGORY_RECLASSIFY_QUEUE,
+  ensureCategoryReclassifyQueue,
+  publishPendingCategoryReclassifications,
+  type CategoryReclassifyPayload,
+} from "@/lib/categories/reclassify";
 import { createBoss, ensureProcessingQueue, PROCESS_ITEM_QUEUE } from "@/lib/queue/boss";
 import { businessDay } from "@/lib/time/businessDay";
 import { dispatchTelegramReceipt } from "@/worker/bot/receiptDispatcher";
 import { launchTelegramBot, type TelegramRuntime } from "@/worker/bot/telegram";
 import { cleanupRetention, recordWorkerHeartbeat } from "@/worker/jobs/maintenance";
 import { processItemJob } from "@/worker/jobs/processItem";
+import { reclassifyCategoriesJob } from "@/worker/jobs/reclassifyCategories";
 import {
   registerScheduledRefetch,
   runScheduledRefetch,
@@ -63,11 +70,15 @@ export async function createWorkerRuntime(): Promise<WorkerRuntime> {
   boss.on("error", () => logger.error("queue_error", { category: "internal" }));
   await boss.start();
   await ensureProcessingQueue(boss);
+  await ensureCategoryReclassifyQueue(boss);
   await registerScheduledRefetch(boss);
   await registerMaintenance(boss);
 
   await boss.work<ProcessingJobPayload>(PROCESS_ITEM_QUEUE, { batchSize: 1 }, async (jobs) => {
     for (const job of jobs) await processItemJob(job.data);
+  });
+  await boss.work<CategoryReclassifyPayload>(CATEGORY_RECLASSIFY_QUEUE, { batchSize: 1 }, async (jobs) => {
+    for (const job of jobs) await reclassifyCategoriesJob(job.data);
   });
   await boss.work(SCHEDULED_REFETCH_QUEUE, { batchSize: 1 }, async () => {
     await runScheduledRefetch();
@@ -84,6 +95,9 @@ export async function createWorkerRuntime(): Promise<WorkerRuntime> {
   }
 
   const publisher = repeat(async () => { await publishPendingRequests(boss); }, LOOP_INTERVAL_MS);
+  const categoryPublisher = repeat(async () => {
+    await publishPendingCategoryReclassifications(boss);
+  }, LOOP_INTERVAL_MS);
   const receipts = repeat(async () => {
     if (telegram) await dispatchTelegramReceipt(workerId, { send: telegram.send });
   }, LOOP_INTERVAL_MS);
@@ -97,11 +111,13 @@ export async function createWorkerRuntime(): Promise<WorkerRuntime> {
       if (stopped) return;
       stopped = true;
       publisher.stop();
+      categoryPublisher.stop();
       receipts.stop();
       heartbeat.stop();
-      await Promise.all([publisher.idle(), receipts.idle(), heartbeat.idle()]);
+      await Promise.all([publisher.idle(), categoryPublisher.idle(), receipts.idle(), heartbeat.idle()]);
       await Promise.all([
         boss.offWork(PROCESS_ITEM_QUEUE),
+        boss.offWork(CATEGORY_RECLASSIFY_QUEUE),
         boss.offWork(SCHEDULED_REFETCH_QUEUE),
         boss.offWork(MAINTENANCE_QUEUE),
       ]);
