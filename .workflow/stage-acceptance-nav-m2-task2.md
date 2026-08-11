@@ -1,30 +1,41 @@
 # 导航站增强 M2 阶段验收：Task 2 分类 store
 
 - 日期：2026-08-11（Asia/Shanghai）
-- 验收提交：`1b9c418797b1d271462e6bd5c064ed7829c4ef1b`
+- 初验提交：`1b9c418797b1d271462e6bd5c064ed7829c4ef1b`
+- 返工复验提交：`ba566c30f63573ca91555b878eaa6b745d242301`
 - 基准：`implementation-plan-nav-enhancement.md` rev11 Task 2 与 Global Invariants
-- 结论：**退回**。当前实现静态上使用显式 queryable，但计划要求的“不回落全局 db”回归门禁可 fail-open。
+- 结论：**通过**。初验 R1 的 tx-bound 门禁 fail-open 已闭环，Task 1+2 可放行并继续 Task 3。
+
+## 独立复验环境
+
+1. 仅验收稳定提交 `ba566c30...` 的 detached worktree `/tmp/xm-ba566c3-accept.5LSAtF`，不以动态工作区裁决。
+2. 使用独立 PostgreSQL 16.14 实例 `127.0.0.1:55432`，数据库名保持 `collection_system_test`，pgvector 0.8.6；与实施工程师默认 5432 实例物理隔离，同时满足测试的 `current_database()` fail-closed 守卫。
+3. 实施侧共享实例未被本轮复验操作；独立实例查询确认当前数据库、端口与扩展版本分别为 `collection_system_test`、`55432`、`0.8.6`。
 
 ## 正向复跑证据
 
-1. 在 detached worktree `/tmp/xm-daohang-1b9c418.GHs7wk` 核验实际 Git 对象 hash；实施工程师最初消息中的长 hash `1b9c418115...` 不存在，本记录使用仓库实际唯一对象 `1b9c418797...`。
-2. Task 1+2 联合定向测试：3 files / 18 tests 通过；其中 store 为 1 file / 11 tests。
-3. `tsc --noEmit` 退出 0；`eslint .` 为 0 error、1 条已批准 UI 原型既有 warning；`git diff --check` 与 workflow validator 通过。
-4. 代码与正向测试覆盖 NFKC/trim、1～80 字符与控制字符拒绝、稳定 UUID slug、sort/name/id 排序、并发规范名冲突、not-found/version 不变、create 初始化与版本、rename/delete 单次版本、delete 影响计数及 FK 保留 manual、删空不反初始化、事务回滚、overview eligible/manual/doc 口径。
-5. 完整回归：43/45 files、274/276 tests；失败仍只是不含 standalone 构建产物与历史固定日期两项，未发现 Task 2 新增功能失败。
+1. store 定向测试：1 file / 20 tests 通过；Task 1+2 联合定向：3 files / 27 tests 通过。
+2. `tsc --noEmit` 退出 0；`eslint .` 退出 0，为 0 error、1 条已批准 UI 原型既有 warning；`git diff --check` 退出 0。
+3. workflow validator 退出 0，输出 `PASS: workflow stage=implementation revision=11`。
+4. 功能覆盖包括 NFKC/trim、1～80 字符及控制字符拒绝、稳定 UUID slug、sort/name/id 排序、并发规范名冲突、not-found/version 不变、create 初始化与版本、rename/delete 单次版本、delete 影响计数、FK SET NULL 保留 manual、删空不反初始化、事务回滚及 overview eligible/manual/doc 口径。
 
-## 阻断返工项
+## R1 闭环与反向验证
 
-### R1：tx-bound helper spy 只覆盖 create，lock/rename 可回落全局 db 而门禁仍绿
+初验时，把 `lockCategoryState` 或 `renameCategoryRecord` 改为全局 `db` 后 store 11/11 仍通过，故退回。返工后确认：
 
-- rev11 Task 2 要求 `CategoryError` 与显式 queryable，并要求 apply 内所有 helper 使用传入 tx，由 spy 证明不回落全局 db。
-- 当前 `tests/categories/store.test.ts:66` 只调用 `createCategoryRecord(tx, ...)`，且只 spy `db.insert`。它没有对 `lockCategoryState`、`renameCategoryRecord`、`advanceCategoryVersion` 的实际全局方法做零调用断言。
-- 反证 A：隔离目录 `/tmp/xm-1b9c418-lock_helper.bMm0C8`，把 `lockCategoryState` 的 `queryable.insert/execute` 改为全局 `db.insert/execute` 后，store 11/11 仍通过。此时 `SELECT ... FOR UPDATE` 在独立自动提交连接上立即释放，不能保护调用者事务。
-- 反证 B：隔离目录 `/tmp/xm-1b9c418-rename_helper.6micWN`，把 `renameCategoryRecord` 的 `queryable.update` 改为全局 `db.update` 后，store 11/11 仍通过；未来 apply 调用者回滚时，rename 可逃逸事务。
-- 期望：对 `lockCategoryState`、`createCategoryRecord`、`renameCategoryRecord`、`advanceCategoryVersion` 逐一使用调用者 transaction，spy 对应全局 `db.insert/execute/update` 并断言零调用；注入调用者回滚后断言分类、settings 初始化/version 均无持久变化。至少增加一个并发探针证明 settings 行锁在调用者事务释放前确实阻塞第二个 taxonomy writer。中和任一 helper 为全局 db 时，store suite 必须失败。
-- 更新实施报告中“所有 helper 均由 spy 证明”的证据后，提供新的 Task 1+2 稳定提交复验。
+1. `lockCategoryState`、`advanceCategoryVersion`、`createCategoryRecord`、`renameCategoryRecord`、`listCategories`、`createCategory`、`renameCategory`、`deleteCategory`、`getCategoryOverview` 均有独立的调用者 transaction 测试，按实际路径 spy 全局 `db.transaction/insert/execute/update/delete/select` 并断言零调用。
+2. 所有写路径在调用者事务回滚后进一步断言分类、settings initialized/version、item category/manual 均未持久变化。
+3. 真实双事务行锁探针把第二个 writer 的 `lock_timeout` 设为 100ms；第一事务释放前第二事务得到 PostgreSQL `55P03`，释放后可重新取得锁。
+4. 在十个独立变异 worktree 中逐一反测。九个 API 分别回落全局 `db` 时，对应命名测试均为 1 failed、exit 1；失败命中预期的全局方法 spy 或调用者回滚断言。仅把 `lockCategoryState` 的 `FOR UPDATE` 查询回落全局 `db.execute` 时，行锁测试因实际错误码为 `undefined`、期望 `55P03` 而 exit 1。
+5. 每个变异 diff 仅含目标 queryable 替换，所有失败均为 Vitest assertion failure，不是依赖、语法、迁移或测试启动错误。证据目录：`/tmp/xm-ba566c3-reverse.bynLek`。
 
-## 已确认非阻断项
+## 完整回归归因
 
-- store 当前产品实现经静态核对确实把 queryable 传入所有 helper；本次退回针对计划明确要求但 fail-open 的回归门禁，不是已观察到的线上数据越界。
-- `PRODUCTION_NODE_MODULES_MISSING` 与 `settingsRoutes` 固定 `2026-08-09` 仍分别属于未 build 的产物前置条件和历史时间相关测试缺陷；归因与修复建议见 Task 1 验收记录。
+1. 返工提交完整回归：43/45 files、283/285 tests；初验提交 `1b9c418797...` 在同一独立实例复跑为 43/45 files、274/276 tests。
+2. 两次失败完全相同：`deploy-smoke` 因未构建 `.next/standalone/node_modules` 报 `PRODUCTION_NODE_MODULES_MISSING`；`settingsRoutes` 固定期望 `2026-08-09`，当前业务日 `2026-08-11`，实际 `usedGlobal=0`。
+3. `1b9c418...` 到 `ba566c30...` 的变更仅涉及 workflow 文档与 `tests/categories/store.test.ts`，未修改上述两个失败用例或其产品路径。因此这两项确属既有构建前置/历史时间用例，不是 Task 2 返工引入；实施报告没有夸大为完整回归通过。
+4. 日期用例会随时间持续红，建议单独修复为 fake timer 或依据测试时钟生成业务日 fixture；不阻断本批 Task 2 放行。
+
+## 残余风险
+
+- AI apply 尚未接入这些内部 helper，按计划依赖顺序留待 Task 6；Task 2 范围内未发现剩余阻断项。
