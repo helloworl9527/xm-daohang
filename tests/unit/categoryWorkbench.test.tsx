@@ -3,14 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CategoryWorkbench } from "@/app/admin/(protected)/categories/_components/CategoryWorkbench";
 import { CategorySelector } from "@/app/admin/(protected)/library/[id]/CategorySelector";
+import { applyCategoriesInputSchema } from "@/lib/categories/apply";
 import { render } from "../render";
 
 const CATEGORY_A = "30000000-0000-4000-8000-000000000001";
 const CATEGORY_B = "30000000-0000-4000-8000-000000000002";
+const CATEGORY_C = "30000000-0000-4000-8000-000000000003";
 const overview = {
   categories: [
     { id: CATEGORY_A, name: "开发工具", slug: "dev", sort: 0, autoCount: 4, manualCount: 2 },
     { id: CATEGORY_B, name: "人工智能", slug: "ai", sort: 1, autoCount: 3, manualCount: 0 },
+    { id: CATEGORY_C, name: "阅读资料", slug: "reading", sort: 2, autoCount: 1, manualCount: 0 },
   ],
   eligible: { classified: 7, unclassified: 3, total: 10 },
   manualItems: 2,
@@ -33,18 +36,23 @@ const proposal = {
   ],
 };
 
-const mergeProposal = {
+const fourKindProposal = {
   mode: "full" as const,
   baseVersion: 2,
   snapshotAt: "2026-08-11T00:00:00.000Z",
-  diffs: [{
-    kind: "merge" as const,
-    proposalId: "merge-dev",
-    sourceCategoryId: CATEGORY_A,
-    target: { kind: "existing" as const, categoryId: CATEGORY_B },
-    autoCount: 4,
-    manualCount: 0,
-  }],
+  diffs: [
+    { kind: "add" as const, proposalId: "new", name: "数据工具", autoCount: 0, manualCount: 0 },
+    { kind: "rename" as const, proposalId: "rename-ai", sourceCategoryId: CATEGORY_B, name: "智能工具", autoCount: 3, manualCount: 0 },
+    {
+      kind: "merge" as const,
+      proposalId: "merge-dev",
+      sourceCategoryId: CATEGORY_A,
+      target: { kind: "existing" as const, categoryId: CATEGORY_B },
+      autoCount: 4,
+      manualCount: 0,
+    },
+    { kind: "delete" as const, proposalId: "delete-reading", sourceCategoryId: CATEGORY_C, autoCount: 1, manualCount: 0 },
+  ],
 };
 
 beforeEach(() => {
@@ -129,13 +137,13 @@ describe("CategoryWorkbench", () => {
     expect(secondBody.requestKey).toBe(firstBody.requestKey);
   });
 
-  it("keeps the semantic merge target in the strict apply request", async () => {
+  it("passes every UI-produced accepted diff kind through the real strict apply schema", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(Response.json(mergeProposal))
+      .mockResolvedValueOnce(Response.json(fourKindProposal))
       .mockResolvedValueOnce(Response.json({
-        runId: "run-merge",
+        runId: "run-four-kinds",
         status: "completed",
-        counts: { added: 0, renamed: 0, merged: 1, deleted: 0, ignored: 0 },
+        counts: { added: 1, renamed: 1, merged: 1, deleted: 1, ignored: 0 },
       }))
       .mockResolvedValueOnce(Response.json({ overview }));
     vi.stubGlobal("fetch", fetchMock);
@@ -143,17 +151,19 @@ describe("CategoryWorkbench", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /全量重拟/ }));
     await screen.findByRole("heading", { name: "变更预览" });
-    fireEvent.click(screen.getByRole("button", { name: "检查并应用 1 项" }));
+    fireEvent.click(screen.getByRole("button", { name: "检查并应用 4 项" }));
     fireEvent.click(screen.getByRole("button", { name: "确认应用" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
 
-    const body = JSON.parse(fetchMock.mock.calls[1]![1].body as string) as {
-      accepted: Array<Record<string, unknown>>;
-    };
-    expect(body.accepted).toEqual([expect.objectContaining({
+    const body: unknown = JSON.parse(fetchMock.mock.calls[1]![1].body as string);
+    const parsed = applyCategoriesInputSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw parsed.error;
+    expect(parsed.data.accepted.map((diff) => diff.kind)).toEqual(["add", "rename", "merge", "delete"]);
+    expect(parsed.data.accepted).toContainEqual(expect.objectContaining({
       kind: "merge",
       target: { kind: "existing", categoryId: CATEGORY_B },
-    })]);
+    }));
   });
 
   it("requires a separate confirmation before deleting a fixed category", async () => {

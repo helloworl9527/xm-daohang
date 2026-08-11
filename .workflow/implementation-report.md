@@ -317,7 +317,7 @@ R1 修复 destructive impact 的 TOCTOU：事务先锁扫描时已在 source 的
 | `corepack pnpm audit --prod` | PASS，0 known vulnerabilities |
 | `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 50/51 files、365/366 tests；1 项既有失败，见下 |
 
-Playwright 在 `1440×1000` 与移动项目上真实覆盖：登录与分类导航、full 四类 diff、名称编辑/自动去向、独立确认、默认重跑、人工冲突引导、忽略后使用同一 requestKey 重试、应用结果、真实 CRUD 新增、删除二次确认、条目人工选择 NULL 与数据库 `category_manual=true`。两端均断言无页面级横向溢出；移动 CRUD 还断言重命名/删除 44px 几何盒不相交并以键盘 Enter 完成删除。预期 409 经 UI 文案断言后从控制台采样中剔除，后续控制台与 pageerror 均为 0。截图位于 `.workflow/screenshots/nav-enhancement/admin-c-diff-{desktop,mobile}.png`。
+Playwright 在 `1440×1000` 与移动项目上通过生产 standalone 覆盖登录与分类导航、full 四类 diff、名称编辑/自动去向、独立确认、默认重跑、人工冲突引导、忽略后复用 requestKey，以及真实 CRUD、删除二次确认、条目人工选择 NULL 与数据库 `category_manual=true`。其中 propose/apply 响应由 Playwright route mock 提供，只验证 UI 状态机、请求重试和错误呈现，不作为 UI/API 合同证据；四型请求合同由真实 `applyCategoriesInputSchema` 契约测试与真实 apply route API 测试独立覆盖。两端均断言无页面级横向溢出；移动 CRUD 还断言重命名/删除 44px 几何盒不相交并以键盘 Enter 完成删除。预期 409 经 UI 文案断言后从控制台采样中剔除，后续控制台与 pageerror 均为 0。截图位于 `.workflow/screenshots/nav-enhancement/admin-c-diff-{desktop,mobile}.png`。
 
 按最新 Web Interface Guidelines 审计 Task 8 文件并修正：所有图标按钮有 aria-label、装饰图标 aria-hidden、表单均有 label/name/autocomplete、async 反馈有 aria-live/alert、原生 dialog 有 ESC/焦点恢复/overscroll containment、全局 focus-visible 可见、控件 touch-action 与按压 transform 支持 reduced-motion。未发现剩余阻断项。
 
@@ -344,6 +344,6 @@ Playwright 在 `1440×1000` 与移动项目上真实覆盖：登录与分类导�
 
 - 修复工作台接受 merge 时遗漏严格 `AppliedDiff.target` 的契约错误：请求同时保留 proposal 的语义合并 target，以及管理员选择的 `autoDestination`，由 apply 继续执行目标存在、同批删除 source 等服务端校验。API 测试明确断言缺失 merge target 返回 `VALIDATION` 400。
 - 活动 reclassify run 收到新 retry key 时仍返回稳定 `VALIDATION` code，但 HTTP 状态改为计划规定的 409；同 key 永久幂等仍返回既有 generation，非法 UUID 与非可重试终态仍保持 400。
-- R1 正向定向：直接相关 UI/API 为 2 files / 16 tests PASS；Task 8 API/reclassify/detail/UI 扩展定向为 5 files / 47 tests PASS。`typecheck`、lint（0 error、1 条审批原型既有 warning）、diff check、workflow validator、`env -u DATABASE_URL pnpm build` 与桌面/移动 Playwright 2/2 均通过。
-- R1 完整回归为 50/51 files、367/368 tests；唯一失败仍是 `settingsRoutes` 固定断言 `2026-08-09`、实际业务日 `2026-08-11`，本次 merge/retry 窄修未触及该历史用例。
+- R1 正向定向：直接相关 UI/API 为 2 files / 17 tests PASS；其中前端生成的 add/rename/merge/delete 四型 accepted body 使用真实 `applyCategoriesInputSchema` strict 解析，真实 apply route 另断言缺 merge target 返回 400。Task 8 API/reclassify/detail/UI 扩展定向为 5 files / 48 tests PASS。`typecheck`、lint（0 error、1 条审批原型既有 warning）、diff check、workflow validator、`env -u DATABASE_URL pnpm build` 与桌面/移动 Playwright 2/2 均通过。
+- R1 完整回归为 50/51 files、368/369 tests；唯一失败仍是 `settingsRoutes` 固定断言 `2026-08-09`、实际业务日 `2026-08-11`，本次 merge/retry 窄修未触及该历史用例。
 - R1 反向门禁：临时移除工作台 merge 顶层 target 后，命名 UI 用例因提交体缺字段出现 Vitest AssertionError、exit 1；临时移除活动 run 的冲突标记后，命名 API 用例观测实际 400、期望 409，Vitest AssertionError、exit 1。两项均恢复后重新正向验证，不把语法或启动错误计作证据。

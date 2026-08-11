@@ -252,6 +252,33 @@ describe("admin category APIs", () => {
     );
     expect(first.status).toBe(202);
     await expect(duplicate.json()).resolves.toEqual(await first.clone().json());
+    expect(await db.select().from(categoryRunRetryRequests)).toHaveLength(1);
+  });
+
+  it("maps a new retry key for an active reclassification to a stable 409 conflict", async () => {
+    await seedCategories();
+    await seedItem();
+    await db.insert(categoryChangeRuns).values({
+      id: REQUEST_A,
+      requestKey: REQUEST_A,
+      mode: "full",
+      baseVersion: 1,
+      appliedVersion: 2,
+      accepted: [],
+      ignored: [],
+      snapshotAt: new Date(),
+      status: "partial",
+    });
+    await db.insert(categoryReclassifyFailures).values({
+      runId: REQUEST_A,
+      itemId: ITEM_ID,
+      errorCode: "AI_OUTPUT_INVALID",
+    });
+    await retryRunRoute(
+      await request(`/admin/api/categories/runs/${REQUEST_A}/retry`, "POST", { requestKey: REQUEST_B }),
+      params(REQUEST_A),
+    );
+
     const conflicting = await retryRunRoute(
       await request(`/admin/api/categories/runs/${REQUEST_A}/retry`, "POST", { requestKey: REQUEST_C }),
       params(REQUEST_A),
