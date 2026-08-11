@@ -2,17 +2,20 @@
 
 import { and, eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { db, pool } from "@/db/client";
 import {
   appSettings,
+  categories,
   items,
   processingRequests,
   telegramReceipts,
 } from "@/db/schema";
+import type { CategoryCandidate, ClassificationOutcome } from "@/lib/categories/classify";
 import { upsertItem } from "@/lib/items/dedupe";
 import { requestProcessing } from "@/lib/items/processing";
+import { logger } from "@/lib/log/logger";
 import { createBoss, ensureProcessingQueue, PROCESS_ITEM_QUEUE } from "@/lib/queue/boss";
 import { processItemJob, reconcileEmbeddingRebuild } from "@/worker/jobs/processItem";
 import { publishPendingRequests, type ProcessingBoss } from "@/worker/queue/requestPublisher";
@@ -33,6 +36,7 @@ beforeEach(async () => {
   await db.delete(telegramReceipts);
   await db.delete(processingRequests);
   await db.delete(items);
+  await db.delete(categories);
   await db.delete(appSettings);
   await db.insert(appSettings).values({
     id: 1,
@@ -45,6 +49,10 @@ beforeEach(async () => {
 afterAll(async () => {
   await pool.query("drop schema if exists pgboss cascade");
   await pool.end();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 async function insertItem(overrides: Partial<typeof items.$inferInsert> = {}) {
@@ -73,8 +81,23 @@ function successfulDependencies(content = "new content") {
       tags: ["新标签一", "新标签二", "新标签三"],
     })),
     embed: vi.fn(async () => VECTOR),
+    loadTaxonomy: vi.fn(async () => ({
+      initialized: false,
+      version: 0,
+      categories: [] as CategoryCandidate[],
+    })),
+    classify: vi.fn(async (): Promise<ClassificationOutcome> => ({
+      outcome: "unclassified",
+      confidence: 1,
+    })),
     retryDelayMs: () => 0,
   };
+}
+
+async function insertCategory(name: string) {
+  const [category] = await db.insert(categories).values({ name, slug: `cat-${crypto.randomUUID()}` })
+    .returning();
+  return category;
 }
 
 async function currentRequest(itemId: string, generation: number, attempt: number) {
@@ -255,6 +278,318 @@ describe("processing request state machine", () => {
     expect(saved.summary).toBe(oldSummary);
     expect(saved.tags).toEqual(["新标签一", "新标签二", "新标签三"]);
     expect(dependencies.embed).toHaveBeenCalledWith(oldSummary);
+  });
+
+  it("classifies an initialized web item and completes its Telegram receipt atomically", async () => {
+    const category = await insertCategory("数据库");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 4 })
+      .where(eq(appSettings.id, 1));
+    const item = await insertItem({ status: "failed", categoryId: null });
+    const generation = await requestProcessing(item.id, {
+      receipt: { chatIdHash: "category-chat", chatIdEnc: "category-chat-enc" },
+    });
+    const dependencies = { ...successfulDependencies(), loadTaxonomy: undefined };
+    dependencies.classify.mockResolvedValue({
+      outcome: "selected",
+      categoryId: category.id,
+      confidence: 0.9,
+    });
+    const info = vi.spyOn(logger, "info");
+    try {
+      await expect(processItemJob({
+        itemId: item.id,
+        processGeneration: generation,
+        embVersion: 1,
+        attempt: 0,
+      }, dependencies)).resolves.toEqual({ claimed: true, outcome: "completed" });
+
+      expect(dependencies.classify).toHaveBeenCalledWith({
+        title: "New title",
+        summary: "新总结第一句。新总结第二句。",
+        tags: ["新标签一", "新标签二", "新标签三"],
+        categories: [{ id: category.id, name: category.name }],
+      });
+      expect(info).toHaveBeenCalledWith("category_classified", {
+        outcome: "matched",
+        reason: "selected",
+      });
+    } finally {
+      info.mockRestore();
+    }
+
+    const [saved] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(saved).toMatchObject({ status: "completed", categoryId: category.id, categoryManual: false });
+    expect(await currentRequest(item.id, generation, 0)).toMatchObject({ status: "done" });
+    const [receipt] = await db.select().from(telegramReceipts);
+    expect(receipt).toMatchObject({ outcome: "completed", status: "ready" });
+  });
+
+  it("writes reliable unclassified but preserves the old category for classifier failures", async () => {
+    const info = vi.spyOn(logger, "info");
+    const category = await insertCategory("开发工具");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 2 })
+      .where(eq(appSettings.id, 1));
+    const snapshot = {
+      initialized: true,
+      version: 2,
+      categories: [{ id: category.id, name: category.name }],
+    };
+
+    const reliable = await insertItem({ status: "failed", categoryId: category.id });
+    const reliableGeneration = await requestProcessing(reliable.id);
+    const reliableDependencies = successfulDependencies();
+    reliableDependencies.loadTaxonomy.mockResolvedValue(snapshot);
+    reliableDependencies.classify.mockResolvedValue({ outcome: "unclassified", confidence: 0.4 });
+    await processItemJob({
+      itemId: reliable.id,
+      processGeneration: reliableGeneration,
+      embVersion: 1,
+      attempt: 0,
+    }, reliableDependencies);
+    expect((await db.select().from(items).where(eq(items.id, reliable.id)))[0]).toMatchObject({
+      status: "completed",
+      categoryId: null,
+    });
+    expect(info).toHaveBeenCalledWith("category_classified", {
+      outcome: "unclassified",
+      reason: "reliable_unclassified",
+    });
+
+    for (const outcome of ["invalid_output", "upstream_error"] as const) {
+      const existing = await insertItem({ status: "failed", categoryId: category.id });
+      const generation = await requestProcessing(existing.id);
+      const dependencies = successfulDependencies();
+      dependencies.loadTaxonomy.mockResolvedValue(snapshot);
+      dependencies.classify.mockResolvedValue({ outcome });
+      await expect(processItemJob({
+        itemId: existing.id,
+        processGeneration: generation,
+        embVersion: 1,
+        attempt: 0,
+      }, dependencies)).resolves.toEqual({ claimed: true, outcome: "completed" });
+      expect((await db.select().from(items).where(eq(items.id, existing.id)))[0]).toMatchObject({
+        status: "completed",
+        categoryId: category.id,
+      });
+      expect(await currentRequest(existing.id, generation, 0)).toMatchObject({ status: "done" });
+      expect(info).toHaveBeenCalledWith("category_classified", {
+        outcome: "skipped",
+        reason: outcome,
+      });
+    }
+  });
+
+  it("does not classify uninitialized, doc, or manually categorized items", async () => {
+    const info = vi.spyOn(logger, "info");
+    const category = await insertCategory("不应调用");
+    const cases = [
+      { overrides: { type: "web", categoryManual: false }, loadExpected: true },
+      { overrides: { type: "doc", categoryManual: false }, loadExpected: false },
+      { overrides: { type: "web", categoryManual: true, categoryId: category.id }, loadExpected: false },
+    ] as const;
+
+    for (const fixture of cases) {
+      const item = await insertItem({ status: "failed", ...fixture.overrides });
+      const generation = await requestProcessing(item.id);
+      const dependencies = successfulDependencies();
+      await processItemJob({
+        itemId: item.id,
+        processGeneration: generation,
+        embVersion: 1,
+        attempt: 0,
+      }, dependencies);
+      expect(dependencies.loadTaxonomy).toHaveBeenCalledTimes(fixture.loadExpected ? 1 : 0);
+      expect(dependencies.classify).not.toHaveBeenCalled();
+      expect((await db.select().from(items).where(eq(items.id, item.id)))[0]?.status).toBe("completed");
+    }
+    for (const reason of ["not_initialized", "unsupported_type", "manual_protected"]) {
+      expect(info).toHaveBeenCalledWith("category_classified", { outcome: "skipped", reason });
+    }
+  });
+
+  it("keeps processing completed when taxonomy loading or classification throws", async () => {
+    const info = vi.spyOn(logger, "info");
+    const category = await insertCategory("原分类");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 1 })
+      .where(eq(appSettings.id, 1));
+
+    for (const failure of ["load", "classify"] as const) {
+      const item = await insertItem({ status: "failed", categoryId: category.id });
+      const generation = await requestProcessing(item.id);
+      const dependencies = successfulDependencies();
+      if (failure === "load") {
+        dependencies.loadTaxonomy.mockRejectedValue(new Error("taxonomy unavailable"));
+      } else {
+        dependencies.loadTaxonomy.mockResolvedValue({
+          initialized: true,
+          version: 1,
+          categories: [{ id: category.id, name: category.name }],
+        });
+        dependencies.classify.mockRejectedValue(new Error("classifier escaped"));
+      }
+
+      await expect(processItemJob({
+        itemId: item.id,
+        processGeneration: generation,
+        embVersion: 1,
+        attempt: 0,
+      }, dependencies)).resolves.toEqual({ claimed: true, outcome: "completed" });
+      expect((await db.select().from(items).where(eq(items.id, item.id)))[0]).toMatchObject({
+        status: "completed",
+        categoryId: category.id,
+      });
+      expect(await currentRequest(item.id, generation, 0)).toMatchObject({
+        status: "done",
+        lastErrorCode: null,
+      });
+      expect(info).toHaveBeenCalledWith("category_classified", {
+        outcome: "skipped",
+        reason: failure === "load" ? "taxonomy_unavailable" : "classifier_upstream_error",
+      });
+    }
+  });
+
+  it("does not overwrite an administrator category change made during inference", async () => {
+    const info = vi.spyOn(logger, "info");
+    const automatic = await insertCategory("自动候选");
+    const manual = await insertCategory("人工选择");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 3 })
+      .where(eq(appSettings.id, 1));
+    const item = await insertItem({ status: "failed", categoryId: null });
+    const generation = await requestProcessing(item.id);
+    const dependencies = successfulDependencies();
+    dependencies.loadTaxonomy.mockResolvedValue({
+      initialized: true,
+      version: 3,
+      categories: [{ id: automatic.id, name: automatic.name }],
+    });
+    let resolveClassification!: (outcome: ClassificationOutcome) => void;
+    let reportStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      reportStarted = resolve;
+    });
+    dependencies.classify.mockImplementation(() => new Promise((resolve) => {
+      resolveClassification = resolve;
+      reportStarted();
+    }));
+    const processing = processItemJob({
+      itemId: item.id,
+      processGeneration: generation,
+      embVersion: 1,
+      attempt: 0,
+    }, dependencies);
+    await started;
+    await db.update(items).set({ categoryId: manual.id, categoryManual: true })
+      .where(eq(items.id, item.id));
+    resolveClassification({ outcome: "selected", categoryId: automatic.id, confidence: 0.95 });
+    await expect(processing).resolves.toEqual({ claimed: true, outcome: "completed" });
+
+    expect((await db.select().from(items).where(eq(items.id, item.id)))[0]).toMatchObject({
+      categoryId: manual.id,
+      categoryManual: true,
+      status: "completed",
+    });
+    expect(info).toHaveBeenCalledWith("category_classified", {
+      outcome: "skipped",
+      reason: "manual_override",
+    });
+  });
+
+  it("does not apply an inference after taxonomy version changes", async () => {
+    const info = vi.spyOn(logger, "info");
+    const category = await insertCategory("版本候选");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 5 })
+      .where(eq(appSettings.id, 1));
+    const item = await insertItem({ status: "failed", categoryId: null });
+    const generation = await requestProcessing(item.id);
+    const dependencies = successfulDependencies();
+    dependencies.loadTaxonomy.mockResolvedValue({
+      initialized: true,
+      version: 5,
+      categories: [{ id: category.id, name: category.name }],
+    });
+    let resolveClassification!: (outcome: ClassificationOutcome) => void;
+    let reportStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      reportStarted = resolve;
+    });
+    dependencies.classify.mockImplementation(() => new Promise((resolve) => {
+      resolveClassification = resolve;
+      reportStarted();
+    }));
+    const transaction = vi.spyOn(db, "transaction");
+
+    const processing = processItemJob({
+      itemId: item.id,
+      processGeneration: generation,
+      embVersion: 1,
+      attempt: 0,
+    }, dependencies);
+    await started;
+    const transactionsDuringInference = transaction.mock.calls.length;
+    await db.update(appSettings).set({ categoryVersion: 6 }).where(eq(appSettings.id, 1));
+    resolveClassification({ outcome: "selected", categoryId: category.id, confidence: 0.9 });
+    await expect(processing).resolves.toEqual({ claimed: true, outcome: "completed" });
+    expect(transactionsDuringInference).toBe(0);
+    expect(transaction).toHaveBeenCalledOnce();
+
+    expect((await db.select().from(items).where(eq(items.id, item.id)))[0]).toMatchObject({
+      status: "completed",
+      categoryId: null,
+    });
+    expect(info).toHaveBeenCalledWith("category_classified", {
+      outcome: "skipped",
+      reason: "stale_taxonomy",
+    });
+  });
+
+  it("does not fail or retry when the selected category disappears during inference", async () => {
+    const info = vi.spyOn(logger, "info");
+    const category = await insertCategory("即将删除");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 7 })
+      .where(eq(appSettings.id, 1));
+    const item = await insertItem({ status: "failed", categoryId: null });
+    const generation = await requestProcessing(item.id);
+    const dependencies = successfulDependencies();
+    dependencies.loadTaxonomy.mockResolvedValue({
+      initialized: true,
+      version: 7,
+      categories: [{ id: category.id, name: category.name }],
+    });
+    let resolveClassification!: (outcome: ClassificationOutcome) => void;
+    let reportStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      reportStarted = resolve;
+    });
+    dependencies.classify.mockImplementation(() => new Promise((resolve) => {
+      resolveClassification = resolve;
+      reportStarted();
+    }));
+
+    const processing = processItemJob({
+      itemId: item.id,
+      processGeneration: generation,
+      embVersion: 1,
+      attempt: 0,
+    }, dependencies);
+    await started;
+    await db.delete(categories).where(eq(categories.id, category.id));
+    resolveClassification({ outcome: "selected", categoryId: category.id, confidence: 0.9 });
+    await expect(processing).resolves.toEqual({ claimed: true, outcome: "completed" });
+
+    expect((await db.select().from(items).where(eq(items.id, item.id)))[0]).toMatchObject({
+      status: "completed",
+      categoryId: null,
+    });
+    expect(await currentRequest(item.id, generation, 0)).toMatchObject({ status: "done" });
+    expect(await db.select().from(processingRequests).where(and(
+      eq(processingRequests.itemId, item.id),
+      eq(processingRequests.attempt, 1),
+    ))).toHaveLength(0);
+    expect(info).toHaveBeenCalledWith("category_classified", {
+      outcome: "skipped",
+      reason: "category_missing",
+    });
   });
 
   it("coordinates embedding rebuild as building, failed, or ready", async () => {

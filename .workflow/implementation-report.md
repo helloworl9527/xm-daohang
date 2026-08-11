@@ -218,3 +218,35 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 
 - 无新增依赖、迁移、数据库写入或 worker 接线；worker 三门禁与事务外推理按依赖顺序留待 Task 4。
 - 完整回归为 44/46 files、301/303 tests；失败仍仅为未构建 standalone 产物及固定 `2026-08-09` 的历史日期 fixture，未落在 Task 3 变更面。本批不修改或掩盖这两项，也不据此宣称完整回归通过。
+
+## M2 Task 4：worker 非阻断归类与并发门禁
+
+### 实现范围
+
+- 扩展 `processItem` 依赖注入，增加 taxonomy 快照读取与单条分类器；仅对 initialized taxonomy 下的 web/github 且初始非人工分类条目调用模型。
+- taxonomy 快照在独立短事务内按 `app_settings FOR SHARE` 后读取分类，事务结束后才执行模型推理，LLM 不进入数据库事务。
+- taxonomy/分类器异常均转换为稳定 skipped outcome，不进入 `failRequest`；可靠 `unclassified` 才写 NULL，`invalid_output`、`upstream_error` 与准备异常均保留原分类。
+- completion 短事务保持 item、processing request 与 Telegram receipt 原子提交；分类写入前在同一事务重验 taxonomy version、候选分类存在性与当前 `category_manual=false`，并在最终 update 条件再次约束人工保护。
+- 增加无内容字段的 `category_classified` 结构化日志，outcome 仅为 matched/unclassified/skipped，并记录稳定 reason。
+- 无 schema 迁移、无新增依赖、无 UI 变更；Task 5 尚未开始。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/integration/processItem.test.ts` | PASS，1 file / 18 tests |
+| Task 1+2+3+4 联合定向测试 | PASS，5 files / 63 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，产品代码 0 error；审批原型保留 1 条既有 warning |
+| `git diff --check` | PASS |
+| project-delivery-workflow validator | PASS |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 308/310 PASS；2 项非本批失败，见下 |
+
+测试覆盖 initialized web 的合法选中、可靠未分类写 NULL、invalid/upstream 保留旧分类、未初始化/doc/初始人工保护零调用、taxonomy/classifier 抛错仍 completed 且不生成 retry、推理期间人工覆盖、taxonomy version 变化和候选删除均不覆盖/不触发 FK 重试，以及 Telegram receipt 仍 completed。分类器挂起期间对 `db.transaction` 的 spy 证明 completion transaction 尚未开始，释放模型结果后才进入一次短事务。
+
+在隔离副本中逐项中和 type、初始 manual、initialized、taxonomy 错误隔离、classifier 错误隔离、可靠 NULL、completion manual、version、候选存在性九项门禁，对应命名测试均为 1 failed / 17 skipped、exit 1，失败命中 Vitest 断言。另把 `prepareClassification` 故意包入 `db.transaction` 时，事务外推理命名测试因分类器挂起期间 transaction 调用数由 0 变为 1 而 assertion failure、exit 1。十项反向门禁均由行为断言捕获，不把语法、依赖或启动错误计作证据。
+
+### 偏差、未解决项与残余风险
+
+- 无需求、架构、安全边界或已接受风险偏差；人工保护、taxonomy version 与候选存在性三门禁均在 completion transaction 内重验。
+- 完整回归为 44/46 files、308/310 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与 Task 4 变更面无关，本批不扩大处理范围，也不据此宣称完整回归通过。

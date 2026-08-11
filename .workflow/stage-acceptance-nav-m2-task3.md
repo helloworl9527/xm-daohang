@@ -25,10 +25,11 @@
 
 1. fixture 同时包含恶意 title、summary、每个 tag 及两个恶意候选分类名；测试断言 system message 等于固定模板，并逐一断言所有不可信值不在 system 中。
 2. user message 经 `JSON.parse` 后必须精确等于 `{item: injected, categories: injectedCategories}`，证明所有不可信值保留在结构化数据边界内。
-3. 反证 A：隔离变异仅把 `input.tags.join(",")` 追加到 system，命名注入测试因固定模板等值断言失败，1 failed、exit 1。
-4. 反证 B：隔离变异仅把 `input.categories[0].name` 追加到 system，同一测试因固定模板等值断言失败，1 failed、exit 1。
-5. 两个变异 diff 都仅含目标泄漏，失败均为 Vitest `AssertionError`，不是语法、依赖或启动错误。证据目录：`/tmp/xm-160499c-reverse.Rbe3SC`。
-6. 初验已独立确认中和无候选短路、strict schema、候选白名单、0.65 边界、4 KiB 上限及 title 注入隔离时，各自命名测试均 assertion failure、exit 1；返工未修改产品模块或这些既有门禁。
+3. 反证 A/B：分别仅把 `input.title`、`input.summary` 追加到 system，两次命名注入测试均因固定模板等值断言失败，1 failed、exit 1。
+4. 反证 C：隔离变异仅把 `input.tags.join(",")` 追加到 system，同一测试因固定模板等值断言失败，1 failed、exit 1。
+5. 反证 D：隔离变异仅把 `input.categories[0].name` 追加到 system，同一测试因固定模板等值断言失败，1 failed、exit 1。
+6. 四个变异 diff 都仅含目标泄漏，失败均为 Vitest `AssertionError`，不是语法、依赖或启动错误。证据目录：`/tmp/xm-160499c-reverse.Rbe3SC`。
+7. 初验已独立确认中和无候选短路、strict schema、候选白名单、0.65 边界及 4 KiB 上限时，各自命名测试均 assertion failure、exit 1；返工未修改产品模块或这些既有门禁。
 
 ## 完整回归归因
 
