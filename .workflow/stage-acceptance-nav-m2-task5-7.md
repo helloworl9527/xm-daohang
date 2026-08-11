@@ -1,9 +1,10 @@
 # 导航站增强 M2 阶段验收：Task 5-7 propose/apply/reclassify
 
 - 日期：2026-08-11（Asia/Shanghai）
-- 验收提交：`f33617b201e0360ef198160dcb44622f67dc4c92`
+- 初验提交：`f33617b201e0360ef198160dcb44622f67dc4c92`
+- R1 返工复验提交：`99bb041b3952606f3c59f9a127e43d255ae6540c`
 - 基准：`implementation-plan-nav-enhancement.md` rev11 Task 5-7 与 Global Invariants
-- 结论：**退回**。Task 6 destructive apply 存在人工分类并发进入 source 后绕过 `MANUAL_CATEGORY_CONFLICT` 的 fail-open；本批不得放行 Task 8。
+- 结论：**通过（R1）**。初验发现的 destructive source 并发人工保护 fail-open 已闭环；Task 5-7 放行，可继续 Task 8。
 
 ## 独立复验环境
 
@@ -53,5 +54,39 @@
 
 ## 裁决
 
-- Task 5 与 Task 7 的本轮正向/既有反向证据未发现其他阻断项；合并批次因 Task 6 R1 整体退回。
+- 初验时 Task 5 与 Task 7 的正向/既有反向证据未发现其他阻断项；合并批次曾因 Task 6 R1 整体退回，最终裁决由下述 R1 复验更新。
 - 完整回归的 standalone 构建前置与固定日期用例继续作为历史问题单独修复，不能用于抵消本次人工保护 fail-open。
+
+## R1 返工复验
+
+### 环境与范围
+
+1. 仅验收稳定提交 detached worktree `/tmp/xm-99bb041-accept.YdwYq7`，HEAD 核对为 `99bb041b3952606f3c59f9a127e43d255ae6540c`。
+2. 使用独立 PostgreSQL 实例 `127.0.0.1:55432`、数据库 `collection_system_test`；复验结束后已停止该实例。
+3. R1 功能 diff 只修改 `src/lib/categories/apply.ts`，并增加 apply 并发测试和修正 implementation report；未改 propose/reclassify、迁移、依赖或 API。
+
+### 并发协议核验
+
+1. apply 持 settings 锁后，先锁扫描时已位于 destructive source 的 items；随后按 category id 稳定顺序对 source categories 行 `FOR UPDATE`，再在该锁保护下重新扫描/锁 items 并重验 manual。
+2. merge/delete 各覆盖“并发事务先把人工 NULL 赋入 source 并持 FK key-share”的时序：apply 被 source category 行锁阻塞；并发事务提交后，二次扫描捕获人工条目，apply 返回 `MANUAL_CATEGORY_CONFLICT`。
+3. merge/delete 各覆盖 `afterImpactLock` 后赋值并提交的时序：赋值先于 source 行锁完成，二次扫描同样捕获并整批拒绝。
+4. 四个用例均断言新增分类、destructive category、run、version 无部分落库；version 保持 2，人工条目保持 `category_manual=true` 且仍指向 source，没有被 FK 静默置 NULL。
+
+### 正向与回归证据
+
+1. apply 定向：1 file / 15 tests PASS；Task 5-7：3 files / 40 tests PASS；Task 1-7 联合：8 files / 105 tests PASS。
+2. `tsc --noEmit`、提交范围 `git diff --check`、workflow validator 均 exit 0；validator 输出 `PASS: workflow stage=implementation revision=11`。
+3. `eslint .` exit 0：0 error、1 条批准原型既有 warning。
+4. 完整回归：47/49 files、350/352 tests。失败仍仅为未构建 standalone 的 `PRODUCTION_NODE_MODULES_MISSING` 与 `settingsRoutes` 固定 `2026-08-09`（实际 `2026-08-11`），不在 R1 变更面。
+5. implementation report 已把 request-key 门禁中和结果准确更正为未捕获 `CategoryApplyError: STALE_TAXONOMY`，不再声称 15 项全部为 AssertionError。
+
+### R1 反向验证
+
+1. 移除 source categories 行 `FOR UPDATE` 后，merge/delete 两个“先持 FK 锁”命名用例均检测不到预期 category row-lock wait，超时失败并 exit 1；finally 释放并发事务后，变异 apply 实际错误完成，证明锁断言命中目标行为。
+2. 中和锁保护下的 manual 二次重验后，merge/delete 两个 `afterImpactLock` 命名用例均错误返回 `completed, appliedVersion=3`，被 `rejects(MANUAL_CATEGORY_CONFLICT)` 捕获为 Vitest AssertionError，exit 1。
+3. 两组变异后均恢复产品文件；未把语法、依赖、迁移或启动错误计作证据。
+
+### R1 裁决
+
+- 初验 R1 已关闭：扫描前已有、扫描后进入以及先持 FK 锁的人工条目均进入同一 fail-closed 协议；未发现新的 Task 5-7 阻断项。
+- **Task 5-7 通过，放行 Task 8。**
