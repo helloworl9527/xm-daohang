@@ -164,6 +164,23 @@ describe("CategoryWorkbench", () => {
       kind: "merge",
       target: { kind: "existing", categoryId: CATEGORY_B },
     }));
+    for (const [kind, requiredField] of [
+      ["add", "name"],
+      ["rename", "name"],
+      ["merge", "target"],
+      ["delete", "autoDestination"],
+    ] as const) {
+      const invalid = structuredClone(parsed.data) as unknown as {
+        accepted: Array<Record<string, unknown>>;
+      };
+      const diff = invalid.accepted.find((candidate) => candidate.kind === kind);
+      expect(diff, `${kind} fixture`).toBeDefined();
+      delete diff![requiredField];
+      expect(
+        applyCategoriesInputSchema.safeParse(invalid).success,
+        `${kind}.${requiredField} is required`,
+      ).toBe(false);
+    }
   });
 
   it("requires a separate confirmation before deleting a fixed category", async () => {
