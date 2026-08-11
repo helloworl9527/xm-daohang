@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db/client";
@@ -214,13 +214,24 @@ export async function applyCategoryDiff(
           diff.kind === "merge" || diff.kind === "delete",
       );
       const destructiveIds = destructive.map((diff) => diff.sourceCategoryId);
+      if (destructiveIds.length > 0) {
+        await tx.select({ id: items.id }).from(items)
+          .where(inArray(items.categoryId, destructiveIds))
+          .for("update");
+      }
+      await dependencies.afterImpactLock?.();
+      if (destructiveIds.length > 0) {
+        await tx.select({ id: categories.id }).from(categories)
+          .where(inArray(categories.id, destructiveIds))
+          .orderBy(asc(categories.id))
+          .for("update");
+      }
       const impact = destructiveIds.length === 0
         ? []
         : await tx.select({
             categoryId: items.categoryId,
             categoryManual: items.categoryManual,
           }).from(items).where(inArray(items.categoryId, destructiveIds)).for("update");
-      await dependencies.afterImpactLock?.();
       if (impact.some((row) => row.categoryManual)) {
         throw new CategoryApplyError("MANUAL_CATEGORY_CONFLICT");
       }

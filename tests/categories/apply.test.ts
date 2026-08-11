@@ -42,6 +42,22 @@ function pgCode(error: unknown): string | undefined {
   return undefined;
 }
 
+async function waitForCategoryLockWait(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const waiting = await pool.query<{ waiting: string }>(`
+      select count(*)::text as waiting
+        from pg_stat_activity
+       where datname = current_database()
+         and pid <> pg_backend_pid()
+         and wait_event_type = 'Lock'
+         and query ilike '%categories%for update%'
+    `);
+    if (Number(waiting.rows[0]?.waiting) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for category row lock contention");
+}
+
 async function insertItem(
   suffix: string,
   overrides: Partial<typeof items.$inferInsert> = {},
@@ -216,6 +232,125 @@ describe("atomic category diff apply", () => {
     expect(pgCode(concurrentError)).toBe("55P03");
     await expect(applying).resolves.toMatchObject({ status: "completed" });
   });
+
+  it.each(["merge", "delete"] as const)(
+    "rechecks a concurrent manual NULL assignment before destructive %s and rolls back the batch",
+    async (kind) => {
+      const source = await createCategory({ name: `并发${kind}来源` });
+      const target = await createCategory({ name: `并发${kind}目标` });
+      const manualNull = await insertItem(`concurrent-manual-null-${kind}`, {
+        categoryId: null,
+        categoryManual: true,
+      });
+      const client = await pool.connect();
+      let transactionOpen = false;
+      let applying: Promise<Awaited<ReturnType<typeof applyCategoryDiff>>> | undefined;
+      try {
+        await client.query("begin");
+        transactionOpen = true;
+        await client.query("update items set category_id = $1 where id = $2", [source.id, manualNull.id]);
+
+        let settled = false;
+        applying = applyCategoryDiff(input({
+          baseVersion: 2,
+          accepted: [
+            { kind: "add", proposalId: `rollback-${kind}`, name: `回滚${kind}新增` },
+            kind === "merge"
+              ? {
+                  kind: "merge",
+                  proposalId: "concurrent-merge",
+                  sourceCategoryId: source.id,
+                  target: { kind: "existing", categoryId: target.id },
+                  autoDestination: { kind: "target", target: { kind: "existing", categoryId: target.id } },
+                }
+              : {
+                  kind: "delete",
+                  proposalId: "concurrent-delete",
+                  sourceCategoryId: source.id,
+                  autoDestination: { kind: "unclassified" },
+                },
+          ],
+        })).finally(() => { settled = true; });
+
+        await waitForCategoryLockWait();
+        expect(settled).toBe(false);
+        await client.query("commit");
+        transactionOpen = false;
+        await expect(applying).rejects.toEqual(new CategoryApplyError("MANUAL_CATEGORY_CONFLICT"));
+      } finally {
+        if (transactionOpen) await client.query("rollback").catch(() => undefined);
+        client.release();
+        await applying?.catch(() => undefined);
+      }
+
+      expect((await listCategories()).map((category) => category.name).sort()).toEqual([
+        `并发${kind}来源`,
+        `并发${kind}目标`,
+      ].sort());
+      expect(await db.select().from(categoryChangeRuns)).toHaveLength(0);
+      expect((await db.select().from(appSettings))[0]?.categoryVersion).toBe(2);
+      expect((await db.select().from(items).where(eq(items.id, manualNull.id)))[0]).toMatchObject({
+        categoryId: source.id,
+        categoryManual: true,
+      });
+    },
+  );
+
+  it.each(["merge", "delete"] as const)(
+    "fails destructive %s closed when a manual NULL assignment commits after impact scan",
+    async (kind) => {
+      const source = await createCategory({ name: `扫描后${kind}来源` });
+      const target = await createCategory({ name: `扫描后${kind}目标` });
+      const manualNull = await insertItem(`post-scan-manual-null-${kind}`, {
+        categoryId: null,
+        categoryManual: true,
+      });
+      let reportLocked!: () => void;
+      let releaseApply!: () => void;
+      const locked = new Promise<void>((resolve) => { reportLocked = resolve; });
+      const release = new Promise<void>((resolve) => { releaseApply = resolve; });
+      const applying = applyCategoryDiff(input({
+        baseVersion: 2,
+        accepted: [
+          { kind: "add", proposalId: `post-scan-rollback-${kind}`, name: `扫描后回滚${kind}` },
+          kind === "merge"
+            ? {
+                kind: "merge",
+                proposalId: "post-scan-merge",
+                sourceCategoryId: source.id,
+                target: { kind: "existing", categoryId: target.id },
+                autoDestination: { kind: "target", target: { kind: "existing", categoryId: target.id } },
+              }
+            : {
+                kind: "delete",
+                proposalId: "post-scan-delete",
+                sourceCategoryId: source.id,
+                autoDestination: { kind: "unclassified" },
+              },
+        ],
+      }), {
+        afterImpactLock: async () => {
+          reportLocked();
+          await release;
+        },
+      });
+      await locked;
+      await pool.query("update items set category_id = $1 where id = $2", [source.id, manualNull.id]);
+      releaseApply();
+
+      await expect(applying).rejects.toEqual(new CategoryApplyError("MANUAL_CATEGORY_CONFLICT"));
+      expect((await listCategories()).map((category) => category.name).sort()).toEqual([
+        `扫描后${kind}来源`,
+        `扫描后${kind}目标`,
+      ].sort());
+      expect(await db.select().from(categoryChangeRuns)).toHaveLength(0);
+      expect((await db.select().from(appSettings))[0]?.categoryVersion).toBe(2);
+      expect((await db.select().from(items).where(eq(items.id, manualNull.id)))[0]).toMatchObject({
+        categoryId: source.id,
+        categoryManual: true,
+      });
+    },
+  );
 
   it("allows rename with manual items and never changes their category", async () => {
     const category = await createCategory({ name: "人工保留" });

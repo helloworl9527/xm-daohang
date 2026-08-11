@@ -264,20 +264,24 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 
 | 命令 | 结果 |
 | --- | --- |
-| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/categories/propose.test.ts tests/categories/apply.test.ts tests/categories/reclassify.test.ts` | PASS，3 files / 36 tests |
-| Task 1–7 联合定向测试 | PASS，8 files / 101 tests |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/categories/propose.test.ts tests/categories/apply.test.ts tests/categories/reclassify.test.ts` | PASS，3 files / 40 tests |
+| Task 1–7 联合定向测试 | PASS，8 files / 105 tests |
 | `corepack pnpm typecheck` | PASS，0 errors |
 | `corepack pnpm lint` | PASS，产品代码 0 error；审批原型保留 1 条既有 warning |
 | `git diff --check && git diff --cached --check` | PASS |
 | project-delivery-workflow validator | PASS，`stage=implementation revision=11` |
-| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 49 files；346/348 PASS；2 项非本批失败，见下 |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 49 files；350/352 PASS；2 项非本批失败，见下 |
 
 测试覆盖 bounded snapshot/map-reduce、所有 themes 进入 reduce、strict DTO、supplement add-only、四种 full diff、服务端计数、重复名/引用/环/输出上限与脱敏错误；apply 的幂等、并发 stale version、destructive 行锁、人工冲突整批回滚、人工 NULL、拓扑应用、事务 helper、单次 version、initialized、旧 run supersede 与提交后发布；reclassify 的自动条目范围、四态结果、稳定失败明细、attempts、retry key/generation、人工 NULL、version/candidate 三门禁、持久 cursor、重复 delivery、事务外模型与派生失败数。
 
-在隔离 worktree 中逐项中和关键不变量，并串行使用专用测试库运行对应命名用例，以下 15 项均为 Vitest assertion failure、进程 exit 1：重新截断 reduce themes；supplement 放行非 add；strict schema 改为 passthrough；服务端 source counts 固定为 0；移除 apply 人工冲突；移除 apply version 重验；跳过 request-key 幂等返回；移除 destructive source `FOR UPDATE`；移除 reclassify manual、version、candidate 三门禁；重复 retry key 再次 publish；移除重复 delivery cursor guard；把分类模型包入持 settings share 的事务；失败明细 attempts 不递增。首次把四个数据库反测并行运行导致测试间 schema reset 竞争，该轮结果明确作废；上述有效证据均已在无并发 reset 的串行复跑中取得。
+在隔离 worktree 中逐项中和关键不变量，并串行使用专用测试库运行对应命名用例，以下 15 项均进程 exit 1：重新截断 reduce themes；supplement 放行非 add；strict schema 改为 passthrough；服务端 source counts 固定为 0；移除 apply 人工冲突；移除 apply version 重验；跳过 request-key 幂等返回；移除 destructive source item `FOR UPDATE`；移除 reclassify manual、version、candidate 三门禁；重复 retry key 再次 publish；移除重复 delivery cursor guard；把分类模型包入持 settings share 的事务；失败明细 attempts 不递增。除 request-key 中和直接抛出 `CategoryApplyError: STALE_TAXONOMY` 外，其余均由对应 Vitest 行为断言捕获；不再把 15 项笼统记为全部 AssertionError。首次把四个数据库反测并行运行导致测试间 schema reset 竞争，该轮结果明确作废；上述有效证据均已在无并发 reset 的串行复跑中取得。
+
+R1 修复 destructive impact 的 TOCTOU：事务先锁扫描时已在 source 的 items，在 `afterImpactLock` 探针后按分类 ID 稳定顺序锁 destructive source 的 `categories` 行，再在该锁保护下重新扫描并锁 source items、重验不存在 `category_manual=true`。PostgreSQL FK 检查会让任何 `NULL/其它分类→source` 的 `category_id` 赋值自动取得 referenced category row key-share，因此所有现有和后续赋值路径天然进入同一协议：赋值若先完成，二次扫描看见并整批 `MANUAL_CATEGORY_CONFLICT`；source 行锁若先取得，后续赋值阻塞到删除完成并因 FK 目标不存在而失败，不存在扫描后静默进入 source 的窗口。
+
+新增 merge/delete 各两条确定性并发用例：并发事务先把人工 NULL 赋入 source 并持有 FK 锁时，apply 确认等待分类行锁，提交并发事务后两类均被二次扫描拒绝，新增分类、run、version 与 destructive 操作全部回滚，人工条目保持 manual=true 且仍指向 source；在 `afterImpactLock` 暂停点提交同一赋值时，两类同样返回 `MANUAL_CATEGORY_CONFLICT` 并断言整批零落库。隔离反证分别移除 source 分类行锁、移除锁保护下 manual 重验：前者使 merge/delete 锁等待命名用例因找不到分类行锁而 exit 1；后者使 `afterImpactLock` 两条用例错误 resolved completed/appliedVersion+1，命中拒绝断言并 exit 1。
 
 ### 偏差、未解决项与残余风险
 
 - 无需求、架构、安全边界或 AR-M2-01 偏差；LLM 均在事务外，AI 不会自动迁移或清空人工分类条目，包括人工选择 NULL。
 - pg-boss 发布失败保留 recoverable `reclassifying` run，由 worker publisher 循环补发；本批未操作生产队列或生产数据。
-- 完整回归为 47/49 files、346/348 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules` 而报 `PRODUCTION_NODE_MODULES_MISSING`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与本批变更面无关，未被掩盖，也不据此宣称完整回归通过。
+- 完整回归为 47/49 files、350/352 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules` 而报 `PRODUCTION_NODE_MODULES_MISSING`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与本批变更面无关，未被掩盖，也不据此宣称完整回归通过。
