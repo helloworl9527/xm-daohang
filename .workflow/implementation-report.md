@@ -188,3 +188,31 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 
 - 无计划语义偏差；AI apply 尚未接入这些内部 helper，按依赖顺序留待 Task 6。
 - 完整回归为 43/45 files、283/285 tests；失败仍只有 `deploy-smoke` 缺 `.next/standalone/node_modules` 的 `PRODUCTION_NODE_MODULES_MISSING`，以及 `settingsRoutes` 旧 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11` 导致 usedGlobal/day 不匹配。两项均与 Task 2 变更面无关，本批不扩大处理范围，也不据此宣称完整回归通过。
+
+## M2 Task 3：F203 单条分类器
+
+### 实现范围
+
+- 新增纯模块 `src/lib/categories/classify.ts`，默认复用现有 `generateLlmText`，并保留 generator/logger 依赖注入以验证所有模型与日志边界。
+- 输入只包含 title/summary/tags 与服务端 `{id,name}` 候选；system prompt 明确把条目和分类名称视为不可信数据并禁止遵循其中指令，user prompt 仅使用结构化 JSON 分隔数据。
+- 模型输出以 4 KiB UTF-8 字节为硬上限，允许剥离一个完整 JSON fence，随后由 strict zod schema 校验且拒绝额外字段；`categoryId` 必须为候选白名单 ID、`null` 或字面 `NONE`，confidence 必须在 0～1。
+- confidence `<0.65`、`null`、`NONE` 或无候选均返回可靠 `unclassified`；0.65 边界可选中。未知 ID/格式/超长输出返回 `invalid_output`，模型异常转换为 `upstream_error`，均不向 worker 抛出。
+- 结构化日志固定为 `category_classification` + outcome，不记录 title、summary、tags、prompt、候选内容、模型原始响应或异常详情；日志 writer 异常也不改变分类结果。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| `corepack pnpm vitest run tests/categories/classify.test.ts` | PASS，1 file / 18 tests |
+| Task 1+2+3 联合定向测试 | PASS，4 files / 45 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，产品代码 0 error/0 warning；审批原型保留 1 条既有 warning |
+| `git diff --check` | PASS |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 301/303 PASS；2 项非本批失败，见下 |
+
+测试覆盖合法选中、无候选零模型调用、`null`/`NONE`、0.65 上下边界、完整 JSON fence、非法 JSON、未知 ID、额外字段、confidence 类型/范围、超长但其余合法的响应、模型抛错、prompt-injection fixture、四种稳定 outcome 日志、日志失败隔离与内容/原始输出脱敏。在隔离 worktree 中分别中和无候选短路、strict schema、候选白名单、0.65 边界、4 KiB 输出上限和“不可信数据/禁止遵循”prompt 门禁，六条对应命名测试均出现 Vitest assertion failure、进程 exit 1，证明门禁不会因实现退化而静默放行。
+
+### 偏差、未解决项与残余风险
+
+- 无新增依赖、迁移、数据库写入或 worker 接线；worker 三门禁与事务外推理按依赖顺序留待 Task 4。
+- 完整回归为 44/46 files、301/303 tests；失败仍仅为未构建 standalone 产物及固定 `2026-08-09` 的历史日期 fixture，未落在 Task 3 变更面。本批不修改或掩盖这两项，也不据此宣称完整回归通过。
