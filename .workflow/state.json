@@ -1,23 +1,35 @@
 {
   "schema_version": 1,
   "project": "收藏系统",
+  "milestone": "导航站增强（M2）",
   "status": "active",
   "stage": "implementation",
   "active_role": "implementation_agent",
-  "revision": 5,
+  "revision": 11,
   "ui_required": true,
+  "requirements_source": ".workflow/requirements-nav-enhancement.md",
+  "ui_spec_source": ".workflow/ui-spec-nav-enhancement.md",
+  "plan_source": ".workflow/implementation-plan-nav-enhancement.md",
   "approvals": {
-    "requirements": {"status": "approved", "at": "2026-08-08T18:53:01+08:00", "statement": "确认需求（针对 requirements.md v0.4 修订版：公开展示端+登录管理端、公开提问限流、每日3条轮换、管理端仅用户名+密码登录）"},
-    "ui": {"status": "approved", "at": "2026-08-08T20:25:30+08:00", "statement": "确认界面（方向C问答优先 + Apple交互增强，含提问框输入栏撑满调整）"},
-    "codex": {"status": "approved", "at": "2026-08-08T22:30:16+08:00", "statement": "Codex Cycle 4 rev5 窄修订：L-AUD-01~04 与 decisions 定稿全部关闭；从头复审无新增 Medium+；Critical/High/Medium=0，Low 仅 AR-001"},
-    "implementation": {"status": "approved", "at": "2026-08-08T22:36:58+08:00", "statement": "接受风险，开始实施（用户原文；已接受残余风险 AR-001；OBS-01 交付文档澄清 GitHub 可选 token 仅提升公开配额、不解锁私有仓库）"}
+    "requirements": {"status": "approved", "at": "2026-08-10T18:20:00+08:00", "revised_at": "2026-08-10T19:40:00+08:00", "statement": "确认需求（导航站增强 requirements-nav-enhancement.md）。v0.2 追加 F209 后端关键词模糊搜索。v0.3 F202 升级为可反复手动触发（补充建议+全量重拟，预览→应用、保护人工分类、可选重跑）。v0.4 用户决定移除公开首页 hero 标题区与『每日3条轮换』推荐栏（推翻早期保留推荐），首页顶部改为关键词搜索框+AI问答+导航目录、底部提示框保留；M1 后端每日轮换不主动拆除。UI 方向=C 工作台。以上均为用户直接指示，UI 需在定稿前纳入。"},
+    "ui": {"status": "approved", "at": "2026-08-11T00:00:00+08:00", "statement": "确认界面（用户原文，2026-08-11）。C 工作台方向定稿：公开首页=『目录』标题+右侧紧凑关键词搜索框+分类锚点条+分类卡片目录+底部 AI 问答框；无 hero、无每日3条推荐栏；文案精简（去 eyebrow/副标题/关键词标签，标题改『目录』）。含 F209 关键词字面搜索、F202a/F202b 管理端分类 diff 审核。事实源 ui-spec-nav-enhancement.md，验证证据 screenshots/nav-enhancement/（16 张）+ Playwright PASS。"},
+    "codex": {"status": "approved", "at": "2026-08-11T09:07:47+08:00", "statement": "Codex plan acceptance: rev11, 5 review cycles, acceptance rubric 10/10 Pass, unresolved Critical/High/Medium/Low = 0; plan review only, no product implementation."},
+    "implementation": {"status": "approved", "at": "2026-08-11T09:35:00+08:00", "statement": "接受风险，开始实施（用户原文，2026-08-11）。基于 M2 plan rev11 与 conditional go 审计；用户已知悉并接受 FA-M2-01 的 fail-closed 取舍（AR-M2-01：AI merge/delete 遇人工分类条目 fail-closed 阻断、要求先手动迁移）及 AR-M2-02。残余 FA-M2-02/03(Low)、FA-M2-04(Cosmetic) 不阻塞，交由实施阶段处理。"}
   },
+  "user_decision": {"choice": "接受风险，开始实施", "at": "2026-08-11T09:35:00+08:00", "accepted_risks": ["AR-M2-01", "AR-M2-02"], "note": "接受 FA-M2-01 fail-closed 语义；FA-M2-02/03(Low)/FA-M2-04(Cosmetic) 不阻塞。"},
   "review": {
-    "cycle": 4,
+    "cycle": 5,
     "max_cycles": 5,
-    "unresolved": {"critical": 0, "high": 0, "medium": 0, "low": 1}
+    "unresolved": {"critical": 0, "high": 0, "medium": 0, "low": 0}
   },
-  "audit": {"verdict": "conditional_go", "at": "2026-08-09T16:05:00+08:00", "file": ".workflow/final-audit.md", "phase": "post_implementation", "note": "实施后审计 conditional go；阻断 PA-01(High) db client 急加载 DATABASE_URL 致 docker build 失败；PA-02(Low) 报告补正；OBS-A 测试 env；AR-001 已接受。用户 2026-08-09 选择继续改进，退回实施修 PA-01/PA-02/OBS-A。", "prior_audits": [{"phase": "plan_rev4", "verdict": "conditional_go"}, {"phase": "plan_rev5", "verdict": "go"}]},
-  "user_decision": {"choice": "继续改进", "at": "2026-08-09T20:05:46+08:00", "scope": "修复 PA-01(build 不依赖外部DB + Dockerfile) / PA-02(报告补正) / OBS-A(测试自带 APP_TIMEZONE)；真实 docker build/compose/restore 因本机无 Docker 仍为环境阻塞，交由用户在 Docker 主机执行", "accepted_risks": ["AR-001"]},
-  "updated_at": "2026-08-09T20:05:46+08:00"
+  "audit": {"verdict": "conditional_go", "at": "2026-08-11T09:20:00+08:00", "file": ".workflow/final-audit-nav-enhancement.md", "phase": "pre_implementation", "note": "M2 plan rev11 独立审计=conditional go。无未解决 Critical/High/Medium。唯一必答项 FA-M2-01：AI merge/delete 遇人工条目采用 fail-closed 阻断并要求先手动迁移，是对『单主分类 FK 模型 vs F202b 字面验收』冲突的保护性取舍，须用户裁决是否符合本意。残余 FA-M2-02(Low reclassify 恢复扫描触发点)、FA-M2-03(Low 关键词无索引规模退化)、FA-M2-04(Cosmetic 需求头 v0.5/v0.6)。"},
+  "prior_milestone": {
+    "name": "收藏系统首版交付（M1）",
+    "stage": "user_decision",
+    "revision": 5,
+    "audit": {"verdict": "conditional_go", "at": "2026-08-09T16:05:00+08:00", "file": ".workflow/final-audit.md", "phase": "post_implementation", "note": "实施后审计 conditional go；阻断 PA-01(High) db client 急加载 DATABASE_URL 致 docker build 失败；PA-02(Low) 报告补正；OBS-A 测试 env；AR-001 已接受。"},
+    "user_decision": {"choice": "继续改进", "at": "2026-08-09T20:05:46+08:00", "scope": "修复 PA-01/PA-02/OBS-A；真实 docker build/compose/restore 因本机无 Docker 仍为环境阻塞", "accepted_risks": ["AR-001"]},
+    "note": "M1 审批与审计记录归档于此；事实源仍为 requirements.md/ui-spec.md/final-audit.md 等原始文件，本轮 M2 不覆盖这些历史文件。"
+  },
+  "updated_at": "2026-08-11T09:35:00+08:00"
 }

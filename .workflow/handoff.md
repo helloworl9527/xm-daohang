@@ -1,34 +1,31 @@
 # Handoff
 
-- Target role: user（发布前 go/no-go 裁决；由 Claude 项目架构师转达）
-- Stage: user_decision
-- Active workflow role: user
-- Plan revision: 5（canonical）
-- Audit verdict: **conditional go**（实施后审计；`final-audit.md` 末尾"实施后审计（发布前把关）"，2026-08-09）
-- Validation: PASS（本次执行；`validate_workflow.py` 输出见下）
-- Canonical files: requirements.md(v0.4), ui-spec.md(v0.4), decisions.md(D-01~D-04 定稿), implementation-plan.md(rev5), review-ledger.md, stage-acceptance-t01…t25.md, implementation-report.md, final-audit.md, state.json
+- Milestone: 导航站增强（M2）
+- Target role: `implementation_agent`（Codex 方案实施工程师）
+- Stage: `implementation`
+- Active role: `implementation_agent`
+- Plan revision: 11（Codex accepted，Claude 审计 conditional go）
+- 用户决策: **接受风险，开始实施**（原文，2026-08-11）；已接受 AR-M2-01（FA-M2-01 fail-closed 语义）、AR-M2-02。
 
-## 实施后独立审计结论（Claude 最终审计员）
-- 已实现系统（commit `3713c63`，T01–T25）功能完整、与需求/UI 一致；R1–R13/R11b 全部闭环，无同类 fail-open 残留。
-- 安全姿态经源码级复核 + 本次实跑门禁成立：SSRF 唯一出口/逐跳固定 IP/同源转发防 token 外泄、/admin 完整鉴权+CSRF+严格 Content-Type、DEV-002 共享密钥可信 IP fail-closed、公开限流 fail-closed（含关限流+时区分支）、密钥/Token/上游文本不入日志、生产不含 15/15 devDependencies。
-- RAG 严格库内、无命中固定文案且不调用 LLM、来源服务端拼装、引用 ID 白名单、提示注入防护成立。
-- 本次实跑新鲜证据：typecheck/lint/`audit --prod`/`db:migrate`/`test`(41 files/254 tests)/`build`(+15/15 反向门禁)/workflow validator 全通过（test 需 DATABASE_URL+APP_TIMEZONE 就绪）。
+## 实施依据（canonical，必须逐字遵循，不得重设计）
+- 已验收计划：`.workflow/implementation-plan-nav-enhancement.md` rev11（Task 1→N，含 Global Invariants、Files And Contracts、稳定错误码）
+- 已确认需求：`.workflow/requirements-nav-enhancement.md`（v0.6）
+- 已批准 UI：`.workflow/ui-spec-nav-enhancement.md`（C 工作台）
+- 审查台账：`.workflow/review-ledger.md`（NAV-001～023）
+- 审计：`.workflow/final-audit-nav-enhancement.md`（conditional go；AR-M2-01 已被用户接受）
+- 代码库：`/Users/apple/Downloads/new-shoucang/xm-daohang`
 
-## 阻断项（进入生产发布前必须关闭）
-- **PA-01（High）**：`src/db/client.ts` 在模块加载时急校验 `DATABASE_URL` 并 throw；`next build` 收集页面数据会导入 force-dynamic API route 触发该 throw。Dockerfile `builder` 阶段 `RUN pnpm build` 未提供 `DATABASE_URL`（全文件无 ARG/ENV、compose 亦未传 build arg），故 `docker build --target app` 会在 builder 阶段**确定性失败**，无法产出镜像 → 文档化 Docker Compose 部署路径当前不可用。已本机确定性复现（无 DATABASE_URL 退出 1、有则退出 0）。此前因本机无 Docker、且各阶段 build 均有 ambient DATABASE_URL 而被掩盖。
-  - 关闭条件：①使镜像内 build 无外部 DB 可通过（builder 注入占位 DATABASE_URL / db client 惰性化 / 等效）；②在 Docker 主机真实执行 `docker build`(app+worker)、`docker compose config`、四服务健康检查、Caddy 加载与 backup→restore drill，据实回填镜像 SIZE/拓扑证据（同时闭合既有 Docker 验证缺口）。
-- **PA-02（Low）**：implementation-report 应补注 build 依赖 ambient DATABASE_URL 且 Docker builder 缺该变量。
-- **OBS-A（观察）**：retention/deploy-smoke 集成测试依赖环境 `APP_TIMEZONE`（运行时 compose 已注入），建议用例自带以提升可复现。
-- 残余 **AR-001**（用户此前已以原文"接受风险，开始实施"接受）；**OBS-01** 记录恰当。
+## 交给 Codex 方案实施工程师的任务
+按 rev11 计划**逐任务实施**（TDD、频繁提交），不得重新设计方案或改变已批准语义：
+- 关键不变量：单主分类 + FK SET NULL；`category_manual=true` 人工保护；AI merge/delete 遇人工条目 **fail-closed（MANUAL_CATEGORY_CONFLICT）**（AR-M2-01，用户已接受）；F202 短事务 apply + pg-boss 事务外重跑、LLM 绝不入事务；worker 三门禁（initialized/version/manual）；F209 LIKE 字面转义 + 参数化 + 独立 fail-closed 限流 + 零 LLM/向量；同源受限 favicon 复用 safeFetch 且不放宽 CSP；F207 问答 doc-only 语料与 readiness 回归修正；公开首页无 hero/daily、标题「目录」+右侧关键词框+底部 AskExperience；build `env -u DATABASE_URL` 不回归 PA-01。
+- 依赖新增仅限计划已批准的 `lucide-react@1.31.0`（更新 lockfile）。
+- 每完成一批任务，交由 Codex 阶段验收员做阶段验收（stage-acceptance），疑难升级架构师裁决；不得自行放宽验收。
+- 实施证据写入 `.workflow/implementation-report.md`（新建 M2 段，不覆盖 M1）。
 
-## 用户裁决（发布前 go/no-go，仅接受以下之一原文）
-1. **"继续改进"**：将 PA-01/PA-02 交回 Codex 方案实施工程师做窄修订（PA-01 修 Dockerfile/db client + Docker 主机复验），修订后再复核。
-2. **"接受风险，开始实施/发布"**：仅当用户明确知悉并接受 PA-01 未闭（不推荐，因文档化 Docker 部署路径当前会构建失败）——通常应先闭合 PA-01 再发布。
-3. **"暂停流程"**：`status=paused`，不改产品代码与计划。
+## 门禁与边界
+- 不改需求/UI/已验收计划的语义；如实施中发现计划确有阻断性缺陷，停下并上报架构师，不擅自改设计。
+- 未经用户批准不部署、不打 Tag、不推送生产、不操作生产数据、不标项目 complete。
+- 完成全部实施与阶段验收后，交回架构师协调实施后最终审计与用户发布决策。
 
 ## Next action
-1. 架构师把本 handoff 与 final-audit"实施后审计"章节转达用户裁决。
-2. 未获用户明确原文前，不部署、不打 Tag、不推送、不操作生产数据、不标项目 complete。
-3. 若在 Docker 主机关闭 PA-01 并取得真实 build/compose/restore 证据，审计意见相应上调为 go。
-
-Validator: `PASS: workflow stage=user_decision revision=5`
+Codex 方案实施工程师读取上述 canonical 文件，从 Task 1 开始实施 M2 计划。

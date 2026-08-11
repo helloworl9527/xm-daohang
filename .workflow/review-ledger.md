@@ -301,3 +301,265 @@
 - 依据：Cycle 4 授权范围全部关闭；Critical/High/Medium=0；最新复审无新增 Medium 以上；Low 仅为既有 AR-001。
 - 说明：只修订 `.workflow` 方案与审查产物；未实施、提交或部署产品代码。
 - 工作流校验：运行 `.claude/skills/project-delivery-workflow/scripts/validate_workflow.py /Users/apple/Downloads/收藏系统`，退出码 0，输出 `PASS: workflow stage=codex_accepted revision=5`。
+
+---
+
+# 导航站增强（M2）Codex 方案审查
+
+> M2 使用独立事实源 `requirements-nav-enhancement.md`、`ui-spec-nav-enhancement.md` 与唯一 canonical `implementation-plan-nav-enhancement.md`。以下周期不改写上方 M1 历史。
+
+## M2 Cycle 1（完整分析：plan rev6）
+- 时间：2026-08-11T01:10:00+08:00。
+- 状态：findings_recorded，待修订与从头复审。
+- 分析基线：`implementation-plan-nav-enhancement.md` rev6；已确认需求（文件头误标 v0.5，state/UI 均指向已确认 v0.6 显示文案）；已批准 C 工作台 UI；M1 当前 schema、迁移、worker、公开问答、鉴权、CSP 与惰性 DB client。
+- 量表：acceptance-rubric 1～10 全量检查；安全、权限、数据隔离与 fail-closed 单独检查。
+- 修订前未解决：critical=0 / high=5 / medium=7 / low=0。
+
+### NAV-001 — High — F202 把外部 AI 重跑放入同步单事务，无法满足可恢复进度和真实部分失败
+- 证据：rev6 Task 5 要求 `applyCategoryDiff` “全流程放单个 db 事务”，同时在 `reclassifyAuto=true` 时逐条调用 `classifyItem`；Task 7 却要求后台进度、离页恢复和部分失败。
+- 影响需求：F202；UI spec §5.3～5.4；量表 3、4、6、8。
+- 影响：长时间持锁、HTTP 超时和 LLM 故障会把分类结构与重跑一起回滚；客户端无法恢复服务端真实状态，也无法报告逐条失败。
+- 修复建议：分类 diff 在短事务内原子应用并写持久 run/audit；可选重跑改为 pg-boss 后台批处理，持久进度与稳定状态，任何 LLM 调用均在事务外；按 taxonomy version 防旧作业覆盖。
+- 处置：open（目标 rev7）。
+
+### NAV-002 — High — merge/delete 与人工分类保护在 FK 语义上不可同时成立
+- 证据：rev6 Task 1 使用 `ON DELETE SET NULL`；Task 5 同时写“删 source”与“人工条目保持原归属”，还把置 NULL 描述成“保留 manual=false 语义”。被删除分类不可能继续作为人工条目的 `category_id`。
+- 影响需求：F202、F204、Q3；UI spec §5.2、§6；量表 1、4、10。
+- 影响：实施者可能静默清除人工归属、错误翻转保护标记，或触发 FK 失败。
+- 修复建议：区分 AI diff 与管理员显式 CRUD。AI diff 的 merge/delete 若 source 仍有 `category_manual=true` 条目必须 fail closed，要求先通过 F204 明确迁移这些人工条目；直接 CRUD 删除是管理员显式动作，可 `SET NULL` 但必须保留 `category_manual=true`（人工未分类）。
+- 处置：open（目标 rev7）。
+
+### NAV-003 — High — F209 的“参数化 + 公开限流”合同不足以实现字面匹配和 fail-closed
+- 证据：rev6 Task 8 只写 Drizzle `ilike('%q%')` 与“复用 ask 限流”。`%`、`_`、`\\` 仍会被 LIKE 当通配符；现有 `consumePublicAsk` 依赖模型 readiness 且会消耗 AI 问答额度；未规定可信 IP、长度/NUL 边界、限流存储失败行为。
+- 影响需求：F209；NFR 安全；量表 4、5、7。
+- 影响：搜索可被通配符放大为全表扫描，AI 未配置时关键词搜索错误不可用，或关键词请求挤占问答额度；代理/DB 异常可能放行。
+- 修复建议：新增独立 keyword scopes 的原子 IP/global limiter，复用可信代理/HMAC 模式但不检查模型、不占 ask scopes，异常 fail closed；1～100 字符且拒绝 NUL；转义 LIKE 元字符并显式 `ESCAPE '\\'`；tags 用参数化 `unnest`/EXISTS；增加并发、注入与通配符字面测试。
+- 处置：open（目标 rev7）。
+
+### NAV-004 — High — worker 归类的提交竞态会把“归类失败”升级为条目失败
+- 证据：rev6 Task 4 在 completion transaction 前读取分类并调用 AI，然后直接把返回 id 写入最终 update；未检查 `categories_initialized`，也未处理分类在推理期间被删除/重拟。当前 `processItem` 外层 catch 会进入重试/最终 failed。
+- 影响需求：F203；NFR 可靠性；量表 3、4、7。
+- 影响：分类删除竞态触发 FK 错误后条目可能不再 completed，违反“归类失败不阻断完成”；未初始化时也会误跑。
+- 修复建议：只在 initialized 且 web/github 且非人工时事务外推理；最终短事务内以 taxonomy version 和 `category_manual=false` 原子重验，候选消失/版本变化即写 NULL 或保留既有值并记录退化，绝不抛出到主处理失败路径；覆盖并发删除和人工改分类竞态。
+- 处置：open（目标 rev7）。
+
+### NAV-005 — High — 移除 daily 查询后未定义 F207 的等价可用性判定
+- 证据：当前首页用 `dailyItems.length` 判断问答库是否为空；rev6 Task 10 删除 `pickDailyForNow`，只写复用 `AskExperience`，没有提供全类型 completed 内容存在性检查。导航目录只含 web/github，而问答仍覆盖 doc。
+- 影响需求：F206、F207；量表 2、3、7。
+- 影响：实现者可能用目录条目数代替问答语料数，导致只有 doc 时错误禁用问答，或移除既有 readiness 降级。
+- 修复建议：新增/复用独立 `hasCompletedAskCorpus()`（包含 doc）并保留 `getPublicAskReadiness()`；只替换首页布局，不改 `/ask`、阈值、额度或结果行为；增加 doc-only 与模型不可用回归。
+- 处置：open（目标 rev7）。
+
+### NAV-006 — Medium — 分类 apply 缺少持久审计、幂等和并发版本合同
+- 证据：F202 要求记录模式和应用变更，UI 要求重进恢复；rev6 仅返回瞬时 `ApplyResult`，无 run 表、idempotency key、分类版本或 stale preview 防护。
+- 影响需求：F202；量表 4、8、10。
+- 影响：响应丢失后重试可能重复新增；旧预览可覆盖新分类；无法追溯接受/忽略和真实状态。
+- 修复建议：增加 `category_change_runs`（request_key 唯一、mode、base/applied version、accepted/ignored JSON、状态、计数、错误、时间）与 `app_settings.category_version`；apply 在行锁下校验 baseVersion 并幂等返回。
+- 处置：open（目标 rev7）。
+
+### NAV-007 — Medium — AI 建议接口边界和规模策略不完整
+- 证据：rev6 `Diff` 只有含混的 `targetName/sourceCategoryId`；未规定 merge target id、server-derived count、候选 ID 白名单、prompt injection 隔离、数百条输入分批与输出上限。
+- 影响需求：F202；NFR 性能/安全；量表 3、4、5、7。
+- 影响：AI 可返回不可应用或越权引用；大库 prompt 超限；客户端难以可靠编辑 diff。
+- 修复建议：使用判别联合 DTO 与 zod 严格解析，所有 source/target id 服务端白名单验证，计数仅从 DB 计算；web/github completed 数据按固定上限批量 map-reduce，内容作为不可信数据分隔，限制输出数量/名称长度。
+- 处置：open（目标 rev7）。
+
+### NAV-008 — Medium — favicon 交付路径与现有 CSP 不相容
+- 证据：rev6 `SiteCard` 只写“favicon 域名”，无数据源、缓存、失败合同；当前 CSP `img-src 'self' data:` 会阻止直接远端 favicon。
+- 影响需求：F205、Q5；UI spec §1.2、§4；量表 3、5、6、8。
+- 影响：正式页会出现破图/CSP 错误，或为修复而引入未审查的第三方追踪与 SSRF。
+- 修复建议：采用同源、按已收录 item id 寻址的 favicon route/cache；只从 DB 中 completed web/github 的 origin 派生 URL，复用 `safeFetch` 的逐跳 SSRF/超时/大小/MIME 限制，返回固定 fallback 且设缓存与请求合并；不得接收任意 URL。
+- 处置：open（目标 rev7）。
+
+### NAV-009 — Medium — F204 条目分类选择器没有落到现有条目详情合同
+- 证据：需求指定“条目管理/详情页”；rev6 仅创建分类工作台和独立 PATCH route，未修改 `LibraryItemDto`、`getItemDetail`、`ItemDetail.tsx` 或 ETag 并发合同。
+- 影响需求：F204；UI spec §6；量表 2、4、6、9。
+- 影响：API 可能存在但管理员在实际条目工作流中不可发现，且分类更新可覆盖并发编辑。
+- 修复建议：扩展详情 DTO/查询与 ETag，新增详情页 CategorySelector；PATCH 需要 If-Match、category id 存在校验并原子置 `category_manual=true`，返回新 ETag。
+- 处置：open（目标 rev7）。
+
+### NAV-010 — Medium — 已批准关键词 URL 状态和完整 UX 状态没有验证步骤
+- 证据：UI spec 要求 `q` URL 同步、刷新/复制/前进后退、loading/empty/error/retry、reduced motion/transparency/contrast 与 1440×1000/390×844；rev6 Task 10 只覆盖输入、结果、清空和锚点。
+- 影响需求：F206、F208、F209；UI spec §3、§7～8；量表 6、7。
+- 影响：页面在刷新/导航、失败恢复、移动端或辅助偏好下偏离已批准交互。
+- 修复建议：把 URL 作为提交态事实源，列出 popstate/refresh/error/retry/focus/aria-busy/aria-current/尺寸/偏好媒体查询的 Playwright 断言和截图证据。
+- 处置：open（目标 rev7）。
+
+### NAV-011 — Medium — 迁移、回滚与 PA-01 build 门禁不够可执行
+- 证据：rev6 对 meta 写“对齐或手写”，未明确 0003 journal/snapshot；迁移测试只覆盖空库结构；build 只写普通命令并以注释提醒 PA-01。
+- 影响需求：F201；M1 PA-01；量表 4、7、8、9。
+- 影响：已有 M1 数据升级或生产 artifact 可能失败，schema drift 不被发现；build 可因环境里恰有 DATABASE_URL 而掩盖惰性回归。
+- 修复建议：固定生成/校验 0003 journal+snapshot，备份后在 M1 fixture 上升级并验证既有 checks/embedding 数据；回滚采用前向兼容（代码先回滚、列表保留）；显式 `env -u DATABASE_URL corepack pnpm build` 与 production artifact 检查。
+- 处置：open（目标 rev7）。
+
+### NAV-012 — Medium — 数据访问一致性与观测验收缺口
+- 证据：rev6 store helper 默认绑定全局 db，却由 apply 单事务调用；name 只 trim、slug 对中文可能为空且无稳定冲突规则；F202/F203 要求触发/命中/未分类/应用统计，计划未列结构化日志或断言。
+- 影响需求：F201～F204；NFR 可观测；量表 4、7、8。
+- 影响：所谓单事务可能被全局连接拆开；分类键不稳定；质量指标无法验收。
+- 修复建议：store 接收 transaction/queryable；定义名称规范化、稳定唯一 slug/anchor；新增脱敏结构化事件和数据库/run 计数测试。
+- 处置：open（目标 rev7）。
+
+### M2 Cycle 1 修订处置（plan rev7）
+- 计划修订：rev7（2026-08-11T01:28:00+08:00），唯一 canonical 文件原位修订，未创建版本副本。
+- NAV-001 fixed：Task 6 仅短事务应用 taxonomy；Task 7 用 pg-boss + 持久 run/cursor 执行事务外 LLM，定义 partial/superseded/重启恢复。
+- NAV-002 fixed：Global Invariants 与 Task 6 规定 AI merge/delete 遇人工条目整批 fail closed；独立 CRUD 删除保留 manual 标志。
+- NAV-003 fixed：Task 9 增加独立 keyword scopes、可信 IP/HMAC、原子限流、异常 503、LIKE 元字符转义、tags unnest 与并发/0-AI 测试。
+- NAV-004 fixed：Task 4 增加 initialized/version/manual 三门禁、事务内候选存在性复核及分类失败不进入 failRequest 的竞态测试。
+- NAV-005 fixed：Task 10 增加包含 doc 的 `hasCompletedAskCorpus`，保留 readiness 与现有 ask 回归。
+- NAV-006 fixed：Task 1/6/7 增加 category_version、category_change_runs、requestKey 幂等、baseVersion stale 防护与可恢复状态。
+- NAV-007 fixed：Task 5 使用严格判别联合、ID 白名单、server-derived counts、40 条批次两阶段聚合、上限/环检测与不可信数据边界。
+- NAV-008 fixed：Task 10 增加仅 item id 的同源 favicon route，复用 hardened fetch、MIME/字节/redirect/缓存/fallback 门禁，不放宽 CSP。
+- NAV-009 fixed：Task 8 精确落到现有 detail DTO/API/ItemDetail/CategorySelector，并继承 If-Match/ETag 冲突合同。
+- NAV-010 fixed：Task 11/12 增加 URL q 事实源、刷新/历史、全状态、abort、焦点/ARIA、批准尺寸与三类 reduced/contrast 偏好验证。
+- NAV-011 fixed：Task 1/13 固定 0003 meta/journal、M1 数据升级/restore/前向兼容回滚与 `env -u DATABASE_URL` build 门禁。
+- NAV-012 fixed：Task 2 规定 tx-bound store、NFKC/规范名/稳定 UUID slug；Task 13 加脱敏事件、500 条性能与计数证据。
+- 修订后待从头复审计数：critical=0 / high=0 / medium=0 / low=0。
+
+## M2 Cycle 2（从头复审：plan rev7）
+- 时间：2026-08-11T01:40:00+08:00。
+- 状态：findings_recorded，待窄修订与再次复审。
+- 复审顺序：plan → requirements → decisions → approved UI → ledger；重新检查量表 1～10 与现有仓库边界。
+- 修订前未解决：critical=0 / high=0 / medium=6 / low=0。
+
+### NAV-013 — Medium — partial 重跑没有失败项持久化与可调用重试合同
+- 证据：rev7 Task 7 只保存 failed_count/cursor；API 只有 run GET，但 Task 8 要显示 retry。cursor 已越过失败 item 后，既无法定位失败项，也没有 POST retry route。
+- 影响需求：F202；UI spec §5.4；量表 4、6、8、9。
+- 影响：UI 会承诺不可执行的重试，部分失败只能靠整库重跑或伪造成功。
+- 修复建议：增加 `category_reclassify_failures(run_id,item_id,error_code,attempts)`；item 成功时删除、网络失败时 upsert；增加受保护的 `POST runs/[id]/retry`，只重试当前 taxonomy version 的失败项，持久 retry generation 并幂等发布。
+- 处置：open（目标 rev8）。
+
+### NAV-014 — Medium — 目录初载/失败未保证关键词框和底部问答继续存在
+- 证据：rev7 Task 11 仍把 `getPublicDirectory` 作为 page 数据来源，未列 `loading.tsx`/错误隔离；RSC 查询抛错可能让整页 error boundary 替换掉搜索和 AskExperience。UI spec §4 明确目录失败时二者仍保留。
+- 影响需求：F205～F207、F209；量表 3、6、7。
+- 影响：数据库短暂失败会同时移除不依赖目录结果的搜索框与问答入口，违反批准恢复行为。
+- 修复建议：页面 shell、标题行搜索与 AskExperience 独立渲染；目录数据放 Suspense/局部 error state，更新 public `loading.tsx`；失败用 role=alert + `router.refresh`，不触发整页错误。
+- 处置：open（目标 rev8）。
+
+### NAV-015 — Medium — “AI 输出中文/低置信未分类”只有全局口号，没有模块合同和证据
+- 证据：rev7 Task 3 仅解析 category id，Task 5 仅限制 name 长度；未规定分类器不确定时的结构化信号，也未验证 AI 建议名称为中文。
+- 影响需求：F202、F203；Global AI 中文约束；R1；量表 2、4、7。
+- 影响：AI 可输出英文分类名，或在低置信时被迫选择一个合法 id，偏离“归不进→未分类”。
+- 修复建议：分类器响应包含 `confidence`/`NONE`，固定阈值并测试边界；proposal prompt + 中文名称校验，失败做至多一次受约束重试，仍不合格即稳定错误且不落库。
+- 处置：open（目标 rev8）。
+
+### NAV-016 — Medium — 已批准的物理反馈、可中断交互与无人工延迟没有实施证据
+- 证据：UI spec §7 要求 pointer-down 反馈、从当前值恢复、可中断滚动/面板/toast、禁止演示延迟；rev7 Task 12 只写键盘/ARIA/对比度，未复用现有 Pressable/MotionRegion/MaterialSurface 或列自动检查。
+- 影响需求：F202、F206、F208、F209；量表 6、7、9。
+- 影响：正式实现可能复制原型延迟或产生不可中断动画，未达到已批准交互规范。
+- 修复建议：明确复用现有 UI primitives；对 pointer/cancel/reduced-motion/无 setTimeout 演示延迟增加 unit/e2e 断言。
+- 处置：open（目标 rev8）。
+
+### NAV-017 — Medium — 计划误称“现有 Lucide”，依赖清单不可执行
+- 证据：rev7 Task 12 要用“现有 Lucide”，但 `package.json` 没有 `lucide-react`；UI spec 明确命令图标使用 Lucide。
+- 影响需求：UI spec §1.2；量表 3、6、9。
+- 影响：实施者要么临时手绘 SVG/字符，要么未计划地改依赖，均绕过 lockfile/audit 门禁。
+- 修复建议：明确添加 pinned `lucide-react`，更新 pnpm-lock，使用必要的命名 import，并纳入 audit/build/bundle 检查。
+- 处置：open（目标 rev8）。
+
+### NAV-018 — Medium — delete diff 的自动条目“目标分类”缺失于 DTO
+- 证据：rev7 `delete` 只有 sourceCategoryId；AppliedDiff 仅写 `autoDestination:'target'|'unclassified'`，却没有 target ref。需求/UI 允许删除类下自动条目转所选合并目标。
+- 影响需求：F202；UI spec §5.2～5.3；量表 2、4、9。
+- 影响：删除转目标不可序列化/验证，客户端和服务端会各自猜字段。
+- 修复建议：将去向定义为判别联合 `unclassified | target(CategoryRef)`，merge/delete 通用；校验目标最终存在且不在同批删除集合，拓扑测试覆盖编辑后的目标。
+- 处置：open（目标 rev8）。
+
+### M2 Cycle 2 修订处置（plan rev8）
+- 计划修订：rev8（2026-08-11T01:52:00+08:00）。
+- NAV-013 fixed：schema 增加 failure 明细与 run generation；Task 7/8 增加受保护 retry POST、同 generation 幂等、版本门禁和只重试失败项的作业/测试。
+- NAV-014 fixed：Task 11 增加稳定 page shell、局部 Suspense/error、`loading.tsx`、router.refresh 及搜索/问答不消失的 Playwright 证据。
+- NAV-015 fixed：Task 3 增加 0～1 confidence、0.65 阈值与判别 outcome；Task 5 增加 AI 中文名称校验、一次受约束重试和稳定失败测试。
+- NAV-016 fixed：Task 12 明确复用现有 Pressable/MotionRegion/MaterialSurface，加入 pointer cancel、可中断、三类偏好和禁止人工延迟的 unit/e2e。
+- NAV-017 fixed：Tech Stack/Files/Task 12 明确 pinned lucide-react、lockfile、命名 import、许可维护核对与 prod audit。
+- NAV-018 fixed：DTO 改为 `AutoDestination` 判别联合，Task 6 覆盖 delete→existing/new/renamed target 与同批删除拒绝。
+- 修订后待从头复审：critical=0 / high=0 / medium=0 / low=0。
+
+## M2 Cycle 3（从头复审：plan rev8）
+- 时间：2026-08-11T02:00:00+08:00。
+- 状态：findings_recorded，待窄修订与最终复审。
+- 修订前未解决：critical=0 / high=0 / medium=3 / low=0。
+
+### NAV-019 — Medium — retry 幂等键和 failure 计数仍无可持久实现
+- 证据：rev8 Task 7 要“重复 retry 请求使用请求 UUID 幂等”，但 run/schema 没有保存该 UUID；failure upsert 与 failed_count 同时更新，未说明重复失败不重复计数；人工修改后不再 eligible 的 failure 行也没有收敛规则。
+- 影响需求：F202；UI spec §5.4；量表 4、7、8、9。
+- 影响：响应丢失可重复递增 generation/发作业，崩溃重试可夸大失败数，人工已处理项可能永久卡住 partial。
+- 修复建议：run 保存 `last_retry_request_key`；同 key 返回当前 generation，运行中不同 key 409；failed_count 从 failure 表派生或只在首次 insert 递增；retry 时人工/非 eligible/已删除项视为 resolved 并删除 failure。
+- 处置：open（目标 rev9）。
+
+### NAV-020 — Medium — 局部 Suspense 描述仍缺能保持搜索框的组件边界
+- 证据：rev8 仍由单个客户端 `DirectoryView` 同时承担搜索和目录；如果其 initial directory props 来自 suspended server query，整个组件连搜索框一起等待。仅写“局部 Suspense”不足以实现 UI spec 的稳定标题行/搜索/问答。
+- 影响需求：F205～F207、F209；UI spec §2～4；量表 3、6、9。
+- 影响：实施者可能把 Suspense 放错层级，目录加载/失败时关键词框仍消失。
+- 修复建议：拆出始终渲染的 `DirectoryShell/KeywordSearch` 客户端状态层与异步 `DirectoryData`；page 在 shell 内仅 suspend/catch 数据区域，问答是 sibling；明确 error/retry 数据流。
+- 处置：open（目标 rev9）。
+
+### NAV-021 — Medium — 依赖和 API 错误/envelope 仍留实施时猜测
+- 证据：rev8 用 `<reviewed-pinned-version>` 占位；实际 registry 当前 `lucide-react=1.31.0`、ISC。Task 5 抛 `AI_OUTPUT_INVALID`，但稳定 admin errors 未列；public search 未固定响应 envelope。
+- 影响需求：F202、F209；UI spec §1.2；量表 3、4、9、10。
+- 影响：lockfile/许可门禁不可复现，客户端可能把合法解析失败误映射成上游错误，搜索 UI 需猜 JSON 结构。
+- 修复建议：锁定已查询的 1.31.0/ISC；补齐 AI_OUTPUT_INVALID；固定 GET search 成功/错误 envelope 与 no-store。
+- 处置：open（目标 rev9）。
+
+### M2 Cycle 3 修订处置（plan rev9）
+- 计划修订：rev9（2026-08-11T02:08:00+08:00）。
+- NAV-019 fixed：run schema 增加 last_retry_request_key；Task 7 固定同 key/不同 key 行为、generation 0、failure 首次计数/校准和人工/非 eligible resolved_skipped 收敛测试。
+- NAV-020 fixed：文件与 Task 11 拆成 DirectoryShell/KeywordSearch（稳定层）、DirectoryData（唯一异步边界）、DirectoryView（纯展示），AskExperience 为 sibling；明确默认/搜索替换数据流。
+- NAV-021 fixed：锁定 registry 已查询的 `lucide-react@1.31.0`/ISC 与 exact install；补齐 `AI_OUTPUT_INVALID`；固定 search 成功和现有错误 envelope/no-store。
+- 修订后待最终从头复审：critical=0 / high=0 / medium=0 / low=0。
+
+## M2 Cycle 4（从头复审：plan rev9）
+- 时间：2026-08-11T02:16:00+08:00。
+- 状态：findings_recorded，待最后窄修订。
+- 修订前未解决：critical=0 / high=0 / medium=1 / low=0。
+
+### NAV-022 — Medium — 单个 last_retry_request_key 不能提供持久多请求幂等
+- 证据：rev9 只在 run 保存最后一个 retry key。若 retry A 完成 partial、retry B 再完成 partial，迟到的 A 重放时已不等于 last key，会被当成新请求并发布 generation 3；Task 6 初始 key 也仍写无 generation 的旧格式。
+- 影响需求：F202；UI spec §5.3～5.4；量表 4、7、8。
+- 影响：网络乱序/历史重放可重复发起付费重分类，破坏幂等承诺和进度计数。
+- 修复建议：用 append-only `category_run_retry_requests(run_id,request_key,generation)` 唯一记录所有 retry key；同 key 永久返回原 generation；初始与 retry job 均统一 `<runId>:<generation>` singleton key。
+- 处置：open（目标 rev10）。
+
+### M2 Cycle 4 修订处置（plan rev10）
+- 计划修订：rev10（2026-08-11T02:20:00+08:00）。
+- NAV-022 fixed：schema/Task 1 增加 append-only retry request 表；Task 7 先查/插入 durable key，再分配 generation；Task 6/7 统一 generation 0/后续 generation singleton key，并保留不同 key 运行中 409。
+- 修订后待最新完整复审：critical=0 / high=0 / medium=0 / low=0。
+
+## M2 Cycle 5（最终完整复审：plan rev10）
+- 时间：2026-08-11T02:27:00+08:00。
+- 状态：发现最后一个一致性问题，执行允许范围内的最终窄修订。
+- 修订前未解决：critical=0 / high=0 / medium=1 / low=0。
+
+### NAV-023 — Medium — run.failed_count 与 failure 级联删除无法保持一致
+- 证据：rev10 同时缓存 run.failed_count，并让 failure.item_id `ON DELETE CASCADE`。管理员删除一个失败 item 时，failure 行自动消失，但没有事务能同步另一个 run 行；“必须一致”的计划合同不可实现。
+- 影响需求：F202；UI spec §5.4；量表 4、8。
+- 影响：GET run 可长期显示虚假的 partial/失败数，违反“服务端真实状态”。
+- 修复建议：移除 run 中缓存 failed_count；GET/status 完结都从 failure 表 `count(*)` 派生，partial 以存在性为准。其余成功计数保留缓存。
+- 处置：open（目标 rev11）。
+
+### M2 Cycle 5 修订处置与最新复审（plan rev11）
+- 计划修订：rev11（2026-08-11T09:07:47+08:00）。
+- NAV-023 fixed：run schema 移除 failed_count 缓存；Task 7 规定 GET/完结状态从 failure 表 count/exists 派生，级联删除、人工处理和成功重试均回到同一事实源。
+- 最新从头复审顺序：rev11 plan → requirements → decisions → approved UI → ledger；并重新对照当前 schema/worker/public ask/admin guard/CSP/db client。
+- 自动文本核对：rev11；Task 1～13 连续；F201～F209 追踪完整；manual/version/retry/fail-closed/LIKE escape/no-DATABASE_URL build 关键门禁均存在；旧 `failed_count`/`last_retry_request_key`/无 generation singleton 计划模式无匹配。
+- 最新复审新增 Medium 以上 finding：0。
+- 最终未解决：critical=0 / high=0 / medium=0 / low=0。
+
+## M2 Acceptance Rubric（plan rev11）
+
+| # | 项目 | 结论 | 证据 |
+| --- | --- | --- | --- |
+| 1 | Scope | Pass | Goal/Global Invariants 与 F201～F209、单主分类、doc 排除、问答不变、无 hero/daily 展示一致；人工保护歧义采用显式 fail-closed 并列停止条件。 |
+| 2 | Traceability | Pass | §3 对 F201～F209 全映射到 Task 1～13 和必需证据；Must/Should/Could 均覆盖。 |
+| 3 | Architecture | Pass | taxonomy version、短事务 apply、事务外 LLM、pg-boss 可恢复重跑、RSC 局部边界、独立 search limiter 与 favicon 边界明确。 |
+| 4 | Data and interfaces | Pass | 0003 schema/meta、FK/manual/version/run/failure/retry key；严格 Diff/AutoDestination、ETag、idempotency、stale/error/envelope 合同齐全。 |
+| 5 | Security and privacy | Pass | admin session/Origin/CSRF/Content-Type/Zod；可信代理/HMAC/原子限流 fail closed；LIKE 转义+参数化；favicon SSRF/MIME/字节/CSP；日志脱敏。 |
+| 6 | UX | Pass | C 工作台层级、搜索 URL/全状态、目录局部失败、底部问答、diff/确认/真实进度、键盘/焦点/触控/reduced preferences 均有任务。 |
+| 7 | Quality | Pass | migration/unit/integration/e2e、并发/竞态/崩溃/幂等/注入/SSRF/doc-only/500 条性能与批准尺寸证据及明确门禁。 |
+| 8 | Operations | Pass | pg_dump、M1→0003 升级、前向兼容回滚、publisher/worker 恢复、readiness/heartbeat、restore smoke、依赖 audit 和 artifact 校验。 |
+| 9 | Execution | Pass | 13 个有序任务精确到路径、DTO、事务顺序、错误、测试和命令；新增依赖锁定 1.31.0，不留版本占位。 |
+| 10 | Risk | Pass | manual/FK、favicon、模型上下文、性能和发布失败均有 stop condition；未保留未决 Medium 以上问题。 |
+
+## M2 Codex Acceptance
+- 结论：accepted（仅实施计划，不代表产品已实现或测试已通过）。
+- 依据：5 个允许周期内收敛；NAV-001～NAV-023 均有证据和 fixed 处置；Critical/High/Medium/Low 未解决均为 0；rev11 最新完整复审无新增 Medium 以上 finding；量表 10/10 Pass。
+- 边界：本阶段仅修改 `.workflow` 方案、台账、状态与交接产物，未实施、提交或部署产品代码。
+- 工作流校验：2026-08-11T09:07:47+08:00 运行 `python3 /Users/apple/Downloads/new-shoucang/.codex/skills/project-delivery-workflow/scripts/validate_workflow.py /Users/apple/Downloads/new-shoucang/xm-daohang`，退出码 0，输出 `PASS: workflow stage=codex_accepted revision=11`。

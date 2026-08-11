@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f7f4" />
+    <title>藏舟 · 导航站增强 UI 原型</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-direction="c" data-surface="public">
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <div id="app" aria-live="polite"></div>
+
+    <aside class="prototype-bar" aria-label="原型控制器">
+      <div class="segmented" role="group" aria-label="页面">
+        <button type="button" data-surface="public" aria-pressed="true">公开首页</button>
+        <button type="button" data-surface="admin" aria-pressed="false">分类管理</button>
+      </div>
+      <div class="segmented direction-switch" role="group" aria-label="设计方向">
+        <button type="button" data-direction="a" aria-pressed="false">A 对比</button>
+        <button type="button" data-direction="b" aria-pressed="false">B 流式目录</button>
+        <button type="button" data-direction="c" aria-pressed="true">C 工作台 · 已选</button>
+      </div>
+      <label class="control-select">状态<select id="state-switcher"></select></label>
+    </aside>
+
+    <dialog id="delete-dialog" aria-labelledby="delete-title">
+      <form method="dialog">
+        <span class="dialog-icon" data-lucide="triangle-alert" aria-hidden="true"></span>
+        <h2 id="delete-title">删除分类？</h2>
+        <p id="delete-description">该分类下的内容将转入「未分类」，公开导航会同步更新。此操作无法撤销。</p>
+        <div class="dialog-actions">
+          <button value="cancel" class="button secondary">取消</button>
+          <button value="confirm" class="button danger" data-confirm-delete>删除分类</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="apply-dialog" aria-labelledby="apply-title">
+      <form method="dialog">
+        <span class="dialog-icon safe" data-lucide="git-compare-arrows" aria-hidden="true"></span>
+        <h2 id="apply-title">应用分类变更？</h2>
+        <p id="apply-description">只会应用已接受的建议；人工分类条目保持不动。</p>
+        <label class="dialog-check"><input type="checkbox" name="rerun" data-rerun checked /> <span>应用后对自动归类的存量条目按新类目重跑</span></label>
+        <p class="dialog-detail">重跑仅处理 <code>category_manual=false</code> 的条目，可关闭。</p>
+        <div class="dialog-actions">
+          <button value="cancel" class="button secondary">返回预览</button>
+          <button value="confirm" class="button" data-confirm-apply>应用已接受建议</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
