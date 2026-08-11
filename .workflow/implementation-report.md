@@ -135,7 +135,7 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 ### 迁移与回滚
 
 - 0003 包含分类规范名唯一索引 `lower(btrim(name))`、空白名/排序/模式/状态/version/generation/attempt/count checks、run request key 唯一约束及 retry `(run_id,generation)` 唯一约束。
-- 升级测试先用 0000～0002 建立 M1 数据库，写入 completed web 向量与 failed doc fixture，再由 migrator 应用 0003；旧行、向量和旧 embedding/type constraints 均保留。
+- 升级测试先用 0000～0002 建立 M1 数据库，写入 completed web 向量与 failed doc fixture，再由 migrator 应用 0003；旧行与向量保留，并逐一反测 `items_type_check`、`items_status_check`、`items_completed_tags_check`、`items_embedding_metadata_check`、`items_embedding_dimension_check` 的稳定 constraint 名。
 - 第二次运行完整 migrator 不新增 migration 记录，证明迁移工具幂等。
 - 生产执行步骤仍须先 `pg_dump`；普通回滚采用旧应用代码兼容新增列/表的前向兼容策略，不 drop taxonomy 数据。本批未连接或修改生产数据库。
 
@@ -150,7 +150,7 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 | 0003 destructive DDL 静态扫描 | PASS，无 `DROP TABLE`、`DROP COLUMN`、`ALTER COLUMN`、`DROP CONSTRAINT` |
 | `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 263/265 PASS；2 项非本批失败，见下 |
 
-完整回归的两个失败均未落在 Task 1 变更面：`deploy-smoke` 因当前工作区尚无构建后的 `.next/standalone/node_modules` 报 `PRODUCTION_NODE_MODULES_MISSING`；`settingsRoutes` 旧 fixture 断言固定业务日 `2026-08-09`，实际当前业务日为 `2026-08-11`。新增分类 schema 与 M1→M2 升级测试全部通过。这两项将在后续完整 build/Task 13 回归门禁前关闭并重跑，不据此宣称完整回归已通过。
+完整回归的两个失败均未落在 Task 1 变更面：`deploy-smoke` 因当前工作区尚无构建后的 `.next/standalone/node_modules` 报 `PRODUCTION_NODE_MODULES_MISSING`；`settingsRoutes` 旧 fixture 断言固定业务日 `2026-08-09`，实际当前业务日为 `2026-08-11`。新增分类 schema 与 M1→M2 升级测试全部通过，且分别中和上述任一旧约束时对应升级测试失败。这两项将在后续完整 build/Task 13 回归门禁前关闭并重跑，不据此宣称完整回归已通过。
 
 ### 偏差、未解决项与残余风险
 

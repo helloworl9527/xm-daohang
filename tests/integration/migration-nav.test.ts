@@ -77,7 +77,33 @@ describe("M1 to M2 taxonomy migration", () => {
     ]);
 
     await expect(
-      pool.query("update items set embedding_dim = 2 where url_canonical = $1", ["https://example.com/vector"]),
+      pool.query(
+        `insert into items (url, url_canonical, type, tags, status, source)
+         values ('https://example.com/invalid-type', 'https://example.com/invalid-type',
+                 'video', array['a','b','c'], 'completed', 'admin')`,
+      ),
+    ).rejects.toMatchObject({ code: "23514", constraint: "items_type_check" });
+    await expect(
+      pool.query(
+        `insert into items (url, url_canonical, type, tags, status, source)
+         values ('https://example.com/invalid-status', 'https://example.com/invalid-status',
+                 'web', array['a','b','c'], 'archived', 'admin')`,
+      ),
+    ).rejects.toMatchObject({ code: "23514", constraint: "items_status_check" });
+    await expect(
+      pool.query("update items set tags = array['a','b'] where url_canonical = $1", [
+        "https://example.com/vector",
+      ]),
+    ).rejects.toMatchObject({ code: "23514", constraint: "items_completed_tags_check" });
+    await expect(
+      pool.query("update items set embedding_dim = null where url_canonical = $1", [
+        "https://example.com/vector",
+      ]),
+    ).rejects.toMatchObject({ code: "23514", constraint: "items_embedding_metadata_check" });
+    await expect(
+      pool.query("update items set embedding_dim = 2 where url_canonical = $1", [
+        "https://example.com/vector",
+      ]),
     ).rejects.toMatchObject({ code: "23514", constraint: "items_embedding_dimension_check" });
 
     const before = await pool.query<{ count: string }>("select count(*) from drizzle.__drizzle_migrations");
