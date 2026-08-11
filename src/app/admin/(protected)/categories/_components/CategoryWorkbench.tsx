@@ -107,6 +107,15 @@ function acceptedDiff(diff: DraftDiff) {
       name: diff.draftName?.trim() ?? diff.name,
     };
   }
+  if (diff.kind === "merge") {
+    return {
+      kind: diff.kind,
+      proposalId: diff.proposalId,
+      sourceCategoryId: diff.sourceCategoryId,
+      target: diff.target,
+      autoDestination: parseDestination(diff.destination ?? destinationValue(diff.target)),
+    };
+  }
   return {
     kind: diff.kind,
     proposalId: diff.proposalId,

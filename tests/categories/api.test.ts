@@ -36,6 +36,7 @@ const CATEGORY_B = "30000000-0000-4000-8000-000000000002";
 const ITEM_ID = "30000000-0000-4000-8000-000000000010";
 const REQUEST_A = "30000000-0000-4000-8000-000000000020";
 const REQUEST_B = "30000000-0000-4000-8000-000000000021";
+const REQUEST_C = "30000000-0000-4000-8000-000000000022";
 
 beforeAll(async () => {
   const database = await pool.query<{ current_database: string }>("select current_database()");
@@ -251,7 +252,32 @@ describe("admin category APIs", () => {
     );
     expect(first.status).toBe(202);
     await expect(duplicate.json()).resolves.toEqual(await first.clone().json());
+    const conflicting = await retryRunRoute(
+      await request(`/admin/api/categories/runs/${REQUEST_A}/retry`, "POST", { requestKey: REQUEST_C }),
+      params(REQUEST_A),
+    );
+    expect(conflicting.status).toBe(409);
+    await expect(conflicting.json()).resolves.toMatchObject({ error: { code: "VALIDATION" } });
     expect(await db.select().from(categoryRunRetryRequests)).toHaveLength(1);
+  });
+
+  it("rejects an accepted merge that omits its semantic target", async () => {
+    const response = await applyCategoriesRoute(await request("/admin/api/categories/apply", "POST", {
+      requestKey: REQUEST_A,
+      mode: "full",
+      baseVersion: 0,
+      accepted: [{
+        kind: "merge",
+        proposalId: "merge-without-target",
+        sourceCategoryId: CATEGORY_A,
+        autoDestination: { kind: "unclassified" },
+      }],
+      ignored: [],
+      reclassifyAuto: false,
+    }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "VALIDATION" } });
   });
 
   it("manually assigns a category or NULL with If-Match and rejects stale editors", async () => {

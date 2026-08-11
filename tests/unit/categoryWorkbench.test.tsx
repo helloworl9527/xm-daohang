@@ -33,6 +33,20 @@ const proposal = {
   ],
 };
 
+const mergeProposal = {
+  mode: "full" as const,
+  baseVersion: 2,
+  snapshotAt: "2026-08-11T00:00:00.000Z",
+  diffs: [{
+    kind: "merge" as const,
+    proposalId: "merge-dev",
+    sourceCategoryId: CATEGORY_A,
+    target: { kind: "existing" as const, categoryId: CATEGORY_B },
+    autoCount: 4,
+    manualCount: 0,
+  }],
+};
+
 beforeEach(() => {
   vi.restoreAllMocks();
   let uuidSequence = 20;
@@ -113,6 +127,33 @@ describe("CategoryWorkbench", () => {
     const firstBody = JSON.parse(fetchMock.mock.calls[1]![1].body as string) as { requestKey: string };
     const secondBody = JSON.parse(fetchMock.mock.calls[2]![1].body as string) as { requestKey: string };
     expect(secondBody.requestKey).toBe(firstBody.requestKey);
+  });
+
+  it("keeps the semantic merge target in the strict apply request", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json(mergeProposal))
+      .mockResolvedValueOnce(Response.json({
+        runId: "run-merge",
+        status: "completed",
+        counts: { added: 0, renamed: 0, merged: 1, deleted: 0, ignored: 0 },
+      }))
+      .mockResolvedValueOnce(Response.json({ overview }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<CategoryWorkbench csrfToken="csrf-token" initialOverview={overview} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /全量重拟/ }));
+    await screen.findByRole("heading", { name: "变更预览" });
+    fireEvent.click(screen.getByRole("button", { name: "检查并应用 1 项" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认应用" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+    const body = JSON.parse(fetchMock.mock.calls[1]![1].body as string) as {
+      accepted: Array<Record<string, unknown>>;
+    };
+    expect(body.accepted).toEqual([expect.objectContaining({
+      kind: "merge",
+      target: { kind: "existing", categoryId: CATEGORY_B },
+    })]);
   });
 
   it("requires a separate confirmation before deleting a fixed category", async () => {

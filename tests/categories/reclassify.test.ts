@@ -164,7 +164,7 @@ describe("persistent automatic category reclassification", () => {
     expect(duplicate).toEqual(first);
     expect(publish).toHaveBeenCalledTimes(1);
     await expect(requestCategoryRunRetry(run.id, RETRY_B))
-      .rejects.toEqual(new CategoryRunError("VALIDATION"));
+      .rejects.toEqual(new CategoryRunError("VALIDATION", true));
 
     const [target] = await db.select().from(categories);
     await expect(reclassifyCategoriesJob({ runId: run.id, generation: 1 }, {

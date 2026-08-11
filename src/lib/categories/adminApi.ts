@@ -31,6 +31,9 @@ export function categoryApiError(error: unknown): Response {
     error instanceof CategoryRunError || error instanceof CategoryError || error instanceof ItemDetailError
     ? error.code
     : "INTERNAL_ERROR";
+  if (error instanceof CategoryRunError && error.code === "VALIDATION" && error.conflict) {
+    return response(code, 409);
+  }
   if (code === "DUPLICATE_CATEGORY" || code === "ITEM_CONFLICT" || code === "STALE_TAXONOMY" ||
       code === "MANUAL_CATEGORY_CONFLICT") return response(code, 409);
   if (code === "CATEGORY_NOT_FOUND" || code === "ITEM_NOT_FOUND" || code === "RUN_NOT_FOUND") {

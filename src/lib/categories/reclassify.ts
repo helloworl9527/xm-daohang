@@ -31,7 +31,10 @@ export interface CategoryReclassifyBoss {
 export type CategoryRunErrorCode = "RUN_NOT_FOUND" | "STALE_TAXONOMY" | "VALIDATION";
 
 export class CategoryRunError extends Error {
-  constructor(public readonly code: CategoryRunErrorCode) {
+  constructor(
+    public readonly code: CategoryRunErrorCode,
+    public readonly conflict = false,
+  ) {
     super(code);
     this.name = "CategoryRunError";
   }
@@ -174,7 +177,7 @@ export async function requestCategoryRunRetry(
         shouldPublish: false,
       };
     }
-    if (run.status === "reclassifying") throw new CategoryRunError("VALIDATION");
+    if (run.status === "reclassifying") throw new CategoryRunError("VALIDATION", true);
     if (run.status !== "partial" && run.status !== "failed") {
       throw new CategoryRunError("VALIDATION");
     }

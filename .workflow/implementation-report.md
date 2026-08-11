@@ -339,3 +339,11 @@ Playwright 在 `1440×1000` 与移动项目上真实覆盖：登录与分类导�
 - 无需求、架构、安全边界、UI 决策或 AR-M2-01 偏差；本批无迁移、无生产队列/数据操作、未部署、未推送、未打 Tag。
 - 完整回归唯一失败为既有 `tests/integration/settingsRoutes.test.ts` 固定断言业务日 `2026-08-09`，当前 `Asia/Shanghai` 业务日为 `2026-08-11`，因此实际返回 day `2026-08-11`、usedGlobal `0`。本批未修改该历史用例，也不据此宣称完整回归全绿。
 - 本轮已先生成生产 standalone，因此 `deploy-smoke` 7/7 通过；与早期批次“缺构建产物”的环境失败不矛盾。
+
+### Task 8 R1：merge 契约与 retry 冲突映射
+
+- 修复工作台接受 merge 时遗漏严格 `AppliedDiff.target` 的契约错误：请求同时保留 proposal 的语义合并 target，以及管理员选择的 `autoDestination`，由 apply 继续执行目标存在、同批删除 source 等服务端校验。API 测试明确断言缺失 merge target 返回 `VALIDATION` 400。
+- 活动 reclassify run 收到新 retry key 时仍返回稳定 `VALIDATION` code，但 HTTP 状态改为计划规定的 409；同 key 永久幂等仍返回既有 generation，非法 UUID 与非可重试终态仍保持 400。
+- R1 正向定向：直接相关 UI/API 为 2 files / 16 tests PASS；Task 8 API/reclassify/detail/UI 扩展定向为 5 files / 47 tests PASS。`typecheck`、lint（0 error、1 条审批原型既有 warning）、diff check、workflow validator、`env -u DATABASE_URL pnpm build` 与桌面/移动 Playwright 2/2 均通过。
+- R1 完整回归为 50/51 files、367/368 tests；唯一失败仍是 `settingsRoutes` 固定断言 `2026-08-09`、实际业务日 `2026-08-11`，本次 merge/retry 窄修未触及该历史用例。
+- R1 反向门禁：临时移除工作台 merge 顶层 target 后，命名 UI 用例因提交体缺字段出现 Vitest AssertionError、exit 1；临时移除活动 run 的冲突标记后，命名 API 用例观测实际 400、期望 409，Vitest AssertionError、exit 1。两项均恢复后重新正向验证，不把语法或启动错误计作证据。
