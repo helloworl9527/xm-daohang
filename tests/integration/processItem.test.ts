@@ -407,6 +407,40 @@ describe("processing request state machine", () => {
     }
   });
 
+  it("protects an initially manual unclassified item without loading taxonomy", async () => {
+    const category = await insertCategory("不应自动覆盖人工未分类");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 7 })
+      .where(eq(appSettings.id, 1));
+    const item = await insertItem({ status: "failed", categoryId: null, categoryManual: true });
+    const generation = await requestProcessing(item.id);
+    const dependencies = successfulDependencies();
+    dependencies.loadTaxonomy.mockResolvedValue({
+      initialized: true,
+      version: 7,
+      categories: [{ id: category.id, name: category.name }],
+    });
+    dependencies.classify.mockResolvedValue({
+      outcome: "selected",
+      categoryId: category.id,
+      confidence: 0.95,
+    });
+
+    await expect(processItemJob({
+      itemId: item.id,
+      processGeneration: generation,
+      embVersion: 1,
+      attempt: 0,
+    }, dependencies)).resolves.toEqual({ claimed: true, outcome: "completed" });
+
+    expect(dependencies.loadTaxonomy).not.toHaveBeenCalled();
+    expect(dependencies.classify).not.toHaveBeenCalled();
+    expect((await db.select().from(items).where(eq(items.id, item.id)))[0]).toMatchObject({
+      status: "completed",
+      categoryId: null,
+      categoryManual: true,
+    });
+  });
+
   it("keeps processing completed when taxonomy loading or classification throws", async () => {
     const info = vi.spyOn(logger, "info");
     const category = await insertCategory("原分类");
@@ -486,6 +520,52 @@ describe("processing request state machine", () => {
 
     expect((await db.select().from(items).where(eq(items.id, item.id)))[0]).toMatchObject({
       categoryId: manual.id,
+      categoryManual: true,
+      status: "completed",
+    });
+    expect(info).toHaveBeenCalledWith("category_classified", {
+      outcome: "skipped",
+      reason: "manual_override",
+    });
+  });
+
+  it("does not overwrite an administrator choosing unclassified during inference", async () => {
+    const info = vi.spyOn(logger, "info");
+    const automatic = await insertCategory("自动候选");
+    await db.update(appSettings).set({ categoriesInitialized: true, categoryVersion: 8 })
+      .where(eq(appSettings.id, 1));
+    const item = await insertItem({ status: "failed", categoryId: automatic.id });
+    const generation = await requestProcessing(item.id);
+    const dependencies = successfulDependencies();
+    dependencies.loadTaxonomy.mockResolvedValue({
+      initialized: true,
+      version: 8,
+      categories: [{ id: automatic.id, name: automatic.name }],
+    });
+    let resolveClassification!: (outcome: ClassificationOutcome) => void;
+    let reportStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      reportStarted = resolve;
+    });
+    dependencies.classify.mockImplementation(() => new Promise((resolve) => {
+      resolveClassification = resolve;
+      reportStarted();
+    }));
+
+    const processing = processItemJob({
+      itemId: item.id,
+      processGeneration: generation,
+      embVersion: 1,
+      attempt: 0,
+    }, dependencies);
+    await started;
+    await db.update(items).set({ categoryId: null, categoryManual: true })
+      .where(eq(items.id, item.id));
+    resolveClassification({ outcome: "selected", categoryId: automatic.id, confidence: 0.95 });
+    await expect(processing).resolves.toEqual({ claimed: true, outcome: "completed" });
+
+    expect((await db.select().from(items).where(eq(items.id, item.id)))[0]).toMatchObject({
+      categoryId: null,
       categoryManual: true,
       status: "completed",
     });

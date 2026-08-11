@@ -234,19 +234,19 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 
 | 命令 | 结果 |
 | --- | --- |
-| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/integration/processItem.test.ts` | PASS，1 file / 18 tests |
-| Task 1+2+3+4 联合定向测试 | PASS，5 files / 63 tests |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/integration/processItem.test.ts` | PASS，1 file / 20 tests |
+| Task 1+2+3+4 联合定向测试 | PASS，5 files / 65 tests |
 | `corepack pnpm typecheck` | PASS，0 errors |
 | `corepack pnpm lint` | PASS，产品代码 0 error；审批原型保留 1 条既有 warning |
 | `git diff --check` | PASS |
 | project-delivery-workflow validator | PASS |
-| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 308/310 PASS；2 项非本批失败，见下 |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 310/312 PASS；2 项非本批失败，见下 |
 
-测试覆盖 initialized web 的合法选中、可靠未分类写 NULL、invalid/upstream 保留旧分类、未初始化/doc/初始人工保护零调用、taxonomy/classifier 抛错仍 completed 且不生成 retry、推理期间人工覆盖、taxonomy version 变化和候选删除均不覆盖/不触发 FK 重试，以及 Telegram receipt 仍 completed。分类器挂起期间对 `db.transaction` 的 spy 证明 completion transaction 尚未开始，释放模型结果后才进入一次短事务。
+测试覆盖 initialized web 的合法选中、可靠未分类写 NULL、invalid/upstream 保留旧分类、未初始化/doc/初始人工保护零调用、taxonomy/classifier 抛错仍 completed 且不生成 retry、推理期间人工覆盖、taxonomy version 变化和候选删除均不覆盖/不触发 FK 重试，以及 Telegram receipt 仍 completed。人工保护同时覆盖正式分类与人工选择 NULL：初始 `category_manual=true/category_id=NULL` 时 taxonomy 与 classifier 均零调用；推理挂起期间管理员改为人工 NULL 后仍保持 NULL 并记录 `manual_override`。分类器挂起期间对 `db.transaction` 的 spy 证明 completion transaction 尚未开始，释放模型结果后才进入一次短事务。
 
-在隔离副本中逐项中和 type、初始 manual、initialized、taxonomy 错误隔离、classifier 错误隔离、可靠 NULL、completion manual、version、候选存在性九项门禁，对应命名测试均为 1 failed / 17 skipped、exit 1，失败命中 Vitest 断言。另把 `prepareClassification` 故意包入 `db.transaction` 时，事务外推理命名测试因分类器挂起期间 transaction 调用数由 0 变为 1 而 assertion failure、exit 1。十项反向门禁均由行为断言捕获，不把语法、依赖或启动错误计作证据。
+在隔离副本中逐项中和 type、初始 manual、initialized、taxonomy 错误隔离、classifier 错误隔离、可靠 NULL、completion manual、version、候选存在性九项门禁，对应命名测试均为 assertion failure、exit 1，失败命中 Vitest 断言。另把 `prepareClassification` 故意包入 `db.transaction` 时，事务外推理命名测试因分类器挂起期间 transaction 调用数由 0 变为 1 而 assertion failure、exit 1。R1 返工又把初始 manual 门禁弱化为依赖非 NULL categoryId，对应人工 NULL 命名测试因 taxonomy/classifier 被调用而 exit 1；中和 completion manual 保护时，推理期间人工 NULL 被自动候选覆盖，对应命名测试 exit 1。以上反向门禁均由行为断言捕获，不把语法、依赖或启动错误计作证据。
 
 ### 偏差、未解决项与残余风险
 
 - 无需求、架构、安全边界或已接受风险偏差；人工保护、taxonomy version 与候选存在性三门禁均在 completion transaction 内重验。
-- 完整回归为 44/46 files、308/310 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与 Task 4 变更面无关，本批不扩大处理范围，也不据此宣称完整回归通过。
+- 完整回归为 44/46 files、310/312 tests；失败仍仅为 `deploy-smoke` 缺未构建的 `.next/standalone/node_modules`，以及 `settingsRoutes` 历史 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11`。两项与 Task 4 变更面无关，本批不扩大处理范围，也不据此宣称完整回归通过。
