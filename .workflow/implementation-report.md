@@ -210,7 +210,9 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 | `git diff --check` | PASS |
 | `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 301/303 PASS；2 项非本批失败，见下 |
 
-测试覆盖合法选中、无候选零模型调用、`null`/`NONE`、0.65 上下边界、完整 JSON fence、非法 JSON、未知 ID、额外字段、confidence 类型/范围、超长但其余合法的响应、模型抛错、prompt-injection fixture、四种稳定 outcome 日志、日志失败隔离与内容/原始输出脱敏。在隔离 worktree 中分别中和无候选短路、strict schema、候选白名单、0.65 边界、4 KiB 输出上限和“不可信数据/禁止遵循”prompt 门禁，六条对应命名测试均出现 Vitest assertion failure、进程 exit 1，证明门禁不会因实现退化而静默放行。
+测试覆盖合法选中、无候选零模型调用、`null`/`NONE`、0.65 上下边界、完整 JSON fence、非法 JSON、未知 ID、额外字段、confidence 类型/范围、超长但其余合法的响应、模型抛错、prompt-injection fixture、四种稳定 outcome 日志、日志失败隔离与内容/原始输出脱敏。注入 fixture 同时包含恶意 title、summary、全部 tags 与两个恶意候选分类名，并断言 system message 等于固定模板、所有不可信值仅存在于结构化 user JSON。
+
+反向门禁在隔离 worktree 中逐项验证：中和无候选短路、strict schema、候选白名单、0.65 边界、4 KiB 输出上限和“不可信数据/禁止遵循”prompt 门禁，六条对应命名测试均出现 Vitest assertion failure、进程 exit 1；R1 返工又分别只把 `input.tags.join(",")` 或首个恶意候选分类名追加到 system message，两次注入命名测试均为 1 failed / 17 skipped、exit 1，失败命中固定模板等值断言。以上门禁不会因任一不可信字段泄漏到 system 而静默放行。
 
 ### 偏差、未解决项与残余风险
 
