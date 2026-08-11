@@ -1,5 +1,6 @@
 // @vitest-environment node
 
+import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,8 +14,20 @@ import {
   deleteCategory,
   getCategoryOverview,
   listCategories,
+  lockCategoryState,
   renameCategory,
+  renameCategoryRecord,
 } from "@/lib/categories/store";
+
+function pgErrorCode(error: unknown): string | undefined {
+  let current = error;
+  for (let depth = 0; depth < 5 && current && typeof current === "object"; depth += 1) {
+    const candidate = current as { code?: string; cause?: unknown };
+    if (candidate.code) return candidate.code;
+    current = candidate.cause;
+  }
+  return undefined;
+}
 
 beforeAll(async () => {
   const database = await pool.query<{ current_database: string }>("select current_database()");
@@ -63,18 +76,241 @@ describe("category store", () => {
     expect(rejected).toMatchObject({ reason: { code: "DUPLICATE_CATEGORY" } });
   });
 
-  it("uses a supplied transaction for record helpers and rolls back with the caller", async () => {
+  it("uses a supplied transaction in lockCategoryState and rolls back its settings insert", async () => {
+    await db.delete(appSettings);
     const globalInsert = vi.spyOn(db, "insert");
+    const globalExecute = vi.spyOn(db, "execute");
+    try {
+      await expect(
+        db.transaction(async (tx) => {
+          await lockCategoryState(tx);
+          throw new Error("ROLLBACK_LOCK_STATE");
+        }),
+      ).rejects.toThrow("ROLLBACK_LOCK_STATE");
+
+      expect(globalInsert).not.toHaveBeenCalled();
+      expect(globalExecute).not.toHaveBeenCalled();
+    } finally {
+      globalInsert.mockRestore();
+      globalExecute.mockRestore();
+    }
+    expect(await db.select().from(appSettings)).toHaveLength(0);
+  });
+
+  it("holds the taxonomy row lock until the supplied transaction finishes", async () => {
+    let releaseFirst!: () => void;
+    let reportLocked!: () => void;
+    const release = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const locked = new Promise<void>((resolve) => {
+      reportLocked = resolve;
+    });
+    const firstWriter = db.transaction(async (tx) => {
+      await lockCategoryState(tx);
+      reportLocked();
+      await release;
+    });
+
+    await locked;
+    let secondWriterError: unknown;
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`set local lock_timeout = '100ms'`);
+        await lockCategoryState(tx);
+      });
+    } catch (error) {
+      secondWriterError = error;
+    } finally {
+      releaseFirst();
+      await firstWriter;
+    }
+
+    expect(pgErrorCode(secondWriterError)).toBe("55P03");
+    await expect(db.transaction((tx) => lockCategoryState(tx))).resolves.toMatchObject({
+      initialized: false,
+      version: 0,
+    });
+  });
+
+  it("uses a supplied transaction in advanceCategoryVersion and rolls back with the caller", async () => {
+    const globalUpdate = vi.spyOn(db, "update");
+    try {
+      await expect(
+        db.transaction(async (tx) => {
+          await advanceCategoryVersion(tx, { initialize: true });
+          throw new Error("ROLLBACK_ADVANCE_VERSION");
+        }),
+      ).rejects.toThrow("ROLLBACK_ADVANCE_VERSION");
+
+      expect(globalUpdate).not.toHaveBeenCalled();
+    } finally {
+      globalUpdate.mockRestore();
+    }
+    const [settings] = await db.select().from(appSettings);
+    expect(settings).toMatchObject({ categoriesInitialized: false, categoryVersion: 0 });
+  });
+
+  it("uses a supplied transaction in createCategoryRecord and rolls back with the caller", async () => {
+    const globalInsert = vi.spyOn(db, "insert");
+    try {
+      await expect(
+        db.transaction(async (tx) => {
+          await createCategoryRecord(tx, { name: "事务内分类" });
+          throw new Error("ROLLBACK_CREATE_RECORD");
+        }),
+      ).rejects.toThrow("ROLLBACK_CREATE_RECORD");
+
+      expect(globalInsert).not.toHaveBeenCalled();
+    } finally {
+      globalInsert.mockRestore();
+    }
+    expect(await db.select().from(categories)).toHaveLength(0);
+  });
+
+  it("uses a supplied transaction in renameCategoryRecord and rolls back with the caller", async () => {
+    const category = await createCategory({ name: "原始名称" });
+    const globalUpdate = vi.spyOn(db, "update");
+    try {
+      await expect(
+        db.transaction(async (tx) => {
+          await renameCategoryRecord(tx, category.id, { name: "事务名称" });
+          throw new Error("ROLLBACK_RENAME_RECORD");
+        }),
+      ).rejects.toThrow("ROLLBACK_RENAME_RECORD");
+
+      expect(globalUpdate).not.toHaveBeenCalled();
+    } finally {
+      globalUpdate.mockRestore();
+    }
+    expect(await listCategories()).toEqual([expect.objectContaining({ name: "原始名称" })]);
+  });
+
+  it("uses a supplied transaction in listCategories instead of the global selector", async () => {
+    const category = await createCategory({ name: "事务列表" });
+    const globalSelect = vi.spyOn(db, "select");
+    try {
+      const result = await db.transaction((tx) => listCategories(tx));
+      expect(result).toEqual([category]);
+      expect(globalSelect).not.toHaveBeenCalled();
+    } finally {
+      globalSelect.mockRestore();
+    }
+  });
+
+  it("keeps createCategory inside a supplied caller transaction", async () => {
     await expect(
       db.transaction(async (tx) => {
-        await createCategoryRecord(tx, { name: "事务内分类" });
-        throw new Error("ROLLBACK_FIXTURE");
+        const globalTransaction = vi.spyOn(db, "transaction");
+        const globalInsert = vi.spyOn(db, "insert");
+        const globalExecute = vi.spyOn(db, "execute");
+        const globalUpdate = vi.spyOn(db, "update");
+        try {
+          await createCategory({ name: "事务创建" }, tx);
+          expect(globalTransaction).not.toHaveBeenCalled();
+          expect(globalInsert).not.toHaveBeenCalled();
+          expect(globalExecute).not.toHaveBeenCalled();
+          expect(globalUpdate).not.toHaveBeenCalled();
+        } finally {
+          globalTransaction.mockRestore();
+          globalInsert.mockRestore();
+          globalExecute.mockRestore();
+          globalUpdate.mockRestore();
+        }
+        throw new Error("ROLLBACK_CREATE_CATEGORY");
       }),
-    ).rejects.toThrow("ROLLBACK_FIXTURE");
+    ).rejects.toThrow("ROLLBACK_CREATE_CATEGORY");
 
-    expect(globalInsert).not.toHaveBeenCalled();
     expect(await db.select().from(categories)).toHaveLength(0);
-    globalInsert.mockRestore();
+    const [settings] = await db.select().from(appSettings);
+    expect(settings).toMatchObject({ categoriesInitialized: false, categoryVersion: 0 });
+  });
+
+  it("keeps renameCategory inside a supplied caller transaction", async () => {
+    const category = await createCategory({ name: "调用者旧名" });
+    await expect(
+      db.transaction(async (tx) => {
+        const globalTransaction = vi.spyOn(db, "transaction");
+        const globalInsert = vi.spyOn(db, "insert");
+        const globalExecute = vi.spyOn(db, "execute");
+        const globalUpdate = vi.spyOn(db, "update");
+        try {
+          await renameCategory(category.id, "调用者新名", tx);
+          expect(globalTransaction).not.toHaveBeenCalled();
+          expect(globalInsert).not.toHaveBeenCalled();
+          expect(globalExecute).not.toHaveBeenCalled();
+          expect(globalUpdate).not.toHaveBeenCalled();
+        } finally {
+          globalTransaction.mockRestore();
+          globalInsert.mockRestore();
+          globalExecute.mockRestore();
+          globalUpdate.mockRestore();
+        }
+        throw new Error("ROLLBACK_RENAME_CATEGORY");
+      }),
+    ).rejects.toThrow("ROLLBACK_RENAME_CATEGORY");
+
+    expect(await listCategories()).toEqual([expect.objectContaining({ name: "调用者旧名" })]);
+    const [settings] = await db.select().from(appSettings);
+    expect(settings.categoryVersion).toBe(1);
+  });
+
+  it("keeps deleteCategory and its impact query inside a supplied caller transaction", async () => {
+    const category = await createCategory({ name: "调用者删除" });
+    await db.insert(items).values({
+      url: "https://example.com/rollback-delete",
+      urlCanonical: "https://example.com/rollback-delete",
+      type: "web",
+      source: "admin",
+      categoryId: category.id,
+      categoryManual: true,
+    });
+    await expect(
+      db.transaction(async (tx) => {
+        const globalTransaction = vi.spyOn(db, "transaction");
+        const globalInsert = vi.spyOn(db, "insert");
+        const globalExecute = vi.spyOn(db, "execute");
+        const globalDelete = vi.spyOn(db, "delete");
+        const globalUpdate = vi.spyOn(db, "update");
+        try {
+          await expect(deleteCategory(category.id, tx)).resolves.toEqual({
+            autoCount: 0,
+            manualCount: 1,
+          });
+          expect(globalTransaction).not.toHaveBeenCalled();
+          expect(globalInsert).not.toHaveBeenCalled();
+          expect(globalExecute).not.toHaveBeenCalled();
+          expect(globalDelete).not.toHaveBeenCalled();
+          expect(globalUpdate).not.toHaveBeenCalled();
+        } finally {
+          globalTransaction.mockRestore();
+          globalInsert.mockRestore();
+          globalExecute.mockRestore();
+          globalDelete.mockRestore();
+          globalUpdate.mockRestore();
+        }
+        throw new Error("ROLLBACK_DELETE_CATEGORY");
+      }),
+    ).rejects.toThrow("ROLLBACK_DELETE_CATEGORY");
+
+    expect(await listCategories()).toEqual([expect.objectContaining({ id: category.id })]);
+    expect(await db.select().from(items)).toEqual([
+      expect.objectContaining({ categoryId: category.id, categoryManual: true }),
+    ]);
+    const [settings] = await db.select().from(appSettings);
+    expect(settings.categoryVersion).toBe(1);
+  });
+
+  it("uses a supplied transaction in getCategoryOverview instead of global execute", async () => {
+    const category = await createCategory({ name: "事务概览" });
+    const globalExecute = vi.spyOn(db, "execute");
+    try {
+      const result = await db.transaction((tx) => getCategoryOverview(tx));
+      expect(result.categories).toEqual([expect.objectContaining({ id: category.id })]);
+      expect(globalExecute).not.toHaveBeenCalled();
+    } finally {
+      globalExecute.mockRestore();
+    }
   });
 
   it("renames with normalization and reports not found without changing the version", async () => {

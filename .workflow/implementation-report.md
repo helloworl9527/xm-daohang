@@ -173,15 +173,18 @@ README 按“项目名称、一句话描述、简介、快速开始、功能特�
 
 | 命令 | 结果 |
 | --- | --- |
-| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/categories/store.test.ts` | PASS，1 file / 11 tests |
-| Task 1+2 联合定向测试 | PASS，3 files / 18 tests |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/categories/store.test.ts` | PASS，1 file / 20 tests |
+| Task 1+2 联合定向测试 | PASS，3 files / 27 tests |
 | `corepack pnpm typecheck` | PASS，0 errors |
 | `corepack pnpm lint` | PASS，产品代码 0 error/0 warning；审批原型保留 1 条既有 warning |
 | `git diff --check` | PASS |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 283/285 PASS；2 项非本批失败，见下 |
 
-覆盖证据包括：全角字符 NFKC、稳定 slug、排序、非法名称、并发规范名冲突、tx helper 不调用全局 `db.insert` 的 spy、调用者事务回滚、not-found/version 不变、FK SET NULL 保留 manual true/false、删空仍 initialized、overview 口径。
+覆盖证据包括：全角字符 NFKC、稳定 slug、排序、非法名称、并发规范名冲突、not-found/version 不变、FK SET NULL 保留 manual true/false、删空仍 initialized、overview 口径。`lockCategoryState`、`advanceCategoryVersion`、`createCategoryRecord`、`renameCategoryRecord`、`listCategories`、`createCategory`、`renameCategory`、`deleteCategory`、`getCategoryOverview` 均有独立调用者 transaction 测试，按实际使用的方法 spy 全局 `db.transaction/insert/execute/update/delete/select` 并断言零调用；所有写路径在调用者回滚后进一步断言分类、settings 初始化/version、item 分类/manual 均未持久变化。真实双事务探针把第二个 writer 的 `lock_timeout` 固定为 100ms，确认第一个调用者 transaction 释放前稳定得到 PostgreSQL `55P03`，释放后可重新取得锁。
+
+在由当前基准与未提交测试补丁构成的隔离 worktree 中，逐项把上述九个 API 改为忽略传入 queryable、回落全局 `db`，对应九条命名测试均为 1 failed / 19 skipped、进程 exit 1；失败分别命中全局 `insert/update/select/transaction/execute` spy。另仅把 `lockCategoryState` 的 `FOR UPDATE` 查询改为全局 `db.execute`，行锁命名用例因期望 `55P03`、实际无锁超时而 exit 1。首次反证尝试因 pnpm 对 symlink worktree 的依赖目录校验提前退出，已明确作废；以上有效结果改为直接调用仓库已安装的 Vitest 二进制取得，均确认存在 Vitest assertion failure，不把工具启动错误计作门禁证据。
 
 ### 偏差、未解决项与残余风险
 
 - 无计划语义偏差；AI apply 尚未接入这些内部 helper，按依赖顺序留待 Task 6。
-- 完整回归的两项既有环境/日期失败与 Task 1 记录相同；本批未扩大处理范围。
+- 完整回归为 43/45 files、283/285 tests；失败仍只有 `deploy-smoke` 缺 `.next/standalone/node_modules` 的 `PRODUCTION_NODE_MODULES_MISSING`，以及 `settingsRoutes` 旧 fixture 固定断言 `2026-08-09`、当前业务日为 `2026-08-11` 导致 usedGlobal/day 不匹配。两项均与 Task 2 变更面无关，本批不扩大处理范围，也不据此宣称完整回归通过。

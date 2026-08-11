@@ -3,7 +3,7 @@
 - 日期：2026-08-11（Asia/Shanghai）
 - 验收提交：`c2d542f19d6912b6c41047cf4cb686140a3df3e3`
 - 基准：`implementation-plan-nav-enhancement.md` rev11 Task 1 与 Global Invariants
-- 结论：**退回**。迁移实现的正向行为符合要求，但旧 `items` 约束回归门禁可 fail-open，未达到计划规定的升级证据标准；Task 2 暂不进入验收。
+- 结论：初验**退回**；返工提交 `a5865de08d0e2770a32f2c988fe5acbb906c63b5` 于 2026-08-11 **复验通过**。Task 2 另行验收。
 
 ## 正向复跑证据
 
@@ -34,3 +34,13 @@
 ## 并发时间线
 
 - 动态工作区曾短暂出现 Task 2 TDD 红灯：`store.test.ts` 已落地但 `store.ts` 尚未存在，导致一次 TS2307。该现象不属于稳定 Task 1 提交；在 `c2d542f` 上 `typecheck` 已通过。本记录不以该动态窗口作为退回依据。
+
+---
+
+## 2026-08-11 R1 返工复验
+
+- 验收提交：`a5865de08d0e2770a32f2c988fe5acbb906c63b5`，parent 为原 Task 1 提交 `c2d542f19d6912b6c41047cf4cb686140a3df3e3`；只修改升级测试与实施报告，不改变已验收 schema/migration/meta。
+- R1 已关闭：M1 -> M2 升级后逐一对 `items_type_check`、`items_status_check`、`items_completed_tags_check`、`items_embedding_metadata_check`、`items_embedding_dimension_check` 执行非法写入，并断言 SQLSTATE `23514` 与稳定 constraint 名。
+- 独立反向复验：在五个隔离副本中分别把上述最终约束中和为 `CHECK (true)`，五次 `migration-nav.test.ts` 均退出 1，失败原因均为非法写入 promise 意外 resolved；门禁现已 fail closed。
+- 正向门禁：定向 2 files / 7 tests；`typecheck`；`lint` 0 error、1 条既有原型 warning；`git diff --check`；workflow validator，均通过。
+- 完整回归在共享测试库空闲后复跑为 42/44 files、263/265 tests；失败仍只是不含 standalone 构建产物与历史固定日期两项。此前一次全量运行遭另一进程并发 reset 测试 schema 污染，出现关系丢失/迁移异常；协调停止并确认无活动连接后已复跑恢复，污染结果不作为提交判定依据。
