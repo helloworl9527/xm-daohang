@@ -8,6 +8,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   real,
@@ -15,6 +16,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -28,6 +30,23 @@ const vector = customType<{ data: number[]; driverData: string }>({
 });
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
+
+export const categories = pgTable(
+  "categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    sort: integer("sort").notNull().default(0),
+    createdAt: timestamptz("created_at").notNull().defaultNow(),
+    updatedAt: timestamptz("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("categories_name_normalized_unique").on(sql`lower(btrim(${table.name}))`),
+    check("categories_name_not_blank_check", sql`length(btrim(${table.name})) > 0`),
+    check("categories_sort_check", sql`${table.sort} >= 0`),
+  ],
+);
 
 export const items = pgTable(
   "items",
@@ -47,6 +66,8 @@ export const items = pgTable(
     embedding: vector("embedding"),
     embeddingDim: integer("embedding_dim"),
     embeddingVersion: integer("embedding_version"),
+    categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
+    categoryManual: boolean("category_manual").notNull().default(false),
     processGeneration: integer("process_generation").notNull().default(0),
     lastShownOn: date("last_shown_on", { mode: "string" }),
     shownCount: integer("shown_count").notNull().default(0),
@@ -55,6 +76,7 @@ export const items = pgTable(
   },
   (table) => [
     index("items_status_idx").on(table.status),
+    index("items_category_idx").on(table.categoryId),
     index("items_retrievable_idx")
       .on(table.status, table.embeddingVersion, table.embeddingDim)
       .where(sql`${table.embedding} is not null`),
@@ -105,6 +127,8 @@ export const appSettings = pgTable(
       .default(sql`'{}'::bigint[]`),
     githubBackoffUntil: timestamptz("github_backoff_until"),
     defaultLocale: text("default_locale").notNull().default("zh"),
+    categoriesInitialized: boolean("categories_initialized").notNull().default(false),
+    categoryVersion: integer("category_version").notNull().default(0),
   },
   (table) => [
     check("app_settings_singleton_check", sql`${table.id} = 1`),
@@ -131,6 +155,91 @@ export const appSettings = pgTable(
       sql`${table.ratelimitGlobalDaily} between 1 and 1000000`,
     ),
     check("app_settings_locale_check", sql`${table.defaultLocale} in ('zh', 'en')`),
+    check("app_settings_category_version_check", sql`${table.categoryVersion} >= 0`),
+  ],
+);
+
+export const categoryChangeRuns = pgTable(
+  "category_change_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestKey: uuid("request_key").notNull().unique(),
+    mode: text("mode").notNull(),
+    baseVersion: integer("base_version").notNull(),
+    appliedVersion: integer("applied_version"),
+    accepted: jsonb("accepted").notNull(),
+    ignored: jsonb("ignored").notNull(),
+    reclassifyRequested: boolean("reclassify_requested").notNull().default(false),
+    reclassifyGeneration: integer("reclassify_generation").notNull().default(0),
+    snapshotAt: timestamptz("snapshot_at").notNull(),
+    cursorCreatedAt: timestamptz("cursor_created_at"),
+    cursorId: uuid("cursor_id"),
+    status: text("status").notNull().default("applying"),
+    addedCount: integer("added_count").notNull().default(0),
+    renamedCount: integer("renamed_count").notNull().default(0),
+    mergedCount: integer("merged_count").notNull().default(0),
+    deletedCount: integer("deleted_count").notNull().default(0),
+    ignoredCount: integer("ignored_count").notNull().default(0),
+    manualProtected: integer("manual_protected").notNull().default(0),
+    reclassified: integer("reclassified").notNull().default(0),
+    movedUnclassified: integer("moved_unclassified").notNull().default(0),
+    errorCode: text("error_code"),
+    createdAt: timestamptz("created_at").notNull().defaultNow(),
+    updatedAt: timestamptz("updated_at").notNull().defaultNow(),
+    completedAt: timestamptz("completed_at"),
+  },
+  (table) => [
+    check("category_change_runs_mode_check", sql`${table.mode} in ('supplement', 'full', 'manual')`),
+    check("category_change_runs_base_version_check", sql`${table.baseVersion} >= 0`),
+    check(
+      "category_change_runs_applied_version_check",
+      sql`${table.appliedVersion} is null or ${table.appliedVersion} >= 0`,
+    ),
+    check("category_change_runs_generation_check", sql`${table.reclassifyGeneration} >= 0`),
+    check(
+      "category_change_runs_status_check",
+      sql`${table.status} in ('applying', 'reclassifying', 'completed', 'partial', 'failed', 'superseded')`,
+    ),
+    check(
+      "category_change_runs_counts_check",
+      sql`${table.addedCount} >= 0 and ${table.renamedCount} >= 0 and ${table.mergedCount} >= 0 and ${table.deletedCount} >= 0 and ${table.ignoredCount} >= 0 and ${table.manualProtected} >= 0 and ${table.reclassified} >= 0 and ${table.movedUnclassified} >= 0`,
+    ),
+  ],
+);
+
+export const categoryReclassifyFailures = pgTable(
+  "category_reclassify_failures",
+  {
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => categoryChangeRuns.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    errorCode: text("error_code").notNull(),
+    attempts: integer("attempts").notNull().default(1),
+    updatedAt: timestamptz("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runId, table.itemId] }),
+    check("category_reclassify_failures_attempts_check", sql`${table.attempts} >= 1`),
+  ],
+);
+
+export const categoryRunRetryRequests = pgTable(
+  "category_run_retry_requests",
+  {
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => categoryChangeRuns.id, { onDelete: "cascade" }),
+    requestKey: uuid("request_key").notNull(),
+    generation: integer("generation").notNull(),
+    createdAt: timestamptz("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runId, table.requestKey] }),
+    unique("category_run_retry_requests_run_generation_unique").on(table.runId, table.generation),
+    check("category_run_retry_requests_generation_check", sql`${table.generation} >= 1`),
   ],
 );
 

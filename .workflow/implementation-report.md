@@ -112,3 +112,48 @@ scripts/restore-smoke.sh "$backup" ./restore-admin-password.secret
 ## README 核验
 
 README 按“项目名称、一句话描述、简介、快速开始、功能特性、技术栈、项目结构、开发指南、部署、许可证”顺序编写。仓库无 remote，故未猜测 clone URL；仓库无 `LICENSE`，已明确标注目前无法确认。README 未记录真密钥，只列环境变量及用途；`cp .env.example .env`、pnpm scripts、health 路径、内部文档链接和目录均已核验存在。Docker/部署/恢复命令只核验定义与参数，未在无授权/无 Docker 环境中执行。
+
+---
+
+# 导航站增强（M2）实施记录
+
+- 最终计划：`implementation-plan-nav-enhancement.md` revision 11
+- 实施日期：2026-08-11（Asia/Shanghai）
+- 当前状态：实施中；本节按任务批次追加，不覆盖上方 M1 历史。
+- 发布状态：未部署、未推送、未打 Tag、未操作生产数据。
+
+## M2 Task 1：迁移、schema 与升级证据
+
+### 实现范围
+
+- 新增 `categories`、`category_change_runs`、`category_reclassify_failures`、`category_run_retry_requests` 四张表。
+- `items` 新增 nullable `category_id` 与默认 false 的 `category_manual`；外键删除行为为 `ON DELETE SET NULL`，并新增分类索引。
+- `app_settings` 新增 `categories_initialized=false`、`category_version=0` 与非负版本约束。
+- Drizzle 从 0002 snapshot 生成 `0003_categories.sql`、`meta/0003_snapshot.json` 并更新 journal；人工核对迁移仅含 additive DDL，0000～0002 未改写。
+- Vitest 新增计划约定的 `tests/categories/**` 收集范围。
+
+### 迁移与回滚
+
+- 0003 包含分类规范名唯一索引 `lower(btrim(name))`、空白名/排序/模式/状态/version/generation/attempt/count checks、run request key 唯一约束及 retry `(run_id,generation)` 唯一约束。
+- 升级测试先用 0000～0002 建立 M1 数据库，写入 completed web 向量与 failed doc fixture，再由 migrator 应用 0003；旧行、向量和旧 embedding/type constraints 均保留。
+- 第二次运行完整 migrator 不新增 migration 记录，证明迁移工具幂等。
+- 生产执行步骤仍须先 `pg_dump`；普通回滚采用旧应用代码兼容新增列/表的前向兼容策略，不 drop taxonomy 数据。本批未连接或修改生产数据库。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| `DATABASE_URL=postgresql://apple@127.0.0.1:5432/collection_system_test APP_TIMEZONE=Asia/Shanghai corepack pnpm vitest run tests/categories/schema.test.ts tests/integration/migration-nav.test.ts` | PASS，2 files / 7 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，0 errors；审批原型有 1 条既有 unused warning |
+| `git diff --check` | PASS |
+| 0003 destructive DDL 静态扫描 | PASS，无 `DROP TABLE`、`DROP COLUMN`、`ALTER COLUMN`、`DROP CONSTRAINT` |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai corepack pnpm test` | 263/265 PASS；2 项非本批失败，见下 |
+
+完整回归的两个失败均未落在 Task 1 变更面：`deploy-smoke` 因当前工作区尚无构建后的 `.next/standalone/node_modules` 报 `PRODUCTION_NODE_MODULES_MISSING`；`settingsRoutes` 旧 fixture 断言固定业务日 `2026-08-09`，实际当前业务日为 `2026-08-11`。新增分类 schema 与 M1→M2 升级测试全部通过。这两项将在后续完整 build/Task 13 回归门禁前关闭并重跑，不据此宣称完整回归已通过。
+
+### 偏差、未解决项与残余风险
+
+- 无需求、架构、安全边界或已接受风险偏差。
+- 未执行生产 `pg_dump`、生产迁移或真实生产 readiness；这些属于发布阶段操作，当前无授权且计划尚未完成。
+- 当前工作树原有 M2 审批产物和 workflow 修改均被保留；Task 1 未整理或覆盖它们。
