@@ -12,7 +12,10 @@ export async function keywordSearch(query: string): Promise<SiteCard[]> {
   try { return await searchPublicCorpus(query); } catch { throw new KeywordSearchError(); }
 }
 
-const querySchema = z.object({ query: z.string().trim().min(2).max(100) }).strict();
+const normalizedQuerySchema = z.string().transform((value) => value.normalize("NFKC").trim()).pipe(
+  z.string().min(1).max(100).refine((value) => !/[\u0000-\u001f\u007f-\u009f]/u.test(value)),
+);
+const querySchema = z.object({ query: normalizedQuerySchema }).strict();
 
 export interface KeywordRouteDependencies {
   getClientIp?: (request: Request) => string;

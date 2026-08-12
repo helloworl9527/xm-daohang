@@ -2,6 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { pool } from "@/db/client";
 import { consumePublicKeyword } from "@/lib/ratelimit/publicKeyword";
+import { readFile } from "node:fs/promises";
 
 describe("keyword rate limit fail closed", () => {
   beforeAll(async () => {
@@ -28,5 +29,28 @@ describe("keyword rate limit fail closed", () => {
     const scopes = await pool.query<{ scope: string }>("select scope from ask_counters order by scope");
     expect(scopes.rows.map((row) => row.scope)).toEqual(expect.arrayContaining(["kw:global"]));
     expect(scopes.rows.every((row) => row.scope.startsWith("kw:"))).toBe(true);
+  });
+
+  it("serializes same-IP concurrency without changing ask counters", async () => {
+    await pool.query("update app_settings set ratelimit_ip_daily=2, ratelimit_global_daily=10 where id=1");
+    await pool.query("insert into ask_counters(day,scope,count) values ('2026-08-12','global',7),('2026-08-12','ip:existing',4)");
+    const results = await Promise.all(Array.from({ length: 8 }, () => consumePublicKeyword("203.0.113.8", new Date("2026-08-12T00:00:00Z"))));
+    expect(results.filter((result) => result.allowed)).toHaveLength(2);
+    const ask = await pool.query<{ scope: string; count: number }>("select scope,count from ask_counters where scope in ('global','ip:existing') order by scope");
+    expect(ask.rows).toEqual([{ scope: "global", count: 7 }, { scope: "ip:existing", count: 4 }]);
+  });
+
+  it("serializes distinct-IP concurrency at the global limit", async () => {
+    await pool.query("update app_settings set ratelimit_ip_daily=10, ratelimit_global_daily=3 where id=1");
+    const results = await Promise.all(Array.from({ length: 8 }, (_, index) => consumePublicKeyword(`203.0.113.${20 + index}`, new Date("2026-08-12T00:00:00Z"))));
+    expect(results.filter((result) => result.allowed)).toHaveLength(3);
+    const global = await pool.query<{ count: number }>("select count from ask_counters where day='2026-08-12' and scope='kw:global'");
+    expect(global.rows[0]?.count).toBe(3);
+  });
+
+  it("keeps settings and counters inside the same row-lock barrier", async () => {
+    const source = await readFile("src/lib/ratelimit/publicKeyword.ts", "utf8");
+    expect(source).toContain("from app_settings where id = 1 for update");
+    expect(source).toContain("scope = any($2::text[]) for update");
   });
 });

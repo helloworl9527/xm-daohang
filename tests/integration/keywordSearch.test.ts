@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createKeywordHandler } from "@/lib/search/keyword";
 
-const card = { id: "1", title: "字面命中", summary: "说明", url: "https://example.com", tags: ["标签"], type: "web" as const };
+const card = { id: "1", title: "字面命中", summary: "说明", url: "https://example.com", tags: ["标签"], categoryName: null, faviconPath: "/favicon/1" };
 const request = (body: unknown) => new Request("https://example.com/search", { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } });
 
 describe("public keyword search route", () => {
@@ -14,13 +14,29 @@ describe("public keyword search route", () => {
     expect(consume).toHaveBeenCalledWith("203.0.113.7");
   });
 
-  it("rejects short queries and fails closed when the proxy is untrusted", async () => {
+  it("accepts one-character queries and fails closed when the proxy is untrusted", async () => {
     const search = vi.fn();
-    const invalid = await createKeywordHandler({ search })(request({ query: "a" }));
-    expect(invalid.status).toBe(400);
+    const valid = await createKeywordHandler({ getClientIp: () => "203.0.113.7", consume: async () => ({ allowed: true }), search: async () => [] })(request({ query: "a" }));
+    expect(valid.status).toBe(200);
     const untrusted = await createKeywordHandler({ consume: async () => ({ allowed: true }), search })(request({ query: "字面" }));
     expect(untrusted.status).toBe(503);
     await expect(untrusted.json()).resolves.toMatchObject({ error: { code: "SEARCH_UNAVAILABLE" } });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("normalizes NFKC and rejects controls before quota or search", async () => {
+    const consume = vi.fn().mockResolvedValue({ allowed: true });
+    const search = vi.fn().mockResolvedValue([card]);
+    const handler = createKeywordHandler({ getClientIp: () => "203.0.113.7", consume, search });
+    const normalized = await handler(request({ query: "  Ａ  " }));
+    expect(normalized.status).toBe(200);
+    await expect(normalized.json()).resolves.toMatchObject({ query: "A" });
+    expect(search).toHaveBeenCalledWith("A");
+    consume.mockClear(); search.mockClear();
+    for (const query of ["a\0", "a\u001f", " ", "x".repeat(101)]) {
+      expect((await handler(request({ query }))).status).toBe(400);
+    }
+    expect(consume).not.toHaveBeenCalled();
     expect(search).not.toHaveBeenCalled();
   });
 

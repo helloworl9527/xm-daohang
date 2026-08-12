@@ -369,3 +369,10 @@ Playwright 在 `1440×1000` 与移动项目上通过生产 standalone 覆盖登�
 - 临时放行 doc 类型后，范围命名用例返回 doc，Vitest assertion failure、exit 1。
 - 临时把可信代理失败回落到伪 IP，并让限流依赖成功时，fail-closed 命名用例错误返回 200、期望 503，exit 1。
 - 临时向 keyword 模块导入 embedding 后，零 AI 架构测试命中禁用 import、exit 1。所有变异均已恢复并重新正向验证。
+
+### Task 9 R1：rev11 查询、DTO 与并发合同
+
+- 查询入口改为 NFKC→trim，再按规范化值验证 1–100 字符并拒绝 C0/C1 控制字符；成功 envelope 与搜索依赖均收到 normalized query。NUL/控制字符/空/101 在可信代理与 quota 之前返回 400，consume/search 均零调用。
+- SiteCard 补齐 `categoryName/faviconPath`，SQL `LEFT JOIN categories`，favicon 固定同源 `/favicon/<itemId>`，排序固定 `lower(coalesce(items.title,items.url)),items.id`。真实 PostgreSQL 测试同时验证 DTO、分类为空兼容与确定顺序。
+- 并发屏障新增同 IP 8 并发仅 2 允许、多 IP 8 并发仅 global 3 允许；预置 ask `global/ip:` counters 在关键词消耗后值不变。静态锁协议门禁要求 settings 与 counter 两处 `FOR UPDATE`。
+- R1 反向：去 NFKC、去控制字符拒绝、删 favicon 字段、改回 created_at 排序、移除 settings 行锁均由对应命名用例 assertion failure、exit 1；所有实现已恢复。

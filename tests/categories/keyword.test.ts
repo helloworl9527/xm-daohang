@@ -11,6 +11,10 @@ describe("public corpus literal keyword query", () => {
     expect(calls[0]?.values).toEqual(["%100\\%\\_\\\\safe%"]);
     expect(calls[0]?.text).toContain("status = 'completed'");
     expect(calls[0]?.text).toContain("type in ('web', 'github')");
+    expect(calls[0]?.text).toContain("left join categories");
+    expect(calls[0]?.text).toContain("categories.name category_name");
+    expect(calls[0]?.text).toContain("'/favicon/' || items.id favicon_path");
+    expect(calls[0]?.text).toContain("order by lower(coalesce(items.title, items.url)), items.id");
     expect(calls[0]?.text).not.toMatch(/embedding|generateLlm|retrieve/);
   });
 });

@@ -16,7 +16,7 @@ describe("literal public corpus search", () => {
     const database = await pool.query<{ current_database: string }>("select current_database()");
     if (database.rows[0]?.current_database !== "collection_system_test") throw new Error("requires collection_system_test");
   });
-  beforeEach(async () => pool.query("delete from items where url like 'https://keyword.example/%'"));
+  beforeEach(async () => pool.query("delete from items where url like 'https://keyword.example/%'; delete from categories where slug='search-category'"));
   afterAll(async () => { await pool.query("delete from items where url like 'https://keyword.example/%'"); await pool.end(); });
 
   it("matches title, summary, and tags case-insensitively while excluding docs and unfinished items", async () => {
@@ -41,5 +41,27 @@ describe("literal public corpus search", () => {
   it("treats an SQL injection sample as ordinary data", async () => {
     await insert("93000000-0000-4000-8000-000000000001", "web", "ordinary title", "无", ["甲", "乙", "丙"]);
     expect(await searchPublicCorpus("' OR true --")).toEqual([]);
+  });
+
+  it("returns the complete SiteCard DTO and deterministic title order", async () => {
+    const category = await pool.query<{ id: string }>("insert into categories (name,slug,sort) values ('搜索分类','search-category',0) returning id");
+    await insert("94000000-0000-4000-8000-000000000001", "web", "Alpha match", "无", ["甲", "乙", "丙"]);
+    await insert("94000000-0000-4000-8000-000000000002", "web", "zulu match", "无", ["甲", "乙", "丙"]);
+    await pool.query("update items set category_id=$1 where id=$2", [category.rows[0]!.id, "94000000-0000-4000-8000-000000000001"]);
+    const matches = await searchPublicCorpus("match");
+    expect(matches.map((item) => item.id)).toEqual([
+      "94000000-0000-4000-8000-000000000001",
+      "94000000-0000-4000-8000-000000000002",
+    ]);
+    expect(matches[0]).toEqual({
+      id: "94000000-0000-4000-8000-000000000001",
+      title: "Alpha match",
+      summary: "无",
+      url: "https://keyword.example/94000000-0000-4000-8000-000000000001",
+      tags: ["甲", "乙", "丙"],
+      categoryName: "搜索分类",
+      faviconPath: "/favicon/94000000-0000-4000-8000-000000000001",
+    });
+    await pool.query("delete from categories where id=$1", [category.rows[0]!.id]);
   });
 });
