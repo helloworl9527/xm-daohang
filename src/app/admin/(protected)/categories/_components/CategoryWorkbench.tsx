@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   Check,
   Pencil,
   Plus,
@@ -12,6 +13,10 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+
+import { MaterialSurface } from "@/components/ui/MaterialSurface";
+import { MotionRegion } from "@/components/ui/MotionRegion";
+import { Pressable } from "@/components/ui/Pressable";
 
 type CategoryRow = {
   id: string;
@@ -399,28 +404,28 @@ export function CategoryWorkbench({
   return (
     <div className="category-layout">
       <div className="category-main">
-        <div className="category-protection" role="note">
+         <MaterialSurface className="category-protection" role="note" variant="structural">
           <ShieldCheck aria-hidden="true" size={20} />
           <div><strong>{t("protectionTitle")}</strong><p>{t("protectionBody")}</p></div>
-        </div>
+         </MaterialSurface>
 
         <section aria-labelledby="category-ai-title" className="category-section category-ai">
           <header><p>{t("aiEyebrow")}</p><h2 id="category-ai-title">{t("aiTitle")}</h2></header>
           <div className="category-ai-actions">
-            <button disabled={generating !== null || applying} onClick={() => void generate("supplement")} type="button">
+             <Pressable disabled={generating !== null || applying} onClick={() => void generate("supplement")} type="button">
               <Plus aria-hidden="true" size={18} />
               <span><strong>{t("supplement")}</strong><small>{t("supplementBody")}</small></span>
-            </button>
-            <button disabled={generating !== null || applying} onClick={() => void generate("full")} type="button">
+             </Pressable>
+             <Pressable disabled={generating !== null || applying} onClick={() => void generate("full")} type="button">
               <Wand aria-hidden="true" size={18} />
               <span><strong>{t("full")}</strong><small>{t("fullBody")}</small></span>
-            </button>
+             </Pressable>
           </div>
           {generating ? <p aria-live="polite" className="category-status"><RefreshCw aria-hidden="true" className="spin" size={16} />{t("generating")}</p> : null}
         </section>
 
         {proposal ? (
-          <section aria-labelledby="category-diff-title" className="category-section category-diff">
+           <MotionRegion aria-labelledby="category-diff-title" className="category-section category-diff" role="region">
             <header className="category-section-row">
               <div><p>{proposal.mode === "supplement" ? t("supplement") : t("full")}</p><h2 id="category-diff-title">{t("preview")}</h2></div>
               <button className="category-quiet-button" onClick={() => { setProposal(null); setDiffs([]); requestKey.current = null; }} type="button">
@@ -436,7 +441,7 @@ export function CategoryWorkbench({
                       {diff.kind === "add" || diff.kind === "rename" ? (
                         <label><span>{diff.kind === "rename" ? sourceName(diff.sourceCategoryId) : t("newCategory")}</span><input autoComplete="off" disabled={!diff.accepted} maxLength={80} name={`category-name-${diff.proposalId}`} onChange={(event) => updateDiff(diff.proposalId, { draftName: event.target.value })} value={diff.draftName ?? ""} /></label>
                       ) : (
-                        <p><strong>{sourceName(diff.sourceCategoryId)}</strong><span aria-hidden="true"> → </span>{diff.kind === "merge" ? t("mergeTarget") : t("deleteTarget")}</p>
+                         <p><strong>{sourceName(diff.sourceCategoryId)}</strong><ArrowRight aria-hidden="true" size={16} />{diff.kind === "merge" ? t("mergeTarget") : t("deleteTarget")}</p>
                       )}
                       {diff.kind === "merge" || diff.kind === "delete" ? (
                         <label><span>{t("autoDestination")}</span><select disabled={!diff.accepted} name={`category-destination-${diff.proposalId}`} onChange={(event) => updateDiff(diff.proposalId, { destination: event.target.value })} value={diff.destination}>
@@ -458,16 +463,16 @@ export function CategoryWorkbench({
               <span>{t("decisionSummary", { accepted: acceptedCount, ignored: ignoredCount })}</span>
               <button disabled={acceptedCount === 0 || applying} onClick={() => setConfirming(true)} type="button">{t("reviewApply", { count: acceptedCount })}</button>
             </footer>
-          </section>
+           </MotionRegion>
         ) : null}
 
         {run ? (
-          <section aria-live="polite" className="category-section category-run">
+           <MotionRegion aria-live="polite" className="category-section category-run" role="status">
             <header><p>{t("runEyebrow")}</p><h2>{t(RUN_TRANSLATION_KEYS[run.status as keyof typeof RUN_TRANSLATION_KEYS] ?? "run.failed")}</h2></header>
             {run.counts ? <dl className="category-run-applied"><div><dt>{t("kind.add")}</dt><dd>{run.counts.added}</dd></div><div><dt>{t("kind.rename")}</dt><dd>{run.counts.renamed}</dd></div><div><dt>{t("kind.merge")}</dt><dd>{run.counts.merged}</dd></div><div><dt>{t("kind.delete")}</dt><dd>{run.counts.deleted}</dd></div><div><dt>{t("ignore")}</dt><dd>{run.counts.ignored}</dd></div></dl> : null}
             <dl><div><dt>{t("reclassified")}</dt><dd>{run.reclassified}</dd></div><div><dt>{t("movedUnclassified")}</dt><dd>{run.movedUnclassified}</dd></div><div><dt>{t("failedCount")}</dt><dd>{run.failedCount}</dd></div></dl>
             {run.status === "partial" || run.status === "failed" ? <button onClick={() => void retryRun()} type="button"><RefreshCw aria-hidden="true" size={17} />{t("retryFailures")}</button> : null}
-          </section>
+           </MotionRegion>
         ) : null}
 
         <section aria-labelledby="fixed-categories-title" className="category-section category-fixed">

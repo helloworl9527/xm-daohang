@@ -453,3 +453,33 @@ Playwright 在 `1440×1000` 和 `390×844` 覆盖无 hero/daily、标题行几�
 
 - 无需求、架构、安全边界或批准 UI 方向偏差；未新增依赖、迁移，未实施 Task 12/13，未操作外部服务或生产环境。
 - 完整回归唯一失败仍是 `settingsRoutes` 固定断言 `2026-08-09`，当前业务日为 `2026-08-12`，实际 day `2026-08-12`、usedGlobal `0`。与本批公共 UI 无关，不据此宣称完整回归全绿。
+
+## M2 Task 12：i18n、管理导航与可访问性收口
+
+### 实现范围
+
+- zh/en 叶子键继续完全一致，并删除公开首页已不再引用的 hero/daily `eyebrow/title/description/itemsLabel/dailyError` 键；目录加载与空态文案改为当前目录语义。合同测试同时锁定两套键集和废弃键不得回归。
+- 复核并执行批准命令 `corepack pnpm add lucide-react@1.31.0 --save-exact`，package/lock 已是精确版本，命令为 no-op。Lucide 官方仓库为 `https://github.com/lucide-icons/lucide`，包许可证 ISC；公开搜索清空/提交、目录外链、问答提交与分类变更方向均改用命名 import，不含手绘 SVG 或字符图标。AdminNav 保持已验收的 `FolderTree` 分类入口。
+- 公开关键词/问答、分类 F202 两入口与条目分类保存接入 `Pressable`，pointer-down 立即反馈，pointer-cancel/leave/up 清除；目录结果、分类 diff/run 接入可中断 `MotionRegion`，人工保护使用结构型 `MaterialSurface`。MotionRegion 只做位移，不用透明度短暂隐藏可访问内容；reduced-motion 禁位移/动画，reduced-transparency 使用实色。
+- 关键词 Enter 与按钮共享 NFKC/控制字符/长度校验；Enter keydown 显式提交，提交读取 DOM 最新值，覆盖快速输入与受控 state 更新竞态。分类确认 dialog 保持 ESC、首焦点与触发器焦点恢复；状态继续使用 note/status/alert/live region。
+- 公共与管理端保持 44px 触控、可见 focus、skip link、标题层级、name/autocomplete、长文本与页面无横向溢出。未增加展示 `setTimeout` 或人工进度；后台 run 的既有真实轮询保留。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| Task 12 unit/contracts 定向 | PASS，4 files / 21 tests；含 zh/en、Lucide、无字符图标、primitives、pointer cancel、快速输入、dialog 焦点恢复 |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，产品代码 0 error；审批原型 1 条既有 unused warning |
+| `git diff --check` | PASS |
+| `corepack pnpm audit --prod` | PASS，`No known vulnerabilities found` |
+| Playwright public + admin categories | PASS，desktop/mobile 14/14；每轮先完成生产 build 与 standalone prune |
+| workflow validator | PASS，`stage=implementation revision=11` |
+| 完整 Vitest 回归 | 63/64 files、414/415 tests；唯一既有失败见下 |
+
+Playwright 在 `1440x1000` 与 `390x844` 覆盖目录/关键词/问答、锚点焦点、安全外链、reduced motion/contrast、局部错误恢复、F202 两入口、四型 diff 编辑/去向/确认、人工冲突、CRUD、详情人工 NULL，以及控制台/pageerror 和横向溢出门禁。Task 12 截图为 `.workflow/screenshots/nav-enhancement/task12-public-accessibility-{desktop,mobile}.png` 和 `task12-admin-accessibility-{desktop,mobile}.png`。Playwright apply 仍只作为 UI 状态机证据；真实 UI body 合同继续由 Task 8 的 strict schema 与 route 测试证明。
+
+### 反向门禁与残余风险
+
+- 初始红测准确捕获旧 daily/hero 键、字符图标和未接入 primitives；修复后合同测试 4/4。pointer cancel 若不清理 `data-pressed`，`uiPrimitives` 命名断言红；快速提交若只读取陈旧 React state，最新 DOM 值命名断言红。源码门禁还禁止产品 `setTimeout(`、手绘 SVG 与 `x/multiplication/arrow` 字符图标回归。
+- 本批无迁移、无额外依赖、无外部服务或生产操作，未开始 Task 13。完整回归唯一失败为 `tests/integration/settingsRoutes.test.ts` 固定断言业务日 `2026-08-09`，当前业务日 `2026-08-12`，实际 `usedGlobal=0`；本批未修改该历史用例，不据此宣称全绿。

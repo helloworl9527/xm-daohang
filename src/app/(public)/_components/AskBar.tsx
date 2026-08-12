@@ -1,9 +1,11 @@
 "use client";
 
+import { ArrowRight } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { FormEvent, useEffect, useState } from "react";
 
 import { type AskResultState, type PublicSource, ResultPanel } from "@/app/(public)/_components/ResultPanel";
+import { Pressable } from "@/components/ui/Pressable";
 
 interface AskBarProps {
   disabledReason: string | null;
@@ -81,10 +83,10 @@ export function AskExperience({ disabledReason }: AskBarProps) {
               value={question}
             />
           </label>
-          <button aria-label={loading ? t("searching") : state.kind === "error" ? t("retry") : t("submit")} disabled={disabled} type="submit">
-            <span aria-hidden="true" className="public-ask-arrow">→</span>
+          <Pressable aria-label={loading ? t("searching") : state.kind === "error" ? t("retry") : t("submit")} disabled={disabled} type="submit">
+            <ArrowRight aria-hidden="true" className="public-ask-arrow" size={18} />
             <span className="public-ask-button-text">{loading ? t("searchingShort") : state.kind === "error" ? t("retry") : t("submit")}</span>
-          </button>
+          </Pressable>
         </form>
         <div className="public-ask-meta" id="public-ask-help">
           <span>{disabledReason ?? t("scope")}</span>

@@ -110,7 +110,7 @@ test("admin reviews category diffs, handles manual conflict, manages categories,
 
   const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   await page.screenshot({
-    path: `.workflow/screenshots/nav-enhancement/admin-c-diff-${suffix}.png`,
+    path: `.workflow/screenshots/nav-enhancement/task12-admin-accessibility-${suffix}.png`,
     fullPage: true,
   });
 

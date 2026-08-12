@@ -4,6 +4,8 @@ import { ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+import { Pressable } from "@/components/ui/Pressable";
+
 type Option = { id: string; name: string };
 
 export function CategorySelector({
@@ -79,7 +81,7 @@ export function CategorySelector({
     <section aria-labelledby="category-selector-title" className="item-category-selector">
       <div className="item-detail-section-heading"><h2 id="category-selector-title">{t("title")}</h2>{categoryManual ? <span><ShieldCheck aria-hidden="true" size={15} />{t("manual")}</span> : null}</div>
       <label><span>{t("label")}</span><select autoComplete="off" disabled={disabled || saving} name="item-category" onChange={(event) => setSelected(event.target.value)} value={selected}><option value="">{t("unclassified")}</option>{options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select></label>
-      <button disabled={disabled || saving || selected === (categoryId ?? "")} onClick={() => void save()} type="button">{saving ? t("saving") : t("save")}</button>
+      <Pressable disabled={disabled || saving || selected === (categoryId ?? "")} onClick={() => void save()} type="button">{saving ? t("saving") : t("save")}</Pressable>
       <div aria-live="polite">{message ? <p>{message}</p> : null}{error ? <p role="alert">{error}</p> : null}</div>
     </section>
   );

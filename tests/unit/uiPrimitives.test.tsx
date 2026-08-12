@@ -21,6 +21,10 @@ describe("shared UI primitives", () => {
 
     fireEvent.pointerUp(button);
     expect(button).not.toHaveAttribute("data-pressed");
+
+    fireEvent.pointerDown(button);
+    fireEvent.pointerCancel(button);
+    expect(button).not.toHaveAttribute("data-pressed");
   });
 
   it("exposes critically damped motion and interrupts it on pointer down", () => {

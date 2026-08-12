@@ -1108,7 +1108,7 @@ a {
 }
 
 .motion-region {
-  will-change: transform, opacity;
+  will-change: transform;
 }
 
 .material-surface {

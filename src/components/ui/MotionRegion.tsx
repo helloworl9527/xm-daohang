@@ -19,20 +19,17 @@ export function MotionRegion({ className = "", onPointerDown, ...props }: Motion
     const startedAt = performance.now();
     const angularFrequency = 4 / RESPONSE_SECONDS;
     element.style.transform = `translateY(${START_OFFSET_PX}px)`;
-    element.style.opacity = "0";
 
     const step = (now: number) => {
       const elapsed = Math.max(0, (now - startedAt) / 1_000);
       const progress = 1 - (1 + angularFrequency * elapsed) * Math.exp(-angularFrequency * elapsed);
       const remaining = Math.max(0, 1 - progress);
       element.style.transform = `translateY(${START_OFFSET_PX * remaining}px)`;
-      element.style.opacity = String(Math.min(1, progress));
 
       if (remaining > 0.001) {
         frameRef.current = window.requestAnimationFrame(step);
       } else {
         element.style.transform = "";
-        element.style.opacity = "";
         frameRef.current = null;
       }
     };
@@ -50,7 +47,6 @@ export function MotionRegion({ className = "", onPointerDown, ...props }: Motion
     }
     if (elementRef.current) {
       elementRef.current.style.transform = "";
-      elementRef.current.style.opacity = "";
     }
     onPointerDown?.(event);
   };

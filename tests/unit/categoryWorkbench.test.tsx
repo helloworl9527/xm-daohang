@@ -88,6 +88,16 @@ describe("CategoryWorkbench", () => {
     expect(screen.getByText("应用 0 / 忽略 2")).toBeVisible();
   });
 
+  it("gives immediate press feedback and clears it when proposal input is cancelled", () => {
+    vi.stubGlobal("fetch", vi.fn());
+    render(<CategoryWorkbench csrfToken="csrf-token" initialOverview={overview} />);
+    const button = screen.getByRole("button", { name: /补充建议/ });
+    fireEvent.pointerDown(button);
+    expect(button).toHaveAttribute("data-pressed", "true");
+    fireEvent.pointerCancel(button);
+    expect(button).not.toHaveAttribute("data-pressed");
+  });
+
   it("restores the latest server run after navigating back to the workbench", () => {
     vi.stubGlobal("fetch", vi.fn());
     render(<CategoryWorkbench csrfToken="csrf-token" initialOverview={overview} initialRun={{
@@ -112,11 +122,15 @@ describe("CategoryWorkbench", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "自动条目去向" }), {
       target: { value: `existing:${CATEGORY_B}` },
     });
-    fireEvent.click(screen.getByRole("button", { name: "检查并应用 2 项" }));
+    const reviewButton = screen.getByRole("button", { name: "检查并应用 2 项" });
+    reviewButton.focus();
+    fireEvent.click(reviewButton);
 
     const dialog = screen.getByRole("dialog", { name: "确认应用分类变更" });
     expect(dialog).toHaveTextContent("应用 2 / 忽略 0 / 人工保护 2");
     expect(within(dialog).getByRole("checkbox", { name: "应用后重跑自动分类条目" })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "检查并应用 2 项" })).toHaveFocus());
   });
 
   it("surfaces a manual-category conflict and reuses the same request key", async () => {

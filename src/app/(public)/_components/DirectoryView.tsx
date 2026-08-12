@@ -1,5 +1,6 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -28,7 +29,7 @@ export function SiteLink({ site }: { site: SiteCard }) {
         {site.summary ? <span>{site.summary}</span> : null}
         <small>{site.tags.join(" · ")}</small>
       </span>
-      <span aria-hidden="true" className="directory-external">↗</span>
+      <ExternalLink aria-hidden="true" className="directory-external" size={18} />
     </a>
   );
 }

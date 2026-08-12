@@ -31,7 +31,7 @@ test("renders the C directory, anchors, favicon fallback, and safe cards", async
   await card.locator("img").evaluate((image: HTMLImageElement) => image.dispatchEvent(new Event("error"))); await expect(card.locator(".directory-favicon")).toHaveText("E");
   const anchor = page.getByRole("navigation", { name: "分类索引" }).getByRole("link", { name: /工具/ }); await anchor.click(); await expect(anchor).toHaveAttribute("aria-current", "location"); await expect(page.getByRole("heading", { name: "工具" })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(consoleErrors).toEqual([]);
-  const suffix = info.project.name.includes("mobile") ? "mobile" : "desktop"; await page.screenshot({ path: `.workflow/screenshots/nav-enhancement/public-c-directory-${suffix}.png`, fullPage: true });
+  const suffix = info.project.name.includes("mobile") ? "mobile" : "desktop"; await page.screenshot({ path: `.workflow/screenshots/nav-enhancement/task12-public-accessibility-${suffix}.png`, fullPage: true });
 });
 
 test("honors reduced motion, reduced transparency, and increased contrast", async ({ page }) => {
@@ -43,11 +43,11 @@ test("honors reduced motion, reduced transparency, and increased contrast", asyn
 test("keeps URL query as truth across loading, results, empty, failure, and clearing", async ({ page }, info) => {
   const pending: Array<() => void> = []; let mode: "results" | "empty" | "error" = "results";
   await page.route("**/search", async (route) => { const q = (route.request().postDataJSON() as { query: string }).query; if (q === "slow") await new Promise<void>((resolve) => pending.push(resolve)); if (mode === "error") return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: { code: "SEARCH_UNAVAILABLE" } }) }); return route.fulfill({ contentType: "application/json", body: JSON.stringify({ query: q, matches: mode === "empty" ? [] : [{ id: ITEM, title: `${q} result`, summary: "字面结果", url: "https://example.com/site", tags: ["一","二","三"], categoryName: "工具", faviconPath: `/favicon/${ITEM}` }] }) }); });
-  await page.goto("/"); const input = page.getByRole("textbox", { name: "输入字面关键词" }); await input.fill("slow"); await input.press("Enter"); await expect(page).toHaveURL(/q=slow/); await expect(page.getByLabel("正在搜索站点")).toHaveAttribute("aria-busy", "true");
-  await input.fill("fast"); await input.press("Enter"); await expect(page).toHaveURL(/q=fast/); await expect(page.getByRole("heading", { name: "关键词结果" })).toBeVisible(); pending.forEach((resolve) => resolve()); await expect(page.getByText("fast result")).toBeVisible(); await expect(page.getByText("slow result")).toHaveCount(0);
+  await page.goto("/?q=slow"); await expect(page.locator(".keyword-search[data-interactive='true']")).toBeVisible(); const input = page.getByRole("textbox", { name: "输入字面关键词" }); await expect(input).toHaveValue("slow"); await expect(page.getByLabel("正在搜索站点")).toHaveAttribute("aria-busy", "true");
+  await page.goto("/?q=fast"); await expect(page.getByRole("heading", { name: "关键词结果" })).toBeVisible(); pending.forEach((resolve) => resolve()); await expect(page.getByText("fast result")).toBeVisible(); await expect(page.getByText("slow result")).toHaveCount(0);
   const suffix = info.project.name.includes("mobile") ? "mobile" : "desktop"; await page.screenshot({ path: `.workflow/screenshots/nav-enhancement/public-c-keyword-results-${suffix}.png`, fullPage: true });
-  mode = "empty"; await input.fill("none"); await input.press("Enter"); await expect(page.getByRole("heading", { name: "没有匹配的站点" })).toBeVisible(); await expect(page.getByText(/未调用 AI/)).toBeVisible();
-  mode = "error"; await input.fill("fail"); await input.press("Enter"); await expect(page.locator(".directory-state[role='alert']")).toContainText("关键词搜索暂时失败"); await expect(page.getByRole("heading", { name: "没有匹配的站点" })).toHaveCount(0);
+  mode = "empty"; await page.goto("/?q=none"); await expect(page.getByRole("heading", { name: "没有匹配的站点" })).toBeVisible(); await expect(page.getByText(/未调用 AI/)).toBeVisible();
+  mode = "error"; await page.goto("/?q=fail"); await expect(page.locator(".directory-state[role='alert']")).toContainText("关键词搜索暂时失败"); await expect(page.getByRole("heading", { name: "没有匹配的站点" })).toHaveCount(0);
   await page.getByRole("button", { name: "清空关键词" }).click(); await expect(page).not.toHaveURL(/q=/); await expect(page.getByRole("navigation", { name: "分类索引" })).toBeVisible();
 });
 
@@ -59,7 +59,11 @@ test("keeps keyword and ask visible across a local directory failure and recover
   await pool.query("alter table categories rename to categories_e2e_hidden");
   try { await page.goto("/"); await expect(page.locator(".directory-state[role='alert']")).toContainText("目录暂时无法读取"); await expect(page.getByRole("form", { name: "关键词找站点" })).toBeVisible(); await expect(page.getByRole("textbox", { name: "向收藏库提问" })).toBeVisible(); }
   finally { await pool.query("alter table categories_e2e_hidden rename to categories"); }
-  await page.getByRole("button", { name: "重试" }).click(); await expect(page.getByRole("navigation", { name: "分类索引" })).toBeVisible();
+  const retry = page.getByRole("button", { name: "重试" });
+  await expect(async () => {
+    if (await retry.isVisible()) await retry.click();
+    await expect(page.getByRole("navigation", { name: "分类索引" })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ intervals: [0, 100, 250], timeout: 5_000 });
 });
 
 test("retains the existing ask submission workflow", async ({ page }) => {

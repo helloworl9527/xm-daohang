@@ -21,6 +21,14 @@ describe("DirectoryShell", () => {
     expect(push).toHaveBeenCalledWith("/?q=A");
   });
 
+  it("submits the latest DOM value when Enter races a controlled state update", () => {
+    render(<DirectoryShell><p>directory</p></DirectoryShell>);
+    const input = screen.getByRole("textbox", { name: "searchInput" }) as HTMLInputElement;
+    input.value = "latest";
+    fireEvent.submit(screen.getByRole("form", { name: "searchLabel" }));
+    expect(push).toHaveBeenCalledWith("/?q=latest");
+  });
+
   it("keeps focus and reports invalid input without consuming search", () => {
     render(<DirectoryShell><p>directory</p></DirectoryShell>);
     const input = screen.getByRole("textbox", { name: "searchInput" });
