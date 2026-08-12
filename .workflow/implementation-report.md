@@ -489,3 +489,38 @@ Playwright 在 `1440x1000` 与 `390x844` 覆盖目录/关键词/问答、锚点�
 - 修复 390px 设备上四列 `minmax(104px,1fr)` 把 viewport 撑至 461px：移动 shell/sidebar 明确 `min-width:0`、sidebar 限制为 `100vw` 并裁切页面级溢出；AdminNav 改为 `width:100%` 的内部 flex 横向滚动轨道，四个 104px 触控项保持可访问且不扩大页面。
 - Playwright 在 `/admin/categories` 进入后、跳转详情前立即读取真实几何：固定 `screen.width=390`、`innerWidth=390`、document `scrollWidth<=390`，同时要求 nav `scrollWidth>clientWidth`，证明滚动发生在导航容器而非页面。
 - 反向门禁恢复旧 grid 并移除 sidebar 宽度协议后，同一移动 E2E 观测 `innerWidth=461`、期望 390，Playwright assertion failure、exit 1；恢复后移动用例重新通过。本修复未改变桌面导航或分类业务行为。
+
+## M2 Task 13：观测、性能、回归与发布门禁
+
+### 实现范围
+
+- 将分类建议、diff 应用、单条分类、重分类进度/结束及关键词限流/完成统一为七个批准事件名。事件载荷只使用 `mode/outcome/count/ms/version/errorCode`；删除 `reason/runId/itemId/query/IP/hash` 等内容或高基数维度，并增加源码合同门禁禁止旧事件名和未批准字段。
+- 新增 500 个 completed web/github 与 50 个 completed doc 的真实 PostgreSQL 基准。目录固定两次查询且返回全部 500 个 eligible 站点；关键词查询重复 25 次，最终完整回归 p95 为 3.80ms，低于本机集成环境 1s 门槛且不返回 doc。F202 继续由多页 map 与全主题 reduce 用例证明尾批不丢失。
+- 修正三个历史测试时间/异步假设：settings route 与管理 E2E 使用当前上海业务日；条目详情断言不再假设分类请求必为最后一次 fetch；公开目录故障恢复先确认表已恢复，再用有界状态重试等待局部 refresh。本组属于历史门禁加固，不改变 M2 产品合同。
+- README 按最终产品现状移除每日三条描述，补充公开目录、字面搜索和分类工作台；其余已核验的环境、安装、配置、运行、部署和许可证说明保持不变。
+
+### 验证证据
+
+| 命令/演练 | 结果 |
+| --- | --- |
+| Task 13 观测/性能/F202 定向 | PASS；3 files、6 tests（另 10 skipped）；p95 3.44ms |
+| 最终完整 `pnpm test` | PASS；66 files、420/420 tests；p95 3.80ms |
+| 最终完整 `pnpm e2e` | PASS；desktop/mobile 26/26；运行前生产 build 与 standalone prune 均成功 |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，产品代码 0 error；审批原型 1 条既有 unused warning |
+| `git diff --check` | PASS |
+| `env -u DATABASE_URL corepack pnpm build` | PASS；Next.js 15.5.23，构建期无数据库环境变量 |
+| `verify-production-artifact --prune` | PASS；排除 15 个根 devDependencies |
+| `corepack pnpm audit --prod` | PASS；No known vulnerabilities found |
+| workflow validator | PASS；`stage=implementation revision=11` |
+| readiness + worker heartbeat + crash recovery | PASS；3/3，包含真实 pg-boss heartbeat 与 41 条 cursor 恢复且不重复计数 |
+
+使用专用 `collection_system_test` 在 0000～0003 迁移上执行新 `pg_dump -Fc`，恢复到新建临时数据库后联合查询得到 `Task13恢复分类|t|t|t|completed|7`：分类存在、人工条目仍指向分类、向量非空、run 为 completed 且 applied_version=7。随后删除临时恢复库；未接触生产数据库。当前宿主机没有 Docker CLI（`docker: command not found`），因此未执行容器内 restore 脚本；本机 `/opt/homebrew/bin/pg_dump`、`pg_restore`、`createdb`、`dropdb` 的等价新备份恢复演练已成功。Dockerfile placeholder/readiness 由 `deploy-smoke` 7/7 覆盖，但不把它表述为真实容器启动。
+
+README 命令与路径静态核验：Node/pnpm/PostgreSQL/Docker 要求分别来自 `package.json`、锁文件和 compose；`.env.example`、`docs/development.md`、`docs/deployment.md`、脚本及目录均存在；`dev/build/start/db:migrate/test/typecheck/lint/e2e/audit` 均与 manifest 脚本一致。构建、测试、检查命令已实际运行；部署命令只核验定义与参数，未在无授权情况下执行发布或外部状态变更。
+
+### 反向门禁与残余风险
+
+- 临时向 `category_reclassify_progress` 加入 `runId`，观测合同测试准确报告未批准维度并以 AssertionError、exit 1 失败；恢复后合同测试 2/2。
+- 临时给目录 eligible SQL 加 `limit 499`，500 条全量断言实际只收到 499 并以 AssertionError、exit 1 失败；恢复后性能测试 2/2。现有 F202 尾批 map/reduce 两个命名用例继续全绿。
+- 本批无 schema 迁移、新运行时依赖、部署、push、外部服务或生产操作。性能数据是本机 PostgreSQL 单节点集成结果，不代表所有生产硬件；发布环境仍应持续观察 p95。Docker 不可用导致未取得真实 compose restore 证据，是明确残余环境限制；本机原生 PostgreSQL 的新备份恢复已降低该风险。

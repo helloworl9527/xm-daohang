@@ -270,10 +270,12 @@ describe("bounded category proposals", () => {
       generate: async () => { throw new Error("secret content"); },
       logger: { info },
     })).rejects.toEqual(new CategoryProposeError("AI_UPSTREAM_FAILED"));
-    expect(info).toHaveBeenCalledWith("category_proposal", {
+    expect(info).toHaveBeenCalledWith("category_proposal_generated", {
       mode: "full",
-      ok: false,
-      code: "AI_UPSTREAM_FAILED",
+      outcome: "failed",
+      count: 0,
+      ms: expect.any(Number),
+      errorCode: "AI_UPSTREAM_FAILED",
     });
     expect(JSON.stringify(info.mock.calls)).not.toContain("secret content");
   });

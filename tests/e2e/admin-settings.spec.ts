@@ -26,7 +26,8 @@ test.beforeEach(async () => {
                'https://models.example/v1', 'embedding', $2, 3, 1, 'ready', 0.5, true, 30)`,
       [encryptSecret("sk-llm-e2e"), encryptSecret("sk-emb-e2e")],
     );
-    await pool.query("insert into ask_counters (day, scope, count) values ('2026-08-09', 'global', 1)");
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
+    await pool.query("insert into ask_counters (day, scope, count) values ($1, 'global', 1)", [day]);
   } finally {
     await pool.end();
   }

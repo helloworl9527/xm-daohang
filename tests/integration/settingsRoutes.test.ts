@@ -91,14 +91,15 @@ describe("admin settings routes", () => {
 
   it("returns business-day usage and applies public limits immediately", async () => {
     const token = await sessionToken();
-    await db.insert(askCounters).values({ day: "2026-08-09", scope: "global", count: 12 });
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
+    await db.insert(askCounters).values({ day, scope: "global", count: 12 });
     const response = await putRateLimit(writeRequest("/admin/api/settings/rate-limit", token, {
       enabled: true, ipDaily: 3, globalDaily: 9,
     }));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ enabled: true, ipDaily: 3, globalDaily: 9 });
     const current = await getRateLimit(readRequest("/admin/api/settings/rate-limit", token));
-    await expect(current.json()).resolves.toMatchObject({ usedGlobal: 12, day: "2026-08-09" });
+    await expect(current.json()).resolves.toMatchObject({ usedGlobal: 12, day });
     expect((await putRateLimit(writeRequest("/admin/api/settings/rate-limit", token, { enabled: true, ipDaily: 0, globalDaily: 9 }))).status).toBe(400);
   });
 

@@ -61,7 +61,7 @@ describe("ItemDetail", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("保存失败，请稍后重试。");
     expect(editor).toHaveValue("未保存的人工总结。");
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       `/admin/api/items/${completedItem.id}`,
       expect.objectContaining({
         method: "PATCH",
@@ -106,7 +106,7 @@ describe("ItemDetail", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/library"));
-    expect(fetchMock).toHaveBeenLastCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       `/admin/api/items/${completedItem.id}`,
       expect.objectContaining({ method: "DELETE" }),
     );

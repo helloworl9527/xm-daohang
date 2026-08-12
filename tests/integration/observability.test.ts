@@ -31,6 +31,7 @@ import type { SearchHit } from "@/lib/search/retrieve";
 import { dispatchTelegramReceipt } from "@/worker/bot/receiptDispatcher";
 import { handleTelegramMessage } from "@/worker/bot/telegram";
 import { processItemJob } from "@/worker/jobs/processItem";
+import { createKeywordHandler } from "@/lib/search/keyword";
 
 const QUESTION = "SECRET_QUESTION_9876 怎么检索？";
 const IP = "203.0.113.199";
@@ -44,6 +45,15 @@ const hit: SearchHit = {
   url: "https://example.com/vector",
   tags: ["vector", "search", "fixture"],
   score: 0.95,
+};
+const siteHit = {
+  id: hit.id,
+  title: hit.title,
+  summary: hit.summary,
+  url: hit.url,
+  tags: hit.tags,
+  categoryName: "工具",
+  faviconPath: `/favicon/${hit.id}`,
 };
 
 beforeAll(async () => {
@@ -103,6 +113,30 @@ function events(name: string): Array<Record<string, unknown>> {
 }
 
 describe("structured observability events", () => {
+  it("uses the Task 13 category and keyword event whitelist without sensitive dimensions", async () => {
+    const handler = createKeywordHandler({
+      getClientIp: () => IP,
+      consume: async () => ({ allowed: false, reason: "ip" }),
+    });
+    expect((await handler(new Request("https://collection.example/search", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: QUESTION }),
+    }))).status).toBe(429);
+    const completed = createKeywordHandler({
+      getClientIp: () => IP, consume: async () => ({ allowed: true }), search: async () => [siteHit],
+    });
+    expect((await completed(new Request("https://collection.example/search", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query: QUESTION }),
+    }))).status).toBe(200);
+
+    for (const event of ["keyword_search_limited", "keyword_search_completed"]) {
+      const entries = events(event);
+      expect(entries).toHaveLength(1);
+      expect(Object.keys(entries[0]!).sort()).toEqual(["count", "event", "level", "ms", "outcome"]);
+    }
+    const serialized = logLines.join("\n");
+    for (const forbidden of [QUESTION, IP, KEY, COOKIE, "hash", "runId", "itemId"]) expect(serialized).not.toContain(forbidden);
+  });
+
   it("emits stable dimensions without questions, identities, credentials, URLs, or upstream text", async () => {
     const first = await addItemRoute(await adminAddRequest("https://93.184.216.34/article?token=URL_SECRET"));
     expect(first.status).toBe(201);

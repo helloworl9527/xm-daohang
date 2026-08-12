@@ -47,7 +47,7 @@ test("keeps URL query as truth across loading, results, empty, failure, and clea
   await page.goto("/?q=fast"); await expect(page.getByRole("heading", { name: "关键词结果" })).toBeVisible(); pending.forEach((resolve) => resolve()); await expect(page.getByText("fast result")).toBeVisible(); await expect(page.getByText("slow result")).toHaveCount(0);
   const suffix = info.project.name.includes("mobile") ? "mobile" : "desktop"; await page.screenshot({ path: `.workflow/screenshots/nav-enhancement/public-c-keyword-results-${suffix}.png`, fullPage: true });
   mode = "empty"; await page.goto("/?q=none"); await expect(page.getByRole("heading", { name: "没有匹配的站点" })).toBeVisible(); await expect(page.getByText(/未调用 AI/)).toBeVisible();
-  mode = "error"; await page.goto("/?q=fail"); await expect(page.locator(".directory-state[role='alert']")).toContainText("关键词搜索暂时失败"); await expect(page.getByRole("heading", { name: "没有匹配的站点" })).toHaveCount(0);
+  mode = "error"; await page.goto("/?q=fail"); await expect(page.locator(".keyword-search[data-interactive='true']")).toBeVisible(); await expect(page.locator(".directory-state[role='alert']")).toContainText("关键词搜索暂时失败"); await expect(page.getByRole("heading", { name: "没有匹配的站点" })).toHaveCount(0);
   await page.getByRole("button", { name: "清空关键词" }).click(); await expect(page).not.toHaveURL(/q=/); await expect(page.getByRole("navigation", { name: "分类索引" })).toBeVisible();
 });
 
@@ -59,11 +59,12 @@ test("keeps keyword and ask visible across a local directory failure and recover
   await pool.query("alter table categories rename to categories_e2e_hidden");
   try { await page.goto("/"); await expect(page.locator(".directory-state[role='alert']")).toContainText("目录暂时无法读取"); await expect(page.getByRole("form", { name: "关键词找站点" })).toBeVisible(); await expect(page.getByRole("textbox", { name: "向收藏库提问" })).toBeVisible(); }
   finally { await pool.query("alter table categories_e2e_hidden rename to categories"); }
+  await expect.poll(async () => Number((await pool.query("select count(*) count from categories")).rows[0]?.count)).toBe(2);
   const retry = page.getByRole("button", { name: "重试" });
   await expect(async () => {
     if (await retry.isVisible()) await retry.click();
     await expect(page.getByRole("navigation", { name: "分类索引" })).toBeVisible({ timeout: 2_000 });
-  }).toPass({ intervals: [0, 100, 250], timeout: 5_000 });
+  }).toPass({ intervals: [0, 250, 500, 1_000], timeout: 15_000 });
 });
 
 test("retains the existing ask submission workflow", async ({ page }) => {

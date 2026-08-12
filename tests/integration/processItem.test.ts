@@ -311,7 +311,7 @@ describe("processing request state machine", () => {
       });
       expect(info).toHaveBeenCalledWith("category_classified", {
         outcome: "matched",
-        reason: "selected",
+        version: 4,
       });
     } finally {
       info.mockRestore();
@@ -352,7 +352,7 @@ describe("processing request state machine", () => {
     });
     expect(info).toHaveBeenCalledWith("category_classified", {
       outcome: "unclassified",
-      reason: "reliable_unclassified",
+      version: 2,
     });
 
     for (const outcome of ["invalid_output", "upstream_error"] as const) {
@@ -374,7 +374,7 @@ describe("processing request state machine", () => {
       expect(await currentRequest(existing.id, generation, 0)).toMatchObject({ status: "done" });
       expect(info).toHaveBeenCalledWith("category_classified", {
         outcome: "skipped",
-        reason: outcome,
+        errorCode: outcome === "invalid_output" ? "AI_OUTPUT_INVALID" : "AI_UPSTREAM_FAILED",
       });
     }
   });
@@ -402,9 +402,7 @@ describe("processing request state machine", () => {
       expect(dependencies.classify).not.toHaveBeenCalled();
       expect((await db.select().from(items).where(eq(items.id, item.id)))[0]?.status).toBe("completed");
     }
-    for (const reason of ["not_initialized", "unsupported_type", "manual_protected"]) {
-      expect(info).toHaveBeenCalledWith("category_classified", { outcome: "skipped", reason });
-    }
+    expect(info.mock.calls.filter(([event, fields]) => event === "category_classified" && (fields as { outcome?: string }).outcome === "skipped")).toHaveLength(3);
   });
 
   it("protects an initially manual unclassified item without loading taxonomy", async () => {
@@ -478,7 +476,7 @@ describe("processing request state machine", () => {
       });
       expect(info).toHaveBeenCalledWith("category_classified", {
         outcome: "skipped",
-        reason: failure === "load" ? "taxonomy_unavailable" : "classifier_upstream_error",
+        errorCode: undefined,
       });
     }
   });
@@ -525,7 +523,7 @@ describe("processing request state machine", () => {
     });
     expect(info).toHaveBeenCalledWith("category_classified", {
       outcome: "skipped",
-      reason: "manual_override",
+      version: 3,
     });
   });
 
@@ -571,7 +569,7 @@ describe("processing request state machine", () => {
     });
     expect(info).toHaveBeenCalledWith("category_classified", {
       outcome: "skipped",
-      reason: "manual_override",
+      version: 8,
     });
   });
 
@@ -619,7 +617,7 @@ describe("processing request state machine", () => {
     });
     expect(info).toHaveBeenCalledWith("category_classified", {
       outcome: "skipped",
-      reason: "stale_taxonomy",
+      version: 5,
     });
   });
 
@@ -668,7 +666,7 @@ describe("processing request state machine", () => {
     ))).toHaveLength(0);
     expect(info).toHaveBeenCalledWith("category_classified", {
       outcome: "skipped",
-      reason: "category_missing",
+      version: 7,
     });
   });
 

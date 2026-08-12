@@ -302,6 +302,7 @@ export async function proposeCategories(
   input: { mode: ProposalMode },
   dependencies: ProposalDependencies = {},
 ): Promise<CategoryProposal> {
+  const startedAt = performance.now();
   const log = dependencies.logger ?? logger;
   const generate = dependencies.generate ?? generateLlmText;
   let snapshot: ProposalSnapshot;
@@ -311,7 +312,7 @@ export async function proposeCategories(
     const failure = error instanceof CategoryProposeError
       ? error
       : new CategoryProposeError("INTERNAL_ERROR");
-    log.info("category_proposal", { mode: input.mode, ok: false, code: failure.code });
+    log.info("category_proposal_generated", { mode: input.mode, outcome: "failed", count: 0, ms: Math.round(performance.now() - startedAt), errorCode: failure.code });
     throw failure;
   }
 
@@ -361,11 +362,12 @@ export async function proposeCategories(
         manualCount: category?.manualCount ?? 0,
       } as Diff;
     });
-    log.info("category_proposal", {
+    log.info("category_proposal_generated", {
       mode: input.mode,
-      ok: true,
-      itemCount: snapshot.itemCount,
-      candidateCount: diffs.length,
+      outcome: "completed",
+      count: diffs.length,
+      ms: Math.round(performance.now() - startedAt),
+      version: snapshot.baseVersion,
     });
     return {
       mode: input.mode,
@@ -377,7 +379,7 @@ export async function proposeCategories(
     const failure = error instanceof CategoryProposeError
       ? error
       : new CategoryProposeError("AI_OUTPUT_INVALID");
-    log.info("category_proposal", { mode: input.mode, ok: false, code: failure.code });
+    log.info("category_proposal_generated", { mode: input.mode, outcome: "failed", count: 0, ms: Math.round(performance.now() - startedAt), errorCode: failure.code });
     throw failure;
   }
 }

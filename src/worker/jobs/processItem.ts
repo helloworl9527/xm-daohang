@@ -403,7 +403,12 @@ async function processItemJobCore(
     });
     if (!committed) await finishStaleRequest(payload);
     if (committed && classificationEvent) {
-      logger.info("category_classified", classificationEvent);
+      logger.info("category_classified", {
+        outcome: classificationEvent.outcome,
+        version: classification.apply ? classification.snapshotVersion : undefined,
+        errorCode: classificationEvent.reason === "invalid_output" ? "AI_OUTPUT_INVALID"
+          : classificationEvent.reason === "upstream_error" ? "AI_UPSTREAM_FAILED" : undefined,
+      });
     }
     return committed ? { claimed: true, outcome: "completed" } : { claimed: false };
   } catch (error) {

@@ -172,6 +172,7 @@ export async function applyCategoryDiff(
   rawInput: ApplyCategoriesInput,
   dependencies: ApplyDependencies = {},
 ): Promise<AppliedRun> {
+  const startedAt = performance.now();
   const parsed = applyCategoriesInputSchema.safeParse(rawInput);
   if (!parsed.success) throw new CategoryApplyError("VALIDATION");
   const input = parsed.data;
@@ -327,17 +328,15 @@ export async function applyCategoryDiff(
     try {
       await dependencies.publish({ runId: applied.id, generation: applied.reclassifyGeneration });
     } catch {
-      log.info("category_reclassify_publish", { ok: false, runId: applied.id });
+      log.info("category_reclassify_progress", { outcome: "publish_failed", count: 0, version: applied.appliedVersion, errorCode: "INTERNAL_ERROR" });
     }
   }
-  log.info("category_apply", {
-    ok: true,
+  log.info("category_diff_applied", {
     mode: input.mode,
-    status: applied.status,
-    added: applied.counts.added,
-    renamed: applied.counts.renamed,
-    merged: applied.counts.merged,
-    deleted: applied.counts.deleted,
+    outcome: applied.status,
+    count: applied.counts.added + applied.counts.renamed + applied.counts.merged + applied.counts.deleted,
+    ms: Math.round(performance.now() - startedAt),
+    version: applied.appliedVersion,
   });
   return applied;
 }

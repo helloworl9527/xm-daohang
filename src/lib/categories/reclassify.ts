@@ -199,7 +199,12 @@ export async function requestCategoryRunRetry(
     try {
       await dependencies.publish({ runId, generation: result.generation });
     } catch {
-      logger.info("category_reclassify_publish", { ok: false, runId });
+      logger.info("category_reclassify_progress", {
+        outcome: "publish_failed",
+        count: 0,
+        version: result.generation,
+        errorCode: "INTERNAL_ERROR",
+      });
     }
   }
   return { runId: result.runId, generation: result.generation, status: result.status };
