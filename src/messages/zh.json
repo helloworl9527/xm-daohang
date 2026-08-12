@@ -6,6 +6,7 @@
     "adminSource": "管理端", "telegramSource": "Telegram", "itemTags": "条目标签"
   },
   "public": {
+    "directory": { "title": "目录", "indexLabel": "分类索引", "unclassified": "未分类", "siteCount": "{count} SITES", "emptyGroup": "此分类暂无站点", "loadError": "目录暂时无法读取", "loadErrorDetail": "关键词搜索与 AI 问答仍可使用。", "searchError": "关键词搜索暂时失败", "searchErrorDetail": "这不是空结果；请保留关键词后重试。", "retry": "重试", "searchLabel": "关键词找站点", "searchInput": "输入字面关键词", "searchPlaceholder": "搜索标题、总结或标签…", "search": "搜索", "clear": "清空关键词", "invalid": "请输入 1 至 100 个不含控制字符的关键词。", "searching": "正在搜索站点", "results": "关键词结果", "noResults": "没有匹配的站点", "resultMeta": "“{query}” · {count} 条 · 字面匹配，不调用 AI", "noResultsDetail": "标题、总结和标签均未匹配；本次未调用 AI。" },
     "skip": "跳到主要内容", "brand": "藏舟", "brandLabel": "藏舟首页", "owner": "站主入口", "eyebrow": "今日轮换 · {date}",
     "title": "问整个收藏库。", "description": "从今日的三条收藏开始，或直接提问。回答只使用已收藏的内容。",
     "itemsLabel": "今日 3 条收藏", "tagsLabel": "条目标签", "openOriginal": "查看原始链接", "loading": "正在读取每日收藏…", "empty": "收藏库还没有可展示内容", "emptyDetail": "完成的收藏会在这里按日轮换。", "ownerLogin": "站主登录", "dailyError": "每日内容暂时无法读取", "refresh": "重新加载",

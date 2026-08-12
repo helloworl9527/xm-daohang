@@ -416,3 +416,40 @@ Playwright 在 `1440×1000` 与移动项目上通过生产 standalone 覆盖登�
 - 无需求、架构、安全边界或 NAV-005/NAV-008 偏差；本批无 schema 迁移、新依赖、外部服务或生产数据操作，未提前实施 Task 11。
 - favicon 缓存为 Next server cache 加进程内请求合并/负缓存；多实例之间由共享 CDN/反向代理的 `s-maxage` 合并响应缓存，不承诺跨实例内存锁。
 - 完整回归唯一失败仍是 `tests/integration/settingsRoutes.test.ts` 固定断言业务日 `2026-08-09`，当前 `Asia/Shanghai` 业务日为 `2026-08-12`，实际返回 day `2026-08-12`、usedGlobal `0`。本批未修改该历史用例，不据此宣称完整回归全绿。
+
+## M2 Task 11：公开 C 工作台首页
+
+### 实现范围
+
+- 首页删除 `pickDailyForNow`、hero/eyebrow/副标题、daily 三卡与旧空态渲染，保留品牌栏、语言切换、skip link、独立 completed corpus/readiness 判定和原 AskExperience。AskExperience 是 DirectoryShell 的 sibling，不在目录 Suspense/错误边界内。
+- 新增 `DirectoryData` 作为唯一调用 `getPublicDirectory()` 的 async child，catch 后只返回局部错误 props；`DirectoryView` 为纯数据展示，保留全部分类、空分类和末尾未分类。直达带 `q` URL 时 server page 不挂载 DirectoryData，避免搜索模式仍读取隐藏目录。
+- 新增独立 `KeywordSearch` 与 `DirectoryShell` 客户端状态机：输入不自动请求，显式按钮/Enter 才 NFKC+trim 校验并写 URL；清空移除 q；URL q 驱动首载/刷新/复制/前进后退。每次请求创建 AbortController，同时用 active token 拦截忽略 abort 的旧 Promise，保证旧响应不覆盖新 query。
+- 搜索区覆盖三卡 aria-busy 骨架、结果、空结果、具体失败+重试；失败明确不是空结果。结果标题显示 query、命中数、字面匹配与“不调用 AI”；输入错误内联且焦点留在输入。默认目录/搜索结果只占同一主体位置。
+- C 工作台目录索引桌面六栏、平板三栏、移动横向滚动；stable category id、标题 `scroll-margin-top`、点击移焦并设置 `aria-current=location`。目录站点桌面三列/移动单列，整卡安全外链；36px 同源 favicon 失败切同尺寸域名首字母，不产生布局跳动。
+- `loading.tsx` 改为同一目录标题/搜索占位、3 个目录骨架和问答占位，不渲染 hero/daily。新增中英文 Task 11 文案键；Task 12 的 i18n 全量收口与管理导航未提前实施。
+- Playwright 首轮发现 Next Image 为动态 favicon 注入 inline style，触发当前 nonce CSP；改为带明确 width/height、lazy、同源且已安全边界处理的原生 img，并保留局部 lint 说明。另把 eligible item 的上游 favicon 失败改为 200 本地 PNG fallback、非 eligible 仍 404，消除浏览器资源错误且不放宽数据范围。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| Task 11 UI/架构 + favicon 定向 | PASS，5 files / 18 tests |
+| `pnpm typecheck` | PASS，0 errors |
+| `pnpm lint` | PASS，产品代码 0 error/0 warning；审批原型 1 条既有 warning |
+| `git diff --check` | PASS |
+| `pnpm build` | PASS，首页动态 route；standalone devDependency prune 门禁通过 |
+| `pnpm exec playwright test tests/e2e/public.spec.ts` | PASS，desktop/mobile 12/12；生产 standalone |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai pnpm test` | 62/63 files、408/409 tests；唯一既有失败见下 |
+
+Playwright 在 `1440×1000` 和 `390×844` 覆盖无 hero/daily、标题行几何、移动搜索满宽与 44px 按钮、默认/输入/加载/结果/空/失败/清空、URL q、旧请求竞态、空分类/末组、锚点焦点、整卡安全外链、favicon fallback、真实局部目录故障与 router.refresh 恢复、doc-only 问答可用及真实问答提交回归。两视口均无横向溢出、页面 console/pageerror/CSP 错误为 0；另验证 reduced motion、contrast more 与实色问答 dock。截图：`.workflow/screenshots/nav-enhancement/public-c-directory-{desktop,mobile}.png`、`public-c-keyword-results-{desktop,mobile}.png`。
+
+按 2026-08-12 拉取的最新 Web Interface Guidelines 审计并修正：关键词 compound control focus-within、交互 focus-visible、favicon lazy/明确尺寸、tabular 计数、占位省略号、长文本 min-width/overflow、reduced motion/transparency/contrast。未发现剩余 Task 11 阻断项。
+
+### 反向门禁
+
+在最终产品代码上逐项临时中和、只运行对应命名用例，以下五项均 Vitest AssertionError、exit 1，恢复后定向 18/18：重新 import daily；让带 q 页面仍挂 DirectoryData；移除旧响应 active token；把卡片 `rel="noopener nofollow"` 弱化；让 eligible favicon 上游失败错误返回 404。所有变异均已恢复，不把 Playwright strict selector 或首次移动时序波动作产品失败/反测证据。
+
+### 偏差、未解决项与残余风险
+
+- 无需求、架构、安全边界或批准 UI 方向偏差；未新增依赖、迁移，未实施 Task 12/13，未操作外部服务或生产环境。
+- 完整回归唯一失败仍是 `settingsRoutes` 固定断言 `2026-08-09`，当前业务日为 `2026-08-12`，实际 day `2026-08-12`、usedGlobal `0`。与本批公共 UI 无关，不据此宣称完整回归全绿。

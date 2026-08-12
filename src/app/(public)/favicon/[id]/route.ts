@@ -29,7 +29,7 @@ export async function GET(_request: Request, context: Context): Promise<Response
 
   try {
     const favicon = await loadSiteFavicon(id.data);
-    return response(favicon.body, favicon.mime, favicon.maxAge, favicon.found ? 200 : 404);
+    return response(favicon.body, favicon.mime, favicon.maxAge, favicon.eligible ? 200 : 404);
   } catch {
     return response(FALLBACK, "image/png", 3_600, 404);
   }

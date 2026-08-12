@@ -28,7 +28,7 @@ describe("site favicon", () => {
     const fetcher = vi.fn();
     const load = createSiteFaviconLoader({ queryable: { query }, fetcher, now: () => 0 });
     const result = await load(ID);
-    expect(result.found).toBe(false);
+    expect(result).toMatchObject({ found: false, eligible: false });
     expect(calls[0]?.[0]).toContain("status = 'completed'");
     expect(calls[0]?.[0]).toContain("type in ('web', 'github')");
     expect(calls[0]?.[1]).toEqual([ID]);
@@ -68,7 +68,7 @@ describe("site favicon", () => {
     const fetcher = vi.fn(async () => { throw new Error("target https://secret.example/private"); });
     const load = createSiteFaviconLoader({ queryable: { query }, fetcher, now: () => now });
     const failed = await load(ID);
-    expect(failed).toMatchObject({ found: false, mime: "image/png", maxAge: 3_600 });
+    expect(failed).toMatchObject({ found: false, eligible: true, mime: "image/png", maxAge: 3_600 });
     expect(new TextDecoder().decode(failed.body)).not.toContain("secret.example");
     now = 3_599_999;
     await load(ID);

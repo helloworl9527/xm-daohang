@@ -23,7 +23,7 @@ describe("favicon route", () => {
 
   it("returns eligible image bytes with seven-day public caching", async () => {
     loadSiteFavicon.mockResolvedValue({
-      body: Uint8Array.of(1, 2, 3), mime: "image/webp", found: true, maxAge: 604_800,
+      body: Uint8Array.of(1, 2, 3), mime: "image/webp", found: true, eligible: true, maxAge: 604_800,
     });
     const response = await GET(new Request(`https://app.example/favicon/${ID}?url=https://internal.example/&host=localhost`), {
       params: Promise.resolve({ id: ID }),
@@ -38,7 +38,7 @@ describe("favicon route", () => {
 
   it("returns a one-hour local fallback for non-eligible items and fetch failures", async () => {
     loadSiteFavicon.mockResolvedValue({
-      body: Uint8Array.of(9), mime: "image/png", found: false, maxAge: 3_600,
+      body: Uint8Array.of(9), mime: "image/png", found: false, eligible: false, maxAge: 3_600,
     });
     const response = await GET(new Request(`https://app.example/favicon/${ID}`), {
       params: Promise.resolve({ id: ID }),
@@ -46,5 +46,12 @@ describe("favicon route", () => {
     expect(response.status).toBe(404);
     expect(response.headers.get("cache-control")).toContain("s-maxage=3600");
     expect(await response.text()).not.toContain("http");
+  });
+
+  it("serves an eligible upstream failure as a local image without a browser resource error", async () => {
+    loadSiteFavicon.mockResolvedValue({ body: Uint8Array.of(9), mime: "image/png", found: false, eligible: true, maxAge: 3_600 });
+    const response = await GET(new Request(`https://app.example/favicon/${ID}`), { params: Promise.resolve({ id: ID }) });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("s-maxage=3600");
   });
 });

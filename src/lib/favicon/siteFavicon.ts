@@ -21,6 +21,7 @@ export interface SiteFavicon {
   body: Uint8Array;
   mime: string;
   found: boolean;
+  eligible: boolean;
   maxAge: number;
 }
 
@@ -43,8 +44,8 @@ const FALLBACK_PNG = Uint8Array.from(Buffer.from(
   "base64",
 ));
 
-function fallback(): SiteFavicon {
-  return { body: FALLBACK_PNG, mime: "image/png", found: false, maxAge: FAILURE_TTL_MS / 1_000 };
+function fallback(eligible = false): SiteFavicon {
+  return { body: FALLBACK_PNG, mime: "image/png", found: false, eligible, maxAge: FAILURE_TTL_MS / 1_000 };
 }
 
 export function deriveFaviconUrl(storedUrl: string): string {
@@ -83,12 +84,14 @@ export function createSiteFaviconLoader(dependencies: SiteFaviconDependencies) {
         );
         const storedUrl = result.rows[0]?.url;
         if (!storedUrl) return value;
+        value = fallback(true);
 
         const response = await dependencies.fetcher(deriveFaviconUrl(storedUrl));
         value = {
           body: response.body,
           mime: response.mime,
           found: true,
+          eligible: true,
           maxAge: SUCCESS_TTL_MS / 1_000,
         };
         return value;

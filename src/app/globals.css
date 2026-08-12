@@ -1159,6 +1159,57 @@ a {
   }
 }
 
+/* Public directory workbench */
+.public-main { width: min(1180px, calc(100% - 40px)); padding: 42px 0 72px; }
+.directory-title-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 460px); align-items: center; gap: 28px; margin-bottom: 24px; }
+.directory-title-row h1 { margin: 0; font-family: "Songti SC", STSong, Georgia, serif; font-size: 2.4rem; line-height: 1.1; }
+.keyword-search { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 44px auto; position: relative; border: 1px solid color-mix(in srgb, var(--color-ink) 24%, transparent); border-radius: 7px; background: var(--color-white); }
+.keyword-search:focus-within { border-color: var(--color-search); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-search) 22%, transparent); }
+.keyword-search label { min-width: 0; }
+.keyword-search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; padding: 9px 12px; color: var(--color-ink); font: inherit; }
+.keyword-search button { min-height: 44px; border: 0; border-left: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent); background: var(--color-search); color: var(--color-white); cursor: pointer; padding: 0 16px; font: inherit; font-weight: 700; touch-action: manipulation; }
+.keyword-search button:focus-visible, .search-results button:focus-visible, .directory-state button:focus-visible, .directory-index a:focus-visible, .directory-card:focus-visible { outline: 3px solid var(--color-source); outline-offset: 3px; }
+.keyword-search .keyword-clear { width: 44px; padding: 0; background: var(--color-white); color: var(--color-ink); font-size: 1.25rem; }
+.keyword-search [role="alert"] { grid-column: 1 / -1; position: absolute; top: calc(100% + 4px); left: 0; color: var(--color-signal); font-size: .75rem; }
+.keyword-placeholder { width: 100%; height: 44px; border-radius: 7px; background: color-mix(in srgb, var(--color-ink) 10%, var(--color-mist)); }
+.directory-content { min-width: 0; }
+.directory-index { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); background: var(--color-ink); }
+.directory-index a { min-width: 0; min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-right: 1px solid color-mix(in srgb, var(--color-white) 16%, transparent); padding: 10px 12px; color: var(--color-white); text-decoration: none; overflow-wrap: anywhere; }
+.directory-index a span { flex: none; color: color-mix(in srgb, var(--color-white) 60%, transparent); font: 700 .6875rem/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.directory-index a:hover, .directory-index a[aria-current="location"] { background: var(--color-search); }
+.directory-groups { display: grid; gap: 52px; margin-top: 48px; }
+.directory-group { min-width: 0; scroll-margin-top: 20px; }
+.directory-group > header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent); padding-bottom: 10px; }
+.directory-group h2, .search-results h2, .directory-state h2 { margin: 0; overflow-wrap: anywhere; font-family: "Songti SC", STSong, Georgia, serif; font-size: 1.75rem; }
+.directory-group h2:focus { outline: 3px solid color-mix(in srgb, var(--color-search) 55%, transparent); outline-offset: 4px; }
+.directory-group header > span { font: 700 .6875rem/1 ui-monospace, monospace; color: var(--color-search); font-variant-numeric: tabular-nums; }
+.directory-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.directory-card { min-width: 0; min-height: 148px; display: grid; grid-template-columns: 36px minmax(0, 1fr) 20px; align-items: start; gap: 12px; border: 1px solid color-mix(in srgb, var(--color-ink) 17%, transparent); border-radius: 6px; background: var(--color-white); padding: 16px; color: var(--color-ink); text-decoration: none; transition: border-color 120ms ease, transform 120ms ease; }
+.directory-card:hover { border-color: var(--color-search); transform: translateY(-2px); }
+.directory-card:active, .keyword-search button:active, .search-results button:active, .directory-state button:active { transform: scale(.985); }
+.directory-favicon { width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden; border-radius: 5px; background: color-mix(in srgb, var(--color-search) 12%, var(--color-mist)); color: var(--color-search); font-weight: 800; }
+.directory-favicon img { width: 36px; height: 36px; display: block; object-fit: contain; }
+.directory-card-copy { min-width: 0; display: grid; gap: 7px; }
+.directory-card-copy strong { overflow-wrap: anywhere; font-family: "Songti SC", STSong, Georgia, serif; font-size: 1.08rem; }
+.directory-card-copy > span { display: -webkit-box; overflow: hidden; color: color-mix(in srgb, var(--color-ink) 68%, transparent); font-size: .8125rem; line-height: 1.55; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.directory-card-copy small { overflow: hidden; color: var(--color-source); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.directory-external { color: var(--color-search); }
+.directory-empty { margin: 16px 0 0; border: 1px dashed color-mix(in srgb, var(--color-ink) 28%, transparent); padding: 28px 18px; color: color-mix(in srgb, var(--color-ink) 62%, transparent); text-align: center; }
+.search-results > header { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent); padding-bottom: 14px; }
+.search-results header p { margin: 5px 0 0; color: color-mix(in srgb, var(--color-ink) 65%, transparent); font-size: .8rem; }
+.search-results button, .directory-state button { min-height: 44px; border: 1px solid var(--color-search); border-radius: 6px; background: var(--color-white); color: var(--color-search); padding: 8px 14px; font: inherit; font-weight: 700; }
+.directory-state { min-height: 280px; display: grid; place-content: center; justify-items: center; border: 1px solid var(--color-signal); padding: 28px; text-align: center; }
+.directory-state p { color: color-mix(in srgb, var(--color-ink) 68%, transparent); }
+.directory-skeleton > div { min-height: 148px; display: grid; align-content: center; gap: 12px; border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent); padding: 18px; }
+.directory-skeleton span { height: 14px; background: color-mix(in srgb, var(--color-ink) 10%, var(--color-mist)); animation: public-pulse 1.2s ease-in-out infinite alternate; }
+.directory-skeleton span:nth-child(2) { width: 78%; }.directory-skeleton span:nth-child(3) { width: 55%; }
+
+@media (max-width: 900px) { .directory-index { grid-template-columns: repeat(3, minmax(0, 1fr)); }.directory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .public-main { width: calc(100% - 28px); padding-top: 28px; }.directory-title-row { grid-template-columns: 1fr; gap: 14px; }.directory-title-row h1 { font-size: 2rem; }.keyword-search { width: 100%; }.directory-index { display: flex; overflow-x: auto; overscroll-behavior-inline: contain; }.directory-index a { flex: 0 0 min(70vw, 210px); }.directory-grid { grid-template-columns: 1fr; }.directory-groups { gap: 38px; margin-top: 34px; }.directory-card { min-height: 132px; }.search-results > header { align-items: flex-start; }.public-shell { padding-bottom: 164px; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto !important; }.directory-card, .keyword-search button, .search-results button, .directory-state button { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-transparency: reduce) { .directory-index { background: var(--color-ink); } }
+@media (prefers-contrast: more) { .directory-card, .keyword-search, .directory-state, .directory-empty { border-color: var(--color-ink); } }
+
 /* Category management workspace */
 @media (min-width: 821px) {
   .admin-shell { grid-template-columns: 74px minmax(0, 1fr); }
