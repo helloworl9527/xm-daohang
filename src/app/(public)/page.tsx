@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { getPublicAskReadiness } from "@/lib/ratelimit/publicAsk";
 import { pickDailyForNow, type DailyItem } from "@/lib/items/daily";
+import { hasCompletedAskCorpus } from "@/lib/items/publicCorpus";
 import { AskExperience } from "@/app/(public)/_components/AskBar";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,12 @@ export default async function PublicHomePage() {
   }
 
   let askReady = false;
+  let hasAskCorpus = false;
+  try {
+    hasAskCorpus = await hasCompletedAskCorpus();
+  } catch {
+    hasAskCorpus = false;
+  }
   try {
     await getPublicAskReadiness();
     askReady = true;
@@ -25,7 +32,7 @@ export default async function PublicHomePage() {
     askReady = false;
   }
 
-  const disabledReason = dailyItems.length === 0
+  const disabledReason = !hasAskCorpus
     ? t("ask.disabledEmpty")
     : !askReady
       ? t("ask.disabledUnavailable")

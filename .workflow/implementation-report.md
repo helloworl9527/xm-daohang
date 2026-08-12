@@ -376,3 +376,43 @@ Playwright 在 `1440×1000` 与移动项目上通过生产 standalone 覆盖登�
 - SiteCard 补齐 `categoryName/faviconPath`，SQL `LEFT JOIN categories`，favicon 固定同源 `/favicon/<itemId>`，排序固定 `lower(coalesce(items.title,items.url)),items.id`。真实 PostgreSQL 测试同时验证 DTO、分类为空兼容与确定顺序。
 - 并发屏障新增同 IP 8 并发仅 2 允许、多 IP 8 并发仅 global 3 允许；预置 ask `global/ip:` counters 在关键词消耗后值不变。静态锁协议门禁要求 settings 与 counter 两处 `FOR UPDATE`。
 - R1 反向：去 NFKC、去控制字符拒绝、删 favicon 字段、改回 created_at 排序、移除 settings 行锁均由对应命名用例 assertion failure、exit 1；所有实现已恢复。
+
+## M2 Task 10：公开目录、favicon 与问答可用性
+
+### 实现范围
+
+- 新增 `getPublicDirectory()`，固定使用两次可控查询读取全部分类与 eligible items。分类按 `sort,name,id`，站点按 `title,url,id` 确定排序；空分类保留，`id/name=null` 的未分类组始终存在并固定末尾。站点复用完整 SiteCard DTO，favicon 只暴露同源 `/favicon/<itemId>`。
+- 新增同源 `/favicon/[id]` 与 `siteFavicon`：route 只接受 UUID，不读取 query URL/host；先以参数化查询确认 completed web/github 条目，再仅从数据库已存 URL 的 origin 派生 `/favicon.ico`。网络读取复用 `safeFetch` 的逐跳全 A/AAAA 审查、固定已审查 IP、redirect/降级保护、总超时与流式上限，favicon 固定 128 KiB/5 秒且只允许 PNG/JPEG/GIF/WebP/ICO，SVG/HTML fail closed。
+- favicon 同 key 并发在进程内合并；成功用 Next server cache 7 天，失败/非 eligible 负缓存 1 小时。响应使用对应 public `max-age/s-maxage`、`nosniff`；错误统一返回本地 PNG fallback 404，不返回目标 URL、host 或异常详情。
+- 新增 `hasCompletedAskCorpus()`，只判断是否存在任意 completed item，明确包含 doc。首页保持 Task 11 之前的既有结构，只把 AskExperience 的空库判定改为独立调用 corpus 与既有 readiness；doc-only 时目录为空但问答不因目录为空被禁用。本批未实施 Task 11 的首页目录 UI 重组。
+
+### 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| Task 10 + safeFetch/publicCorpus 联合定向 | PASS，6 files / 26 tests |
+| `pnpm typecheck` | PASS，0 errors |
+| `pnpm lint` | PASS，产品代码 0 error；审批原型 1 条既有 warning |
+| `git diff --check` | PASS |
+| `pnpm build` | PASS，Next.js 15.5.23 生成 `/favicon/[id]`；standalone devDependency prune 门禁通过 |
+| `DATABASE_URL=... APP_TIMEZONE=Asia/Shanghai pnpm test` | 59/60 files、399/400 tests；唯一既有失败见下 |
+
+目录真实 PostgreSQL 测试覆盖空分类、eligible 过滤、分类与站点顺序、未分类末组、同源 faviconPath、两次查询规模，以及 doc-only completed corpus 可用但目录无站点。favicon 测试覆盖 UUID、忽略任意 query URL/host、非 eligible 零 fetch、仅从存储 URL 派生 origin、同 key 请求合并、7 天成功/1 小时失败缓存、公共响应头、fallback 不泄漏；联合现有 `safeFetch` 测试覆盖逐跳公网复验、内网 redirect 拒绝、HTTPS 降级、循环/超跳、错误 MIME、content-length/流式超限及总超时。
+
+### 反向门禁
+
+在默认专用测试库串行临时中和产品门禁，以下五项对应命名 Vitest 均 assertion failure、exit 1，恢复后联合定向重新 26/26：
+
+1. 把未分类组从末尾移到首位，目录组末位断言红。
+2. 把分类排序反转为 `sort/name/id desc`，真实顺序及 SQL 合同断言红。
+3. 让 favicon route 优先采用 query `url` 而不是 item UUID，任意 URL 不可输入断言红。
+4. 把 `image/svg+xml` 加入 favicon MIME 白名单，raster-only 门禁红。
+5. 把问答空库判定退回 `dailyItems.length===0`，NAV-005 独立 corpus 架构门禁红。
+
+所有临时变异均已通过反向补丁恢复，不把 Perl 环境 locale 启动失败的一次作废脚本计入反测证据。
+
+### 偏差、未解决项与残余风险
+
+- 无需求、架构、安全边界或 NAV-005/NAV-008 偏差；本批无 schema 迁移、新依赖、外部服务或生产数据操作，未提前实施 Task 11。
+- favicon 缓存为 Next server cache 加进程内请求合并/负缓存；多实例之间由共享 CDN/反向代理的 `s-maxage` 合并响应缓存，不承诺跨实例内存锁。
+- 完整回归唯一失败仍是 `tests/integration/settingsRoutes.test.ts` 固定断言业务日 `2026-08-09`，当前 `Asia/Shanghai` 业务日为 `2026-08-12`，实际返回 day `2026-08-12`、usedGlobal `0`。本批未修改该历史用例，不据此宣称完整回归全绿。

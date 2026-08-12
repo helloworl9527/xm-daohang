@@ -14,6 +14,15 @@ export interface PublicCorpusQueryable {
   query<T extends object>(text: string, values?: readonly unknown[]): Promise<{ rows: T[] }>;
 }
 
+export async function hasCompletedAskCorpus(
+  queryable: PublicCorpusQueryable = pool,
+): Promise<boolean> {
+  const result = await queryable.query<{ exists: boolean }>(
+    "select exists(select 1 from items where status = 'completed') as exists",
+  );
+  return result.rows[0]?.exists === true;
+}
+
 interface SiteCardRow {
   id: string;
   title: string | null;
