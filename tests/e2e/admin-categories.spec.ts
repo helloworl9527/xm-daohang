@@ -102,6 +102,19 @@ test("admin reviews category diffs, handles manual conflict, manages categories,
   await page.getByRole("link", { name: "分类管理" }).click();
   await expect(page).toHaveURL(/\/admin\/categories$/);
   await expect(page.getByRole("note")).toContainText("人工分类始终保护");
+  if (testInfo.project.name.includes("mobile")) {
+    const geometry = await page.evaluate(() => ({
+      innerWidth: window.innerWidth,
+      screenWidth: window.screen.width,
+      pageWidth: document.documentElement.scrollWidth,
+      navClientWidth: document.querySelector<HTMLElement>(".admin-nav")!.clientWidth,
+      navScrollWidth: document.querySelector<HTMLElement>(".admin-nav")!.scrollWidth,
+    }));
+    expect(geometry.screenWidth).toBe(390);
+    expect(geometry.innerWidth).toBe(390);
+    expect(geometry.pageWidth).toBeLessThanOrEqual(390);
+    expect(geometry.navScrollWidth).toBeGreaterThan(geometry.navClientWidth);
+  }
 
   await page.getByRole("button", { name: /全量重拟/ }).click();
   await expect(page.locator(".category-diff-row")).toHaveCount(4);

@@ -483,3 +483,9 @@ Playwright 在 `1440x1000` 与 `390x844` 覆盖目录/关键词/问答、锚点�
 
 - 初始红测准确捕获旧 daily/hero 键、字符图标和未接入 primitives；修复后合同测试 4/4。pointer cancel 若不清理 `data-pressed`，`uiPrimitives` 命名断言红；快速提交若只读取陈旧 React state，最新 DOM 值命名断言红。源码门禁还禁止产品 `setTimeout(`、手绘 SVG 与 `x/multiplication/arrow` 字符图标回归。
 - 本批无迁移、无额外依赖、无外部服务或生产操作，未开始 Task 13。完整回归唯一失败为 `tests/integration/settingsRoutes.test.ts` 固定断言业务日 `2026-08-09`，当前业务日 `2026-08-12`，实际 `usedGlobal=0`；本批未修改该历史用例，不据此宣称全绿。
+
+### Task 12 R1：移动分类页导航溢出
+
+- 修复 390px 设备上四列 `minmax(104px,1fr)` 把 viewport 撑至 461px：移动 shell/sidebar 明确 `min-width:0`、sidebar 限制为 `100vw` 并裁切页面级溢出；AdminNav 改为 `width:100%` 的内部 flex 横向滚动轨道，四个 104px 触控项保持可访问且不扩大页面。
+- Playwright 在 `/admin/categories` 进入后、跳转详情前立即读取真实几何：固定 `screen.width=390`、`innerWidth=390`、document `scrollWidth<=390`，同时要求 nav `scrollWidth>clientWidth`，证明滚动发生在导航容器而非页面。
+- 反向门禁恢复旧 grid 并移除 sidebar 宽度协议后，同一移动 E2E 观测 `innerWidth=461`、期望 390，Playwright assertion failure、exit 1；恢复后移动用例重新通过。本修复未改变桌面导航或分类业务行为。
