@@ -347,3 +347,25 @@ Playwright 在 `1440×1000` 与移动项目上通过生产 standalone 覆盖登�
 - R1 正向定向：直接相关 UI/API 为 2 files / 17 tests PASS；其中前端生成的 add/rename/merge/delete 四型 accepted body 使用真实 `applyCategoriesInputSchema` strict 解析，并基于同一前端产出体逐型删除 `add.name`、`rename.name`、`merge.target`、`delete.autoDestination`，四个负变体均被 schema 拒绝；真实 apply route 另断言缺 merge target 返回 400。Task 8 API/reclassify/detail/UI 扩展定向为 5 files / 48 tests PASS。`typecheck`、lint（0 error、1 条审批原型既有 warning）、diff check、workflow validator、`env -u DATABASE_URL pnpm build` 与桌面/移动 Playwright 2/2 均通过。
 - R1 完整回归为 50/51 files、368/369 tests；唯一失败仍是 `settingsRoutes` 固定断言 `2026-08-09`、实际业务日 `2026-08-11`，本次 merge/retry 窄修未触及该历史用例。
 - R1 反向门禁：分别临时移除工作台 add name、rename name、merge 顶层 target、delete autoDestination，四次同一四型合同命名用例均因真实 schema `safeParse=false` 命中 Vitest AssertionError、exit 1；临时移除活动 run 的冲突标记后，独立命名 API 用例观测实际 400、期望 409，Vitest AssertionError、exit 1。全部恢复后重新正向验证，不把语法或启动错误计作证据。
+
+## M2 Task 9：F209 关键词字面搜索
+
+### 实现范围
+
+- 新增公开 `POST /search`、字面搜索服务、公开语料查询与独立关键词限流。输入为 strict `{query}`，trim 后只接受 2–100 字符；成功固定 `{query,matches}`，失败固定 `QUERY_INVALID` 400、`RATE_LIMITED` 429、`SEARCH_UNAVAILABLE` 503，全部 `Cache-Control: no-store`。
+- 语料只查询 `status='completed' AND type IN ('web','github')`，使用单一参数 `$1` 对 title/summary/tags 做大小写不敏感子串匹配；`%`、`_`、反斜杠在进入参数前逐字符转义，SQL 固定声明 `ESCAPE '\\'`，用户输入不进入 SQL 文本。doc 与 processing/failed 永不返回。
+- 限流复用可信代理 IP 校验，但只使用 `kw:global` 与 `kw:ip:<HMAC>` scopes；不读取、更新 `global`/`ip:` ask scopes，也不导入 ask handler、retrieve、embedding 或 LLM。代理证明、IP hash secret、settings/counter/数据库异常均 fail closed 为 `SEARCH_UNAVAILABLE`。
+
+### 验证证据
+
+- Task 9 定向：5 files / 13 tests PASS，覆盖真实 PostgreSQL title/summary/tags 命中、大小写、doc/processing 排除、`%/_/\\` 三种字面字符和 SQL 注入样本；SQL 参数化静态门禁；query/content-type/envelope/no-store；可信代理 fail-closed；独立 kw scope/IP 限流且零 ask scope。
+- `typecheck` PASS；lint 0 error（审批原型 1 条既有 warning）；`git diff --check` PASS；`env -u DATABASE_URL pnpm build` PASS，生产 prune 门禁通过并生成 `/search` dynamic route。
+- 完整回归为 55/56 files、381/382 tests；唯一失败仍是 `settingsRoutes` 固定断言 `2026-08-09`，当前业务日 `2026-08-12`，不在 Task 9 变更面。
+- 静态 import 测试确认四个产品模块不引用 `@/lib/ai`、`search/retrieve`、`ask/handler`、embedText 或 generateLlmText。
+
+### 反向门禁
+
+- 临时中和 LIKE 转义后，`%` 字面命名用例从仅匹配包含 `%` 的记录退化为通配并命中额外记录，Vitest assertion failure、exit 1。
+- 临时放行 doc 类型后，范围命名用例返回 doc，Vitest assertion failure、exit 1。
+- 临时把可信代理失败回落到伪 IP，并让限流依赖成功时，fail-closed 命名用例错误返回 200、期望 503，exit 1。
+- 临时向 keyword 模块导入 embedding 后，零 AI 架构测试命中禁用 import、exit 1。所有变异均已恢复并重新正向验证。
