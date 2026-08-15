@@ -2,13 +2,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn(); const refresh = vi.fn(); let query = "";
+const router = { push, refresh };
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, unknown>) => values ? `${key}:${JSON.stringify(values)}` : key }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }), usePathname: () => "/", useSearchParams: () => new URLSearchParams(query ? { q: query } : {}) }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/", useSearchParams: () => new URLSearchParams(query ? { q: query } : {}) }));
 
 import { DirectoryShell } from "@/app/(public)/_components/DirectoryShell";
 
 describe("DirectoryShell", () => {
-  beforeEach(() => { query = ""; push.mockReset(); refresh.mockReset(); vi.stubGlobal("fetch", vi.fn()); });
+  beforeEach(() => { query = ""; push.mockReset(); refresh.mockReset(); window.sessionStorage.clear(); vi.stubGlobal("fetch", vi.fn()); });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it("does not search while typing and commits normalized input to URL", () => {
@@ -55,13 +56,18 @@ describe("DirectoryShell", () => {
   it("clears a failed URL query by navigating to the query-free pathname", async () => {
     query = "fail";
     vi.mocked(fetch).mockRejectedValue(new Error("offline"));
-    render(<DirectoryShell><p>directory</p></DirectoryShell>);
+    const view = render(<DirectoryShell>{null}</DirectoryShell>);
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("searchError"));
     fireEvent.click(screen.getByRole("button", { name: "clear" }));
 
-    expect(push).toHaveBeenCalledTimes(1);
-    expect(push).toHaveBeenCalledWith("/");
+    expect(window.sessionStorage.getItem("public-directory:focus-keyword-after-clear")).toBe("true");
+    query = "";
+    view.rerender(<DirectoryShell><p>directory</p></DirectoryShell>);
+
+    await waitFor(() => expect(window.sessionStorage.getItem("public-directory:focus-keyword-after-clear")).toBeNull());
+    expect(screen.getByText("directory")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "searchInput" })).toHaveFocus();
   });
 });

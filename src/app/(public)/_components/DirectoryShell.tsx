@@ -20,6 +20,7 @@ import { Pressable } from "@/components/ui/Pressable";
 import type { SiteCard } from "@/lib/items/publicCorpus";
 
 type DiscoveryMode = "keyword" | "ask";
+const FOCUS_KEYWORD_AFTER_CLEAR = "public-directory:focus-keyword-after-clear";
 type KeywordResultState =
   | { kind: "idle" }
   | { kind: "invalid" }
@@ -170,6 +171,10 @@ export function DirectoryShell({ children, disabledReason = null }: { children: 
       controllers.current.keyword?.abort();
       requestIds.current.keyword += 1;
       dispatch({ type: "keyword-idle" });
+      if (window.sessionStorage.getItem(FOCUS_KEYWORD_AFTER_CLEAR) === "true") {
+        window.sessionStorage.removeItem(FOCUS_KEYWORD_AFTER_CLEAR);
+        input.current?.focus();
+      }
       return;
     }
 
@@ -224,11 +229,10 @@ export function DirectoryShell({ children, disabledReason = null }: { children: 
   };
 
   const clearKeyword = () => {
-    window.history.replaceState(window.history.state, "", pathname);
     abort("keyword");
     dispatch({ type: "keyword-idle", draft: "" });
-    router.push(pathname);
-    input.current?.focus();
+    window.sessionStorage.setItem(FOCUS_KEYWORD_AFTER_CLEAR, "true");
+    window.location.replace(pathname);
   };
 
   const submitAsk = async (event: FormEvent<HTMLFormElement>) => {
