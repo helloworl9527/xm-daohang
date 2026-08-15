@@ -524,3 +524,104 @@ README 命令与路径静态核验：Node/pnpm/PostgreSQL/Docker 要求分别来
 - 临时向 `category_reclassify_progress` 加入 `runId`，观测合同测试准确报告未批准维度并以 AssertionError、exit 1 失败；恢复后合同测试 2/2。
 - 临时给目录 eligible SQL 加 `limit 499`，500 条全量断言实际只收到 499 并以 AssertionError、exit 1 失败；恢复后性能测试 2/2。现有 F202 尾批 map/reduce 两个命名用例继续全绿。
 - 本批无 schema 迁移、新运行时依赖、部署、push、外部服务或生产操作。性能数据是本机 PostgreSQL 单节点集成结果，不代表所有生产硬件；发布环境仍应持续观察 p95。Docker 不可用导致未取得真实 compose restore 证据，是明确残余环境限制；本机原生 PostgreSQL 的新备份恢复已降低该风险。
+
+---
+
+# M3 阶段 2：公开首页 Ink & Signal 视觉应用
+
+- 实施日期：2026-08-14（Asia/Shanghai）
+- 权威计划：`docs/implementation-plan.md` revision 6，阶段 2
+- 发布状态：未提交、未推送、未部署，等待独立阶段验收。
+
+## 实现范围
+
+- `DirectoryShell` 统一持有 keyword/ask 的共同草稿、模式、结果和活动请求状态；两种请求分别使用 AbortController 与递增 request id，模式切换立即取消离开模式的请求，陈旧响应不能落入当前状态。
+- keyword 保持现有 `POST /search` 与 URL `q` 合同；ask 保持现有 `POST /ask` 且不写 URL。新增限流、模型不可用、空来源、非法响应与普通上游错误的独立映射，并对 malformed source DTO fail closed。
+- `KeywordSearch` 与 `AskExperience` 改为无网络所有权的受控视图；`ResultPanel` 进入检索区下方正常文档流，移除 fixed dock 和只服务虚拟键盘 dock 的状态。
+- 公开首页应用 Ink & Signal 暖白、墨色、珊瑚信号视觉；header 与分类索引使用受控 sticky 层级，目录在 1440/1024/390 分别为 3/2/1 列，移动分类索引横向滚动。
+- `SiteLink` 用单一纯函数安全解析 HTTP(S) URL；完整 GitHub owner/repo 才显示 GitHub 类型，非法、非 HTTP(S) 或不完整路径回退 Web，原 URL 仍是唯一导航目标。卡片增加类型、两行摘要、域名、最多三个标签和同尺寸 Globe fallback。
+- 中英文字典新增工作区、模式、类型和模型不可用文案；两份递归叶子 key 集合保持一致。加载骨架与真实卡片保持相同网格和最小高度。
+
+## 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| 阶段 2 计划 Vitest 集合（专用 `collection_system_test`，清除既有测试 fixture 后执行） | PASS，10 files / 63 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，0 errors；`.workflow/ui-prototype-nav-enhancement/app.js` 保留 1 条既有 unused warning |
+| `corepack pnpm exec playwright test tests/e2e/public.spec.ts --project=chromium-desktop` | PASS，6/6 |
+| `corepack pnpm exec playwright test tests/e2e/public.spec.ts --project=chromium-tablet` | PASS，6/6 |
+| `corepack pnpm exec playwright test tests/e2e/public.spec.ts --project=chromium-mobile` | PASS，6/6 |
+| 阶段 1 contracts：Ink Signal、legacy class、测试库守卫 | PASS，3 files / 8 tests |
+| `git diff --check` | PASS |
+| 受限路径工作树 diff / 基准提交 diff / `package.json` 与锁文件 diff | PASS，三项均为空 |
+
+三视口证据位于 `.workflow/screenshots/ink-signal/phase2-public-chromium-{desktop,tablet,mobile}.png`。Playwright 检查横向溢出、移动主按钮 44px、分类锚点焦点与 `aria-current`、控制台/pageerror、reduced motion、contrast more、正常流 Ask 区、URL query 竞态、空/错误/恢复和问答成功流程，均通过。桌面与平板首屏可见检索工作区和第一组目录；移动为横向分类索引与单列卡片，无 fixed dock 覆盖。
+
+## 偏差与残余风险
+
+- 已批准依赖 `lucide-react@1.31.0` 不提供品牌 `Github` 图标导出；为遵守“不新增依赖、使用 Lucide”的双重约束，GitHub 卡片采用同包 `GitFork` 图标并保留本地化 `GitHub` 类型徽标。无数据、导航或安全合同变化。
+- 计划 Vitest 首次在未设置 `DATABASE_URL` 时按预期 fail closed；设置固定本机测试库后，库中残留的 E2E fixture 会污染依赖全库为空的历史目录测试。仅对 `collection_system_test` 清除测试 fixture 后按原计划命令复跑并 63/63 通过；未接触生产数据库。
+- 未新增依赖、迁移、API route、schema、items/search 库改动，也未修改产品数据或外部服务。
+
+## M3 阶段 2 返工：可重复性与隔离（2026-08-14）
+
+- `vitest.config.ts` 在 Vitest 进程内机械注入集中守卫导出的固定 `collection_system_test` URL；不会继承外部 `DATABASE_URL`，生产运行时的数据库守卫保持 fail-closed。
+- `tests/categories/publicDirectory.test.ts` 仅按自身 `directory-task10-*` URL 和返回的分类 ID 隔离/断言，保留其他合法 fixture，不再假设全库为空；doc-only 断言只验证自身记录不进入公开目录。
+- `tests/unit/directoryShell.test.tsx` 新增失败查询清除回归，断言点击后导航至无 query pathname 且焦点回到输入框。
+- `tests/e2e/public.spec.ts` 清除断言改为与点击并行等待 URL 的 query 参数实际消失（15s 有界超时），避免异步客户端导航观察竞态；仍会在旧 URL 未清除时失败。
+
+### 返工验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| 阶段 2 10 文件 Vitest（`env -u DATABASE_URL`） | PASS，10 files / 65 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，0 errors；1 条既有 workflow prototype warning |
+| Playwright public desktop | PASS，6/6，冷生产构建 |
+| Playwright public tablet | PASS，6/6，冷生产构建 |
+| Playwright public mobile | PASS，6/6，冷生产构建 |
+| 阶段 1 contracts | PASS，3 files / 8 tests |
+| 受限路径 diff / package.json、pnpm-lock.yaml diff | PASS，均为空 |
+| `git diff --check` | PASS |
+
+未提交 Git，未推进阶段 3。
+
+---
+
+# M3 阶段 3：管理后台壳与 Library
+
+- 实施日期：2026-08-15（Asia/Shanghai）
+- 权威计划：`docs/implementation-plan.md` revision 6，阶段 3
+- 发布状态：未提交、未推送、未部署，等待独立阶段验收。
+
+## 实现范围
+
+- `ProtectedAdminLayout` 保留 `requireAdminPage()`，增加明确的 admin main 滚动/布局边界。`AdminNav` 建立收藏库、整理、系统三组导航和显式 pathname matcher；Library 详情继续高亮收藏库，models 与运行设置不会同时高亮。
+- 桌面/平板使用固定 240px 深色侧栏；移动使用顶部栏与抽屉。抽屉关闭时导航 inert/aria-hidden，打开时背景与顶栏 inert、body 滚动锁定、首个链接获焦，Tab 在抽屉和根级单实例语言切换之间循环；Escape、遮罩与导航链接关闭，焦点返回触发器，清理时恢复 inert/overflow。
+- 根级 `LocaleSwitcher` 仍只有一个实例，通过 admin shell CSS 纳入侧栏底部；登出复用既有 `logoutAction` server action，未新增 API、session 或 token 客户端状态。
+- `LibraryFilters` 保留 `q/tag/status` 序列化，改为响应式 filter rail；`LibraryList` 使用现有 DTO 的 type/status/source 字段渲染 Lucide 类型/状态图标、独立原 URL 与详情链接、摘要/失败原因/标签和更新时间。
+- `LibraryView` 保留 fetch、retry、filters、cursor 合并与 load-more 行为，加载骨架和三段行卡片使用相同轨道；空库、无匹配、错误、首次加载和加载更多状态保持可恢复。
+- 中英文字典同步增加三组导航、抽屉、登出、添加收藏和类型标签；旧 keys/classes/tokens 全部保留。
+
+## 验证证据
+
+| 命令 | 结果 |
+| --- | --- |
+| 阶段 3 计划 7 文件 Vitest | PASS，7 files / 27 tests |
+| `corepack pnpm typecheck` | PASS，0 errors |
+| `corepack pnpm lint` | PASS，0 errors；1 条既有 workflow prototype warning |
+| 阶段 3 Playwright desktop | PASS，2/2，生产 build + standalone prune |
+| 阶段 3 Playwright tablet | PASS，2/2，生产 build + standalone prune |
+| 阶段 3 Playwright mobile | PASS，2/2，生产 build + standalone prune |
+| 阶段 1 contracts | PASS，3 files / 8 tests |
+| `git diff --check` | PASS |
+| 受限路径 diff / package.json、pnpm-lock.yaml diff | PASS，均为空 |
+
+三视口 Library 证据：`.workflow/screenshots/ink-signal/phase3-admin-library-chromium-{desktop,tablet,mobile}.png`；后台壳证据：`phase3-admin-shell-*`；移动打开抽屉证据：`phase3-admin-drawer-chromium-mobile.png`。E2E 同时断言固定侧栏宽度/位置、当前页、移动 inert、滚动锁定、Tab 圈定、Escape/遮罩焦点返回、横向溢出和 console/pageerror。
+
+## 偏差与残余风险
+
+- 已批准的 `lucide-react@1.31.0` 不提供 `Github` 导出，Library GitHub 类型沿用阶段 2 已接受的同包 `GitFork` 图标并显示本地化 `GitHub` 文本；未新增依赖。
+- 根级语言切换保持唯一实例，使用 `body:has(.admin-shell)` 做后台视觉定位；当前三种 Chromium 视口已验证。已接受的 AR-M3-01（Safari reduced-transparency 人工核验）仍留待最终阶段。
+- 未修改 API route、鉴权实现、items/search 库、schema、迁移、依赖或产品数据合同；未提交 Git，未推进阶段 4。

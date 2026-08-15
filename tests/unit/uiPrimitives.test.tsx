@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +8,7 @@ import { MotionRegion } from "@/components/ui/MotionRegion";
 import { Pressable } from "@/components/ui/Pressable";
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
 });
 
@@ -25,6 +26,45 @@ describe("shared UI primitives", () => {
     fireEvent.pointerDown(button);
     fireEvent.pointerCancel(button);
     expect(button).not.toHaveAttribute("data-pressed");
+  });
+
+  it("does not expose pressed feedback for disabled buttons", () => {
+    render(<Pressable disabled>Ask</Pressable>);
+    const button = screen.getByRole("button", { name: "Ask" });
+
+    fireEvent.pointerDown(button);
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute("data-pressed");
+  });
+
+  it("clears pressed feedback when disabled changes after pointer down", () => {
+    const view = render(<Pressable>Ask</Pressable>);
+    const button = screen.getByRole("button", { name: "Ask" });
+
+    fireEvent.pointerDown(button);
+    expect(button).toHaveAttribute("data-pressed", "true");
+
+    view.rerender(<Pressable disabled>Ask</Pressable>);
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute("data-pressed");
+  });
+
+  it("does not schedule motion frames when reduced motion is enabled", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: query === "(prefers-reduced-motion: reduce)",
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    const requestAnimationFrame = vi.spyOn(window, "requestAnimationFrame");
+
+    render(<MotionRegion>Reduced</MotionRegion>);
+
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
   });
 
   it("exposes critically damped motion and interrupts it on pointer down", () => {

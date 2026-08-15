@@ -4,7 +4,9 @@ import { expect, test } from "@playwright/test";
 import argon2 from "argon2";
 import { Pool } from "pg";
 
-const databaseUrl = "postgresql://apple@127.0.0.1:5432/collection_system_test";
+import { assertTestDatabaseUrl, TEST_DATABASE_URL } from "./testDatabase";
+
+const databaseUrl = assertTestDatabaseUrl(TEST_DATABASE_URL);
 const mockModelUrl = "http://127.0.0.1:4010/v1";
 let modelServer: Server;
 

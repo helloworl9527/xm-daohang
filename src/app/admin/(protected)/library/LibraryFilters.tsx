@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
+import { Search, Tag } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Pressable } from "@/components/ui/Pressable";
@@ -35,30 +36,36 @@ export function LibraryFilters({
     <form className="library-filters" onSubmit={submit}>
       <label>
         <span>{t("keyword")}</span>
-        <input
-          autoComplete="off"
-          disabled={disabled}
-          maxLength={200}
-          name="q"
-          onChange={(event) => onChange({ ...value, q: event.target.value })}
-          placeholder={t("keywordPlaceholder")}
-          type="search"
-          value={value.q}
-        />
+        <span className="library-filter-control">
+          <Search aria-hidden="true" size={16} />
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            maxLength={200}
+            name="q"
+            onChange={(event) => onChange({ ...value, q: event.target.value })}
+            placeholder={t("keywordPlaceholder")}
+            type="search"
+            value={value.q}
+          />
+        </span>
       </label>
       <label>
         <span>{t("tags")}</span>
-        <input
-          autoComplete="off"
-          disabled={disabled}
-          name="tag"
-          onChange={(event) => onChange({
-            ...value,
-            tags: event.target.value.split(",").map((tag) => tag.trim()),
-          })}
-          placeholder={t("tagsPlaceholder")}
-          value={value.tags.join(", ")}
-        />
+        <span className="library-filter-control">
+          <Tag aria-hidden="true" size={16} />
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            name="tag"
+            onChange={(event) => onChange({
+              ...value,
+              tags: event.target.value.split(",").map((tag) => tag.trim()),
+            })}
+            placeholder={t("tagsPlaceholder")}
+            value={value.tags.join(", ")}
+          />
+        </span>
       </label>
       <label>
         <span>{t("status")}</span>
@@ -80,7 +87,7 @@ export function LibraryFilters({
       </label>
       <div className="library-filter-actions">
         <Pressable disabled={disabled} type="submit">{t("filter")}</Pressable>
-        <button disabled={disabled} onClick={onClear} type="button">{t("clear")}</button>
+        <Pressable disabled={disabled} onClick={onClear} type="button">{t("clear")}</Pressable>
       </div>
     </form>
   );

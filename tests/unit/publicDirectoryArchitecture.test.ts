@@ -12,12 +12,13 @@ describe("public directory page architecture", () => {
     expect(page).not.toContain("public-intro");
     expect(page).not.toContain("public-daily-grid");
     expect(page).toContain("<DirectoryShell");
-    expect(page).toContain("<AskExperience");
+    expect(page).not.toContain("<AskExperience");
     expect(page).not.toContain("getPublicDirectory");
     expect(page).toContain("hasCommittedQuery ? null");
     expect(data).toContain("getPublicDirectory()");
     expect(shell).not.toContain("getPublicDirectory");
     expect(shell).toContain("<KeywordSearch");
+    expect(shell).toContain("<AskExperience");
   });
 
   it("keeps directory failure local and renders three busy skeletons", async () => {
@@ -33,8 +34,8 @@ describe("public directory page architecture", () => {
 
   it("guards stale search responses even when a transport ignores abort", async () => {
     const shell = await readFile("src/app/(public)/_components/DirectoryShell.tsx", "utf8");
-    expect(shell).toContain("let active = true");
-    expect(shell).toContain("if (active) setState");
-    expect(shell).toContain("active = false; controller.abort()");
+    expect(shell).toContain("requestIds.current.keyword");
+    expect(shell).toContain('state.activeRequest?.mode !== "keyword"');
+    expect(shell).toContain("controller.abort()");
   });
 });

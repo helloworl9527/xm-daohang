@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import argon2 from "argon2";
 import { Pool } from "pg";
 
-const databaseUrl = "postgresql://apple@127.0.0.1:5432/collection_system_test";
+import { assertTestDatabaseUrl, TEST_DATABASE_URL } from "./testDatabase";
+
+const databaseUrl = assertTestDatabaseUrl(TEST_DATABASE_URL);
 const CATEGORY_A = "40000000-0000-4000-8000-000000000001";
 const CATEGORY_B = "40000000-0000-4000-8000-000000000002";
 const ITEM_ID = "40000000-0000-4000-8000-000000000010";

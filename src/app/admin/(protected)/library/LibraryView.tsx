@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -85,10 +86,13 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
 
   return (
     <section aria-labelledby="library-title" className="admin-work-section library-section">
-      <div className="admin-section-heading">
-        <p>{t("eyebrow")}</p>
-        <h1 id="library-title">{t("title")}</h1>
-        <p>{t("description")}</p>
+      <div className="library-page-heading">
+        <div className="admin-section-heading">
+          <p>{t("eyebrow")}</p>
+          <h1 id="library-title">{t("title")}</h1>
+          <p>{t("description")}</p>
+        </div>
+        <Link className="library-add-link" href="/admin/add"><Plus aria-hidden="true" size={18} />{t("add")}</Link>
       </div>
 
       <LibraryFilters
@@ -106,6 +110,7 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
             <ol aria-hidden="true" className="library-list library-skeleton">
               {Array.from({ length: 3 }, (_, index) => (
                 <li className="library-item library-skeleton-row" key={index}>
+                  <div className="library-skeleton-type"><span /></div>
                   <div className="library-skeleton-main">
                     <span />
                     <span />
@@ -125,7 +130,7 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
         {state.kind === "error" ? (
           <div className="library-state">
             <p role="alert">{t("error")}</p>
-            <button onClick={() => void load()} type="button">{common("retry")}</button>
+            <button className="ink-interactive" onClick={() => void load()} type="button">{common("retry")}</button>
           </div>
         ) : null}
         {state.kind === "loaded" && state.payload.items.length === 0 ? (
@@ -133,7 +138,7 @@ export function LibraryView({ initialFilters }: { initialFilters: LibraryFilters
             {hasFilters ? (
               <>
                 <p>{t("noMatch")}</p>
-                <button onClick={() => router.replace("/admin/library")} type="button">{t("clearFilters")}</button>
+                <button className="ink-interactive" onClick={() => router.replace("/admin/library")} type="button">{t("clearFilters")}</button>
               </>
             ) : (
               <>

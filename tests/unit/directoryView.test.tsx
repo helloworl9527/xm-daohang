@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string, values?: Record<string, unknown>) => values ? `${key}:${JSON.stringify(values)}` : key }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-import { DirectoryView } from "@/app/(public)/_components/DirectoryView";
+import { deriveSitePresentation, DirectoryView } from "@/app/(public)/_components/DirectoryView";
 
 afterEach(cleanup);
 
@@ -15,6 +15,13 @@ const site = {
 };
 
 describe("DirectoryView", () => {
+  it("derives GitHub metadata only from complete HTTP repository URLs", () => {
+    expect(deriveSitePresentation("https://www.github.com/Owner/Repo/issues")).toEqual({ kind: "github", hostname: "Owner/Repo" });
+    expect(deriveSitePresentation("https://github.com/owner")).toEqual({ kind: "web", hostname: "github.com" });
+    expect(deriveSitePresentation("javascript:alert(1)")).toEqual({ kind: "web", hostname: "javascript:alert(1)" });
+    expect(deriveSitePresentation("not a url")).toEqual({ kind: "web", hostname: "not a url" });
+  });
+
   it("renders empty groups and unclassified last with safe whole-card links", () => {
     render(<DirectoryView groups={[
       { id: "cat-1", name: "Tools", sites: [site] },

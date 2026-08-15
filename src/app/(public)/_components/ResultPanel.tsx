@@ -14,15 +14,17 @@ export interface PublicSource {
 
 export type AskResultState =
   | { kind: "idle" }
-  | { kind: "loading" }
+  | { kind: "invalid" }
+  | { kind: "loading"; previous?: AskResultState | null }
   | { kind: "success"; answer: string; sources: PublicSource[] }
   | { kind: "empty" }
   | { kind: "limited" }
+  | { kind: "unavailable" }
   | { kind: "error" };
 
 export function ResultPanel({ state }: { state: AskResultState }) {
   const t = useTranslations("public.ask");
-  if (state.kind === "idle") return null;
+  if (state.kind === "idle" || state.kind === "invalid") return null;
 
   if (state.kind === "loading") {
     return (
@@ -35,12 +37,14 @@ export function ResultPanel({ state }: { state: AskResultState }) {
     );
   }
 
-  if (state.kind === "empty" || state.kind === "limited" || state.kind === "error") {
-    const title = state.kind === "empty" ? t("empty") : state.kind === "limited" ? t("limited") : t("error");
+  if (state.kind === "empty" || state.kind === "limited" || state.kind === "unavailable" || state.kind === "error") {
+    const title = state.kind === "empty" ? t("empty") : state.kind === "limited" ? t("limited") : state.kind === "unavailable" ? t("unavailable") : t("error");
     const detail = state.kind === "empty"
       ? t("emptyDetail")
       : state.kind === "limited"
         ? t("limitedDetail")
+        : state.kind === "unavailable"
+          ? t("unavailableDetail")
         : t("errorDetail");
     return (
       <section aria-live="polite" className={`public-result public-result-state is-${state.kind}`}>

@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import argon2 from "argon2";
 import { Pool } from "pg";
 
-const databaseUrl = "postgresql://apple@127.0.0.1:5432/collection_system_test";
+import { assertTestDatabaseUrl, TEST_DATABASE_URL } from "./testDatabase";
+
+const databaseUrl = assertTestDatabaseUrl(TEST_DATABASE_URL);
 
 test.beforeEach(async ({ context }) => {
   await context.clearCookies();

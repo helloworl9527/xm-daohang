@@ -2,7 +2,6 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { AskExperience } from "@/app/(public)/_components/AskBar";
 import { DirectoryData } from "@/app/(public)/_components/DirectoryData";
 import { DirectoryShell } from "@/app/(public)/_components/DirectoryShell";
 import { hasCompletedAskCorpus } from "@/lib/items/publicCorpus";
@@ -21,8 +20,7 @@ export default async function PublicHomePage({ searchParams }: { searchParams: P
     <a className="skip-link" href="#public-main">{t("skip")}</a>
     <header className="public-header"><Link aria-label={t("brandLabel")} className="public-brand" href="/"><span aria-hidden="true">CZ</span><strong translate="no">{t("brand")}</strong></Link><Link className="public-admin-link" href="/admin">{t("owner")}</Link></header>
     <main className="public-main" id="public-main">
-      <DirectoryShell>{hasCommittedQuery ? null : <Suspense fallback={<section aria-busy="true" className="directory-grid directory-skeleton">{[0,1,2].map((i) => <div key={i}><span /><span /><span /></div>)}</section>}><DirectoryData /></Suspense>}</DirectoryShell>
-      <AskExperience disabledReason={disabledReason} />
+      <DirectoryShell disabledReason={disabledReason}>{hasCommittedQuery ? null : <Suspense fallback={<section aria-busy="true" className="directory-grid directory-skeleton">{[0,1,2].map((i) => <div key={i}><span /><span /><span /></div>)}</section>}><DirectoryData /></Suspense>}</DirectoryShell>
     </main>
   </div>;
 }

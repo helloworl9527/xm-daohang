@@ -45,6 +45,8 @@ describe("LibraryView", () => {
     resolveFetch(Response.json({ items: [item], nextCursor: null }));
     expect(await screen.findByRole("heading", { name: "PostgreSQL 入门" })).toBeVisible();
     expect(screen.getByText("一篇数据库索引指南。")).toBeVisible();
+    expect(screen.getAllByText("网页")).toHaveLength(2);
+    expect(document.querySelector(".library-status svg")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "查看 PostgreSQL 入门" })).toHaveAttribute(
       "href",
       `/admin/library/${item.id}`,
@@ -78,5 +80,24 @@ describe("LibraryView", () => {
     expect(await screen.findByText("没有符合当前筛选的条目")).toBeVisible();
     expect(screen.getByRole("button", { name: "清除筛选" })).toBeVisible();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps cursor pagination and appends the next page", async () => {
+    const nextItem = { ...item, id: "00000000-0000-4000-8000-000000000002", title: "下一页条目" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ items: [item], nextCursor: "next-page" }))
+      .mockResolvedValueOnce(Response.json({ items: [nextItem], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<LibraryView initialFilters={{ q: "PostgreSQL", tags: ["数据库"], status: "completed" }} />);
+
+    await screen.findByRole("heading", { name: "PostgreSQL 入门" });
+    fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+
+    expect(await screen.findByRole("heading", { name: "下一页条目" })).toBeVisible();
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/admin/api/items?q=PostgreSQL&tag=%E6%95%B0%E6%8D%AE%E5%BA%93&status=completed&cursor=next-page",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+    expect(screen.getByRole("heading", { name: "PostgreSQL 入门" })).toBeVisible();
   });
 });

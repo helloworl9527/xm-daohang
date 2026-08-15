@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, GitFork, Globe2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -11,23 +11,44 @@ function stableId(group: PublicDirectoryGroup, index: number) {
   return group.id ? `category-${group.id}` : `category-unclassified-${index}`;
 }
 
+export interface SitePresentation {
+  kind: "web" | "github";
+  hostname: string;
+}
+
+export function deriveSitePresentation(url: string): SitePresentation {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return { kind: "web", hostname: url || "?" };
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (hostname === "github.com" && parts.length >= 2 && parts[0] && parts[1]) {
+      return { kind: "github", hostname: `${parts[0]}/${parts[1]}` };
+    }
+    return { kind: "web", hostname: hostname || url || "?" };
+  } catch {
+    return { kind: "web", hostname: url || "?" };
+  }
+}
+
 export function SiteLink({ site }: { site: SiteCard }) {
+  const t = useTranslations("public");
   const [failed, setFailed] = useState(false);
-  const host = (() => { try { return new URL(site.url).hostname; } catch { return site.url; } })();
-  const label = (host.replace(/^www\./, "").at(0) ?? "?").toUpperCase();
+  const presentation = deriveSitePresentation(site.url);
   return (
-    <a className="directory-card" href={site.url} rel="noopener nofollow" target="_blank">
+    <a className={`directory-card directory-card--${presentation.kind}`} href={site.url} rel="noopener nofollow" target="_blank">
       <span className="directory-favicon" aria-hidden="true">
-        {/* Same-origin dynamic favicon bytes are already bounded and cached by the route. */}
-        {failed ? label : (
+        {presentation.kind === "github" ? <GitFork aria-hidden="true" size={21} /> : failed ? <Globe2 aria-hidden="true" size={21} /> : (
           // eslint-disable-next-line @next/next/no-img-element -- Next Image emits CSP-blocked inline styles.
           <img alt="" height="36" loading="lazy" onError={() => setFailed(true)} src={site.faviconPath} width="36" />
         )}
       </span>
       <span className="directory-card-copy">
+        <span className="directory-type">{t(`directory.${presentation.kind === "github" ? "githubType" : "webType"}`)}</span>
         <strong>{site.title?.trim() || site.url}</strong>
         {site.summary ? <span>{site.summary}</span> : null}
-        <small>{site.tags.join(" · ")}</small>
+        <small>{presentation.hostname}</small>
+        {site.tags.length ? <span className="directory-tags" aria-label={t("tagsLabel")}>{site.tags.slice(0, 3).map((tag) => <em key={tag}>{tag}</em>)}</span> : null}
       </span>
       <ExternalLink aria-hidden="true" className="directory-external" size={18} />
     </a>

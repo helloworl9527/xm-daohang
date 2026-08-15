@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ink &amp; Signal - 收藏库原型</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --ink-canvas: #F6F5F2; --ink-surface: #FFFFFF; --ink-surface-muted: #EFEEE9;
+      --ink-text: #17181A; --ink-text-muted: #686A70; --ink-line: #E4E2DC;
+      --ink-accent: #E4573D; --ink-accent-hover: #C94732; --ink-accent-soft: #FBE8E3;
+      --ink-success: #2E7D5B; --ink-warning: #B7791F; --ink-danger: #C53D3D; --ink-focus: #1669D3;
+      --ink-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --ink-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --ink-radius-sm: 4px; --ink-radius-md: 8px; --ink-shadow-float: 0 12px 30px rgb(23 24 26 / 10%);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--ink-canvas); }
+    body { margin: 0; color: var(--ink-text); background: var(--ink-canvas); font: 15px/1.5 var(--ink-font-sans); letter-spacing: 0; }
+    button, input, select { font: inherit; color: inherit; letter-spacing: 0; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid color-mix(in srgb, var(--ink-focus) 42%, transparent); outline-offset: 3px; }
+    .icon { width: 18px; height: 18px; stroke-width: 1.8; flex: 0 0 auto; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    /* Admin shell */
+    .admin-shell { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+    .sidebar {
+      position: fixed; inset: 0 auto 0 0; width: 240px; z-index: 30; display: flex; flex-direction: column;
+      padding: 22px 16px 16px; background: var(--ink-text); color: #F8F7F3;
+    }
+    .admin-brand { display: flex; align-items: center; gap: 10px; height: 38px; margin: 0 8px 24px; color: white; text-decoration: none; font-weight: 700; }
+    .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--ink-radius-sm); background: var(--ink-accent); font: 700 12px/1 var(--ink-font-mono); }
+    .nav-group + .nav-group { margin-top: 21px; }
+    .nav-label { margin: 0 10px 7px; color: #989A9F; font: 10px/1.4 var(--ink-font-mono); text-transform: uppercase; }
+    .nav-group nav { display: grid; gap: 3px; }
+    .nav-link { position: relative; min-height: 40px; display: flex; align-items: center; gap: 11px; padding: 0 10px; border-radius: var(--ink-radius-sm); color: #C9CACE; text-decoration: none; }
+    .nav-link:hover { color: white; background: rgb(255 255 255 / 7%); }
+    .nav-link[aria-current="page"] { color: white; background: rgb(255 255 255 / 10%); }
+    .nav-link[aria-current="page"]::before { content: ""; position: absolute; left: -16px; top: 9px; bottom: 9px; width: 3px; background: var(--ink-accent); }
+    .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid rgb(255 255 255 / 10%); }
+    .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; color: #AEB0B5; font-size: 12px; }
+    .footer-actions { display: flex; gap: 2px; }
+    .footer-actions button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: var(--ink-radius-sm); background: transparent; color: #C9CACE; cursor: pointer; }
+    .footer-actions button:hover { background: rgb(255 255 255 / 8%); color: white; }
+
+    .main { grid-column: 2; min-width: 0; }
+    .mobile-bar { display: none; }
+    .content { width: min(1280px, calc(100% - 64px)); margin: 0 auto; padding: 44px 0 80px; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 26px; }
+    .breadcrumb { margin-bottom: 7px; color: var(--ink-text-muted); font: 11px/1.4 var(--ink-font-mono); text-transform: uppercase; }
+    h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 650; }
+    .page-copy { margin: 7px 0 0; color: var(--ink-text-muted); }
+    .primary-button, .secondary-button, .icon-button {
+      min-height: 42px; border-radius: var(--ink-radius-md); display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    }
+    .primary-button { padding: 0 16px; border: 0; background: var(--ink-accent); color: white; font-weight: 650; }
+    .primary-button:hover { background: var(--ink-accent-hover); }
+    .secondary-button { padding: 0 13px; border: 1px solid var(--ink-line); background: var(--ink-surface); }
+    .secondary-button:hover { background: var(--ink-surface-muted); }
+    .primary-button:active, .secondary-button:active, .icon-button:active { transform: scale(.98); }
+
+    /* Filters */
+    .filters { display: grid; grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 1fr) minmax(140px, .7fr) auto; gap: 10px; padding: 14px; border-block: 1px solid var(--ink-line); }
+    .field { min-width: 0; }
+    .field label { display: block; margin: 0 0 6px 2px; color: var(--ink-text-muted); font-size: 11px; font-weight: 650; }
+    .control { position: relative; }
+    .control > .icon { position: absolute; top: 11px; left: 11px; width: 16px; color: var(--ink-text-muted); pointer-events: none; }
+    .field input, .field select { width: 100%; height: 40px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); outline: 0; }
+    .field input { padding: 0 12px 0 36px; }
+    .field select { padding: 0 32px 0 11px; }
+    .field input:focus, .field select:focus { border-color: var(--ink-focus); box-shadow: 0 0 0 3px rgb(22 105 211 / 16%); }
+    .filter-actions { align-self: end; display: flex; gap: 7px; }
+
+    /* Library rows */
+    .list-summary { display: flex; justify-content: space-between; align-items: center; margin: 23px 0 10px; color: var(--ink-text-muted); font-size: 13px; }
+    .list-summary strong { color: var(--ink-text); font-weight: 650; }
+    .density-toggle { display: inline-flex; padding: 2px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-sm); background: var(--ink-surface); }
+    .density-toggle button { width: 32px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 3px; background: transparent; color: var(--ink-text-muted); cursor: pointer; }
+    .density-toggle button[aria-pressed="true"] { background: var(--ink-surface-muted); color: var(--ink-text); }
+    .library-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .library-row {
+      display: grid; grid-template-columns: 46px minmax(0, 1fr) 245px; gap: 14px; align-items: center;
+      min-height: 110px; padding: 14px 16px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface);
+      transition: border-color 160ms ease, transform 160ms ease;
+    }
+    .library-row:hover { border-color: #C8C5BE; transform: translateY(-1px); }
+    .type-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--ink-radius-md); background: var(--ink-surface-muted); }
+    .type-icon.github { background: var(--ink-text); color: white; }
+    .type-icon.document { color: var(--ink-accent-hover); background: var(--ink-accent-soft); }
+    .item-main { min-width: 0; }
+    .item-title-row { display: flex; align-items: center; gap: 8px; }
+    .item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 650; }
+    .type-label { padding: 2px 6px; border: 1px solid var(--ink-line); border-radius: 999px; color: var(--ink-text-muted); font: 9px var(--ink-font-mono); }
+    .url { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-text-muted); font: 11px/1.5 var(--ink-font-mono); }
+    .description { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; margin-top: 8px; color: var(--ink-text-muted); font-size: 13px; }
+    .description.error { color: var(--ink-danger); }
+    .item-meta { min-width: 0; display: grid; gap: 10px; }
+    .meta-top, .meta-bottom { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+    .status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 650; }
+    .status .icon { width: 15px; height: 15px; }
+    .status.completed { color: var(--ink-success); }.status.processing { color: var(--ink-warning); }.status.failed { color: var(--ink-danger); }
+    .tag { padding: 3px 7px; border-radius: 999px; background: var(--ink-surface-muted); color: var(--ink-text-muted); font-size: 10px; }
+    time { color: var(--ink-text-muted); font: 10px var(--ink-font-mono); }
+    .detail-link { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-accent-hover); text-decoration: none; font-size: 12px; }
+    .detail-link .icon { width: 14px; }
+    .load-more { display: flex; justify-content: center; margin-top: 24px; }
+    .prototype-flag { position: fixed; right: 14px; bottom: 14px; z-index: 60; padding: 7px 10px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-sm); background: rgb(255 255 255 / 92%); color: var(--ink-text-muted); box-shadow: var(--ink-shadow-float); font: 11px var(--ink-font-mono); }
+
+    .scrim { display: none; position: fixed; inset: 0; z-index: 25; background: rgb(23 24 26 / 36%); }
+    .scrim.is-open { display: block; }
+
+    @media (max-width: 1100px) {
+      .content { width: calc(100% - 40px); }
+      .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .filter-actions { align-self: end; }
+      .library-row { grid-template-columns: 42px minmax(0, 1fr) 190px; }
+    }
+    @media (max-width: 720px) {
+      body.nav-open { overflow: hidden; }
+      .admin-shell { display: block; }
+      .sidebar { transform: translateX(-102%); width: min(82vw, 292px); box-shadow: var(--ink-shadow-float); transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
+      .sidebar.is-open { transform: translateX(0); }
+      .main { display: block; }
+      .mobile-bar { position: sticky; top: 0; z-index: 20; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--ink-line); background: rgb(246 245 242 / 94%); backdrop-filter: blur(14px); }
+      .mobile-bar strong { flex: 1; }
+      .icon-button { width: 40px; height: 40px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); display: grid; place-items: center; cursor: pointer; }
+      .content { width: calc(100% - 28px); padding: 28px 0 64px; }
+      .page-head { align-items: flex-start; }
+      h1 { font-size: 26px; }
+      .page-copy { max-width: 25ch; }
+      .page-head .primary-button span { display: none; }
+      .page-head .primary-button { width: 44px; padding: 0; }
+      .filters { grid-template-columns: 1fr; padding-inline: 0; }
+      .filter-actions { display: grid; grid-template-columns: 1fr 1fr; }
+      .library-row { grid-template-columns: 40px minmax(0, 1fr); align-items: start; padding: 14px; }
+      .item-meta { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--ink-line); }
+      .meta-top { justify-content: flex-start; flex-wrap: wrap; }.meta-bottom { justify-content: flex-end; }
+      .description { -webkit-line-clamp: 2; }
+      .prototype-flag { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 1ms !important; } .library-row:hover { transform: none; } }
+    @media (prefers-reduced-transparency: reduce) { .mobile-bar { background: var(--ink-canvas); backdrop-filter: none; } }
+  </style>
+</head>
+<body>
+  <!-- Throwaway review prototype: navigation and filters are local-only. -->
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar" aria-label="后台导航">
+      <a class="admin-brand" href="public-home.html"><span class="brand-mark">CZ</span><span>收藏库</span></a>
+      <div class="nav-group"><p class="nav-label">收藏库</p><nav><a class="nav-link" href="#"><i data-lucide="plus-circle" class="icon"></i>添加收藏</a><a class="nav-link" aria-current="page" href="admin-library.html"><i data-lucide="library" class="icon"></i>全部收藏</a></nav></div>
+      <div class="nav-group"><p class="nav-label">整理</p><nav><a class="nav-link" href="#"><i data-lucide="folder-tree" class="icon"></i>分类工作台</a></nav></div>
+      <div class="nav-group"><p class="nav-label">系统</p><nav><a class="nav-link" href="#"><i data-lucide="bot" class="icon"></i>模型与嵌入</a><a class="nav-link" href="#"><i data-lucide="sliders-horizontal" class="icon"></i>运行设置</a></nav></div>
+      <div class="sidebar-footer"><div class="footer-row"><span>个人工作区</span><div class="footer-actions"><button title="切换语言" aria-label="切换语言"><i data-lucide="languages" class="icon"></i></button><button title="退出登录" aria-label="退出登录"><i data-lucide="log-out" class="icon"></i></button></div></div></div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main">
+      <header class="mobile-bar"><button class="icon-button" id="menu-button" aria-label="打开导航" aria-expanded="false"><i data-lucide="menu" class="icon"></i></button><strong>CZ 收藏库</strong><button class="icon-button" aria-label="添加收藏"><i data-lucide="plus" class="icon"></i></button></header>
+      <div class="content">
+        <header class="page-head"><div><div class="breadcrumb">收藏库 / 全部收藏</div><h1>全部收藏</h1><p class="page-copy">查看、筛选和维护已经加入知识库的内容。</p></div><button class="primary-button"><i data-lucide="plus" class="icon"></i><span>添加收藏</span></button></header>
+
+        <!-- Filter rail -->
+        <form class="filters" id="filters">
+          <div class="field"><label for="keyword">关键词</label><div class="control"><i data-lucide="search" class="icon"></i><input id="keyword" placeholder="标题、摘要或 URL"></div></div>
+          <div class="field"><label for="tags">标签</label><div class="control"><i data-lucide="tag" class="icon"></i><input id="tags" placeholder="React, 性能"></div></div>
+          <div class="field"><label for="status">处理状态</label><select id="status"><option>全部状态</option><option>已完成</option><option>处理中</option><option>失败</option></select></div>
+          <div class="filter-actions"><button class="primary-button" type="submit">筛选</button><button class="secondary-button" type="reset">清除</button></div>
+        </form>
+
+        <div class="list-summary"><span><strong id="item-count">48</strong> 条收藏 · 最近更新于 12 分钟前</span><div class="density-toggle" aria-label="列表密度"><button aria-pressed="true" title="紧凑列表"><i data-lucide="rows-3" class="icon"></i></button><button aria-pressed="false" title="宽松列表"><i data-lucide="list" class="icon"></i></button></div></div>
+
+        <!-- Compact library rows -->
+        <ul class="library-list">
+          <li class="library-row" data-status="completed"><div class="type-icon github"><i data-lucide="github" class="icon"></i></div><div class="item-main"><div class="item-title-row"><span class="item-title">vercel/next.js</span><span class="type-label">GITHUB</span></div><div class="url">github.com/vercel/next.js</div><div class="description">React Web 框架，包含 App Router、服务端组件、缓存与部署能力。</div></div><div class="item-meta"><div class="meta-top"><span class="status completed"><i data-lucide="circle-check" class="icon"></i>已完成</span><span class="tag">Next.js</span><span class="tag">React</span></div><div class="meta-bottom"><time>今天 14:32</time><a class="detail-link" href="admin-detail.html">查看详情<i data-lucide="chevron-right" class="icon"></i></a></div></div></li>
+          <li class="library-row" data-status="completed"><div class="type-icon"><i data-lucide="globe-2" class="icon"></i></div><div class="item-main"><div class="item-title-row"><span class="item-title">Web.dev 性能指南</span><span class="type-label">WEB</span></div><div class="url">web.dev/learn/performance</div><div class="description">从加载、渲染和交互三个阶段系统解释 Web 性能优化方法。</div></div><div class="item-meta"><div class="meta-top"><span class="status completed"><i data-lucide="circle-check" class="icon"></i>已完成</span><span class="tag">性能</span><span class="tag">前端</span></div><div class="meta-bottom"><time>昨天 21:08</time><a class="detail-link" href="admin-detail.html">查看详情<i data-lucide="chevron-right" class="icon"></i></a></div></div></li>
+          <li class="library-row" data-status="processing"><div class="type-icon document"><i data-lucide="file-text" class="icon"></i></div><div class="item-main"><div class="item-title-row"><span class="item-title">2026 产品规划讨论稿.pdf</span><span class="type-label">DOC</span></div><div class="url">file:///documents/product-roadmap-2026.pdf</div><div class="description">正在提取正文并生成摘要，当前内容仍可稍后回来查看。</div></div><div class="item-meta"><div class="meta-top"><span class="status processing"><i data-lucide="clock-3" class="icon"></i>处理中</span><span class="tag">产品</span></div><div class="meta-bottom"><time>3 分钟前</time><a class="detail-link" href="admin-detail.html">查看详情<i data-lucide="chevron-right" class="icon"></i></a></div></div></li>
+          <li class="library-row" data-status="failed"><div class="type-icon"><i data-lucide="globe-2" class="icon"></i></div><div class="item-main"><div class="item-title-row"><span class="item-title">内部设计规范归档</span><span class="type-label">WEB</span></div><div class="url">design.example.local/archive</div><div class="description error">抓取失败：目标站点拒绝连接。可在详情页检查链接或重新抓取。</div></div><div class="item-meta"><div class="meta-top"><span class="status failed"><i data-lucide="circle-alert" class="icon"></i>失败</span><span class="tag">设计</span></div><div class="meta-bottom"><time>8 月 10 日</time><a class="detail-link" href="admin-detail.html">处理问题<i data-lucide="chevron-right" class="icon"></i></a></div></div></li>
+        </ul>
+        <div class="load-more"><button class="secondary-button"><i data-lucide="chevrons-down" class="icon"></i>加载更多</button></div>
+      </div>
+    </main>
+  </div>
+  <div class="prototype-flag">THROWAWAY PROTOTYPE · LIBRARY</div>
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const scrim = document.getElementById('scrim');
+    const menuButton = document.getElementById('menu-button');
+    function setMenu(open) {
+      sidebar.classList.toggle('is-open', open); scrim.classList.toggle('is-open', open); document.body.classList.toggle('nav-open', open);
+      menuButton.setAttribute('aria-expanded', String(open)); menuButton.setAttribute('aria-label', open ? '关闭导航' : '打开导航');
+      menuButton.querySelector('i').setAttribute('data-lucide', open ? 'x' : 'menu'); lucide.createIcons();
+      if (open) sidebar.querySelector('a').focus();
+    }
+    menuButton.addEventListener('click', () => setMenu(!sidebar.classList.contains('is-open')));
+    scrim.addEventListener('click', () => setMenu(false));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && sidebar.classList.contains('is-open')) { setMenu(false); menuButton.focus(); } });
+    document.querySelectorAll('.density-toggle button').forEach((button) => button.addEventListener('click', () => document.querySelectorAll('.density-toggle button').forEach((item) => item.setAttribute('aria-pressed', String(item === button)))));
+    document.getElementById('filters').addEventListener('submit', (event) => { event.preventDefault(); document.getElementById('item-count').textContent = document.getElementById('status').value === '失败' ? '1' : '4'; });
+    document.getElementById('filters').addEventListener('reset', () => { setTimeout(() => document.getElementById('item-count').textContent = '48'); });
+    lucide.createIcons();
+  </script>
+</body>
+</html>

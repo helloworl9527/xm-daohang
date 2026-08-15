@@ -108,3 +108,66 @@
 - 本方案**不存在绝对无风险**的声明；上述残余项与假设已如实列出。
 
 下一步交由用户在“继续改进 / 接受风险，开始实施 / 暂停流程”三者中决定。
+
+---
+
+# 实施后独立审计（M2）
+
+> 本章节为**实施后**独立、只读审计，追加于计划前审计之后（不覆盖上文）。
+> 审计角色：Claude 最终审计员（全新视角，未参与实施与阶段验收）。
+> 审计时间：2026-08-13。实现 HEAD：`114c272c3a0bf9074060fe2cba256ca1d81f7e77`（git 工作树干净，仅 .workflow 元数据变更）。
+> 方法：从**真实代码**独立复核，不只信实施报告/阶段验收/台账；对最关键的发布门禁**实机执行取证**。
+> 事实源：requirements-nav-enhancement.md v0.6、ui-spec-nav-enhancement.md、implementation-plan-nav-enhancement.md rev11、review-ledger.md、stage-acceptance-nav-m2-task*.md、implementation-report.md、代码库 `src/`。
+
+## A. 独立取证结果（真实代码 + 实机执行）
+
+| 复核项 | 结论 | 关键证据（文件:行 / 命令） |
+| --- | --- | --- |
+| AR-M2-01 fail-closed + destructive apply TOCTOU | **忠实且并发安全** | `apply.ts:213-238` 对 destructive 分类下 item 行 `FOR UPDATE` → 对 categories 行 `FOR UPDATE`（借 FK KEY-SHARE 冲突阻止并发挂接新条目）→ 锁下重读 `categoryManual` 判 `MANUAL_CATEGORY_CONFLICT`；`afterImpactLock` 测试缝隙。仅移动 `categoryManual=false`（`:276-279`）。显式 CRUD 删除 `store.ts:186-211` 依赖 FK SET NULL 且保留 `category_manual`。 |
+| worker 三门禁（initialized/version/manual 含人工 NULL） | **闭合** | `processItem.ts:102-117` type/manual/initialized 前置门禁；完成事务内 `FOR SHARE` 锁 settings（`:326-334`，与所有 taxonomy 写的 `FOR UPDATE` 互斥）+ version 复核（`:344`）+ 候选存在性复核（`:347-350`）+ `categoryManual=false` 二次防护（`:373-388`）；分类失败永不进 `failRequest`，status 恒 `completed`（`:363`）。 |
+| F202 apply 短事务/幂等/版本/superseded | **闭合** | `apply.ts` `lockCategoryState` 串行化、`requestKey` 幂等（`:189-191`）、`STALE_TAXONOMY`（`:192`）、`advanceCategoryVersion` 整批 +1（`:287`）、旧 reclassifying run 置 superseded（`:288-292`）、pg-boss publish 在事务提交后（`:327-333`）、server-derived counts（`:293-299`）。 |
+| F202 reclassify 失败派生/retry 幂等/恢复 | **闭合** | `reclassify.ts`：`failed_count` 由 `count(f.item_id)` 派生（`:88-96`，NAV-023）；append-only `categoryRunRetryRequests` 永久多请求幂等（`:168-196`，NAV-022）；三处 `FOR SHARE` version 复核→superseded；cursor 单调防重复计数（`:361-367`）；候选存在性防 FK（`:411-429`）；manual/非 eligible/已删→resolved_skipped 并删 failure 行；`publishPendingCategoryReclassifications` 崩溃恢复扫描器已装配于 worker（`worker/index.ts:99`）。 |
+| F203 分类器 AI 边界 | **闭合** | `classify.ts`：0.65 阈值、strict zod、输出字节上限、prompt-injection 防御（`:69-72` 不可信数据+禁遵指令+仅选现有 id）、候选白名单校验（`:117-122`）、null/NONE/低置信→unclassified、异常→upstream_error/invalid_output 不抛主流程。 |
+| F209 字面+参数化+转义+独立 fail-closed 限流+零 AI | **闭合** | `publicCorpus.ts:37-51` `replace(/[\\%_]/g,'\\$&')`+显式 `escape '\\'`+参数化 `unnest…EXISTS`+仅 completed web/github+确定排序；`keyword.ts` NFKC/1-100/拒控制字符、`getTrustedClientIp` 异常→503、search 异常→503（非空结果）、no-store；`publicKeyword.ts` 独立 `kw:*` scope、`FOR UPDATE` 原子、`IP_HASH_KEY<32B`/DB 异常→`SEARCH_UNAVAILABLE`（fail-closed）、不查模型 readiness、不占 ask 额度。零 retrieve/embedding/LLM import。 |
+| favicon 同源 + SSRF/MIME/128KiB + 不放宽 CSP | **闭合** | `siteFavicon.ts` 仅按 item id 取 eligible、`deriveFaviconUrl` 由 origin 派生 `/favicon.ico`（拒 `null` origin、不接任意 URL/host）、`safeFetch` 128KiB/5s/图片 MIME（排除 SVG/HTML）、异常→本地 fallback、7d/1h 缓存+请求合并；`favicon/[id]/route.ts` UUID 校验+`nosniff`+`eligible?200:404`；`middleware.ts:11` CSP `img-src 'self' data:` **未放宽**。 |
+| 首页无 hero/daily + 目录空组/未分类末位 + 问答 doc-only(NAV-005) | **闭合** | `page.tsx` 无 hero/daily、无 `pickDailyForNow`；`hasCompletedAskCorpus`（`publicCorpus.ts:17-24`，含全类型/doc）修正判空；`AskExperience` 为 `DirectoryShell` 的 sibling（目录失败不波及搜索/问答）；`publicDirectory.ts` 2 查询有界、空组保留、未分类固定末位。 |
+| 管理端鉴权管线复用 + ETag 并发 | **闭合** | 全部 category 写路由 `requireAdminWrite`（session→Origin→CSRF→Content-Type→Zod），GET `requireAdminApi`+no-store；`items/[id]/route.ts:56-57` 强制 If-Match→428、返回新 ETag；`items/[id]/category/route.ts` 存在。 |
+| 脱敏埋点 | **闭合** | `logger.ts` 递归/循环安全 sanitizer、敏感 key 脱敏、URL userinfo+敏感 query 清除、Error allowlist；各事件仅记 outcome/count/ms/version/errorCode，无内容/IP/URL。 |
+| **PA-01 no-DATABASE_URL build 门禁（实机执行）** | **通过·未回归** | `env -u DATABASE_URL corepack pnpm build` → **exit 0**；`next build` 编译成功、静态页 14/14、含 `/search` `/favicon/[id]`；`verify-production-artifact.mjs --prune` 成功（排除 15 devDeps、无 import 期 DB 访问报错）。 |
+| 迁移 0003 增量性 | **通过** | `0003_categories.sql` 13 条 create/add；无 drop table/drop column/alter column type/truncate/delete；0000~0002 未改。 |
+
+结论：实施后从真实代码独立复核，**未发现未解决的 Critical / High / Medium 缺陷**；实施报告与阶段验收的自述均能被独立证据支持，未见门禁“静默通过”。计划前审计的 FA-M2-02（reclassify 恢复扫描器触发点）已由 `publishPendingCategoryReclassifications` 装配落地而**消解**。
+
+## B. 残余问题与风险（实施后）
+
+### PI-M2-01 —（发布必答项 · 环境阻塞）ENV-M2-DOCKER：容器构建/编排/容器内恢复未验证
+- 严重级别：**Medium（发布路径验证缺口，环境阻塞，非代码缺陷）**
+- 证据：本机 `command -v docker` → **不存在**（`DOCKER_ABSENT`）。实施报告与 handoff 均声明未执行真实 Docker build / docker-compose up / 容器内 restore，仅验证原生 `pg_dump→pg_restore` 等价恢复。
+- 分析：应用层代码、迁移、原生 DB 恢复均已验证；但**容器化部署链路（Dockerfile 构建、compose 编排、容器内 restore smoke）在本机无法执行、因而未被证明**。这与 M1 的同类环境阻塞一致（M1 亦因此为 conditional go）。
+- 影响：无法宣称容器部署链路已验证；若生产采用容器部署，存在未覆盖的构建/编排/恢复风险（如镜像内缺依赖、compose 服务连通、容器内 restore 权限/路径）。
+- 建议：**作为发布决策的必答项交用户**。发布前须在具备 Docker 的环境（staging/CI）执行：容器 build → compose up（4 服务 live/ready）→ 容器内 backup/restore smoke，退出码与恢复内容留证；在此之前，容器部署路径视为未验证。若用户以原生（非容器）方式部署，则该项影响相应降级。
+
+### PI-M2-02 —（Low）500+50 性能门禁未在本次独立复核中实机复跑
+- 严重级别：Low
+- 证据：性能与全量测试（Vitest 420、Playwright 26、500+50 基准、keyword p95）需 `DATABASE_URL` 与浏览器环境；本次独立审计以真实代码逻辑复核为主，未实机复跑该套件，依据实施报告记录（目录固定 2 查询、keyword p95 ~1–4ms）。
+- 影响：目录/关键词查询在代码层已确认查询数有界、参数化、确定排序（见 A 表），性能风险低；但“数百条 p95<1s”的实测数据本次未独立复现。
+- 建议：以实施报告数据为准接受；若用户需要更强保证，可在集成环境复跑 Task 13 性能门禁。规模远超“数百条”时 F209 前置通配无索引仍会退化（沿用计划期 FA-M2-03）。
+
+### PI-M2-03 —（Cosmetic）关键词校验文案与实际下限不一致
+- 严重级别：Cosmetic
+- 证据：`keyword.ts:16-35` 校验下限为 **1** 字符（`min(1)`），但校验失败文案为“请输入至少 **2** 个字符的关键词”。
+- 影响：无安全/功能影响，仅错误提示措辞与实际规则不符。
+- 建议：实施方后续将文案改为“至少 1 个字符”或将下限调整为 2，两端一致即可；不阻塞发布。
+
+### 沿用/更新的计划期残余
+- **AR-M2-01**（用户已接受）：AI merge/delete 遇人工条目 fail-closed 阻断——实施忠实落地且并发安全（见 A 表），无需再决。
+- FA-M2-04（Cosmetic）：需求文件头 v0.5 与正文 v0.6 文案标注不一致；无行为影响，维持不改审批产物。
+
+## C. 结论（实施后）：**Conditional Go（有条件通过）**
+
+- 已实现系统在**应用逻辑、数据模型、安全与 fail-closed 门禁**层面，从真实代码独立复核**忠实于**已批准需求/UI/rev11 计划，未发现未解决 Critical/High/Medium 缺陷；最关键的 PA-01 build 门禁经**实机执行**确认 exit 0、未回归。
+- **唯一发布必答项 PI-M2-01（ENV-M2-DOCKER）**：容器构建/编排/容器内恢复因本机无 Docker 而**未验证**。这是环境阻塞导致的发布路径验证缺口（非代码缺陷），与 M1 同类。发布前应在 Docker 环境补验，或由用户在知情下就部署方式作出决定。
+- PI-M2-02 为 Low、PI-M2-03 为 Cosmetic，均不阻塞发布。
+- 本审计**不作绝对无风险声明**；上述残余项与环境阻塞已如实列出。
+
+**建议交用户做发布 go/no-go**：若用户接受“容器链路留待 Docker 环境补验（或采用原生部署）”，则可发布（conditional go 转 go）；否则应在补验容器链路后再发布。审计员只写审计与状态/交接，不改产品代码/需求/UI/计划。

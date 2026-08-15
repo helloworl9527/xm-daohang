@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, type ButtonHTMLAttributes, type PointerEvent } from "react";
+import { useEffect, useState, type ButtonHTMLAttributes, type PointerEvent } from "react";
 
 export type PressableProps = ButtonHTMLAttributes<HTMLButtonElement>;
 
-export function Pressable({ className = "", onPointerDown, onPointerUp, onPointerCancel, onPointerLeave, ...props }: PressableProps) {
+export function Pressable({ className = "", disabled = false, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave, ...props }: PressableProps) {
   const [pressed, setPressed] = useState(false);
 
+  useEffect(() => {
+    if (disabled) setPressed(false);
+  }, [disabled]);
+
   const startPress = (event: PointerEvent<HTMLButtonElement>) => {
-    setPressed(true);
+    if (!disabled) setPressed(true);
     onPointerDown?.(event);
   };
 
@@ -21,7 +25,8 @@ export function Pressable({ className = "", onPointerDown, onPointerUp, onPointe
   return (
     <button
       className={`pressable ${className}`.trim()}
-      data-pressed={pressed ? "true" : undefined}
+      data-pressed={pressed && !disabled ? "true" : undefined}
+      disabled={disabled}
       onPointerCancel={endPress(onPointerCancel)}
       onPointerDown={startPress}
       onPointerLeave={endPress(onPointerLeave)}

@@ -4,7 +4,9 @@ import { Pool } from "pg";
 
 import { encryptSecret } from "../../src/lib/crypto/secretbox";
 
-const databaseUrl = "postgresql://apple@127.0.0.1:5432/collection_system_test";
+import { assertTestDatabaseUrl, TEST_DATABASE_URL } from "./testDatabase";
+
+const databaseUrl = assertTestDatabaseUrl(TEST_DATABASE_URL);
 const itemId = "00000000-0000-4000-8000-000000000031";
 
 test.beforeEach(async () => {

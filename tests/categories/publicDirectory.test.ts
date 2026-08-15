@@ -45,6 +45,7 @@ describe("public directory and ask corpus", () => {
        returning id,name`,
     );
     const byName = new Map(categories.rows.map((row) => [row.name, row.id]));
+    const ownedCategoryIds = new Set(categories.rows.map((row) => row.id));
     await insertItem("a1000000-0000-4000-8000-000000000001", "web", "Zulu", "completed", byName.get("Alpha Filled"));
     await insertItem("a1000000-0000-4000-8000-000000000002", "github", "Alpha", "completed", byName.get("Alpha Filled"));
     await insertItem("a1000000-0000-4000-8000-000000000003", "web", "Middle");
@@ -52,13 +53,14 @@ describe("public directory and ask corpus", () => {
     await insertItem("a1000000-0000-4000-8000-000000000005", "web", "Excluded pending", "processing");
 
     const groups = await getPublicDirectory();
-    const ours = groups.filter((group) => group.name?.includes("Empty") || group.name?.includes("Filled") || group.name === "First");
+    const ours = groups.filter((group) => group.id !== null && ownedCategoryIds.has(group.id));
     expect(ours.map((group) => group.name)).toEqual(["Alpha Filled", "First", "Zulu Empty"]);
     expect(ours.find((group) => group.name === "Zulu Empty")?.sites).toEqual([]);
     expect(ours.find((group) => group.name === "Alpha Filled")?.sites.map((site) => site.title)).toEqual(["Alpha", "Zulu"]);
     expect(groups.at(-1)).toMatchObject({ id: null, name: null });
-    expect(groups.at(-1)?.sites.map((site) => site.id)).toEqual(["a1000000-0000-4000-8000-000000000003"]);
-    expect(groups.at(-1)?.sites[0]?.faviconPath).toBe("/favicon/a1000000-0000-4000-8000-000000000003");
+    const ownedUnclassified = groups.at(-1)?.sites.filter((site) => site.url.startsWith(`https://${PREFIX}`));
+    expect(ownedUnclassified?.map((site) => site.id)).toEqual(["a1000000-0000-4000-8000-000000000003"]);
+    expect(ownedUnclassified?.[0]?.faviconPath).toBe("/favicon/a1000000-0000-4000-8000-000000000003");
   });
 
   it("uses exactly two bounded directory queries", async () => {
@@ -75,11 +77,11 @@ describe("public directory and ask corpus", () => {
     expect(calls[1]).toContain("order by items.title, items.url, items.id");
   });
 
-  it("keeps ask corpus available for doc-only completed content while directory is empty", async () => {
+  it("keeps ask corpus available for doc-only completed content without exposing it in directory", async () => {
     await insertItem("a2000000-0000-4000-8000-000000000001", "doc", "Only document");
     expect(await hasCompletedAskCorpus()).toBe(true);
     const groups = await getPublicDirectory();
-    expect(groups.every((group) => group.sites.length === 0)).toBe(true);
-    expect(groups.at(-1)).toMatchObject({ id: null, name: null, sites: [] });
+    const ownedSites = groups.flatMap((group) => group.sites).filter((site) => site.url.startsWith(`https://${PREFIX}`));
+    expect(ownedSites).toEqual([]);
   });
 });

@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import argon2 from "argon2";
 import { Pool } from "pg";
 
-const databaseUrl = "postgresql://apple@127.0.0.1:5432/collection_system_test";
+import { assertTestDatabaseUrl, TEST_DATABASE_URL } from "./testDatabase";
+
+const databaseUrl = assertTestDatabaseUrl(TEST_DATABASE_URL);
 
 test.beforeEach(async () => {
   const pool = new Pool({ connectionString: databaseUrl });
@@ -73,9 +75,8 @@ test("admin filters the library and recovers from a list error", async ({ page }
   await page.goto("/admin/library");
   await firstRequestStarted;
   await expect(page.locator(".library-skeleton-row")).toHaveCount(3);
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   await page.screenshot({
-    path: `.workflow/screenshots/t15-admin-library-loading-${suffix}.png`,
+    path: `.workflow/screenshots/ink-signal/phase3-admin-library-loading-${testInfo.project.name}.png`,
     fullPage: true,
   });
   releaseFirstRequest();
@@ -84,6 +85,9 @@ test("admin filters the library and recovers from a list error", async ({ page }
   await expect(page.getByRole("heading", { name: "PostgreSQL 设计" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "向量检索" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "处理中条目" })).toBeVisible();
+  await expect(page.locator(".library-item-type--github svg")).toBeVisible();
+  await expect(page.locator(".library-status--processing svg")).toBeVisible();
+  await expect(page.getByRole("link", { name: "添加收藏" })).toBeVisible();
   consoleErrors.length = 0;
 
   await page.getByLabel("关键词").fill("PostgreSQL");
@@ -97,7 +101,7 @@ test("admin filters the library and recovers from a list error", async ({ page }
   await expect(page.getByRole("heading", { name: "向量检索" })).toHaveCount(0);
 
   await page.screenshot({
-    path: `.workflow/screenshots/t15-admin-library-${suffix}.png`,
+    path: `.workflow/screenshots/ink-signal/phase3-admin-library-${testInfo.project.name}.png`,
     fullPage: true,
   });
 

@@ -10,7 +10,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
     <div className="admin-shell">
       <a className="skip-link" href="#admin-main">{t("skip")}</a>
       <AdminNav />
-      <div id="admin-main">{children}</div>
+      <div className="admin-main" id="admin-main">{children}</div>
     </div>
   );
 }

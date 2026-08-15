@@ -563,3 +563,205 @@
 - 依据：5 个允许周期内收敛；NAV-001～NAV-023 均有证据和 fixed 处置；Critical/High/Medium/Low 未解决均为 0；rev11 最新完整复审无新增 Medium 以上 finding；量表 10/10 Pass。
 - 边界：本阶段仅修改 `.workflow` 方案、台账、状态与交接产物，未实施、提交或部署产品代码。
 - 工作流校验：2026-08-11T09:07:47+08:00 运行 `python3 /Users/apple/Downloads/new-shoucang/.codex/skills/project-delivery-workflow/scripts/validate_workflow.py /Users/apple/Downloads/new-shoucang/xm-daohang`，退出码 0，输出 `PASS: workflow stage=codex_accepted revision=11`。
+# 前端视觉重设计（M3 · Ink & Signal）Codex 方案审查
+
+> M3 使用独立事实源 `docs/visual-redesign-proposal.md`、已确认原型 `docs/preview/` 与唯一 canonical `docs/implementation-plan.md`。本章节只追加 M3 历史，不修改上方 M1/M2 结论或 M2 未决发布决策。
+
+## M3 Cycle 1（完整分析：plan rev1）
+- 时间：2026-08-13T08:30:00+08:00。
+- 状态：findings_recorded；已修订为 rev2 并从头复审。
+- 分析基线：M3 plan rev1、已批准 Ink & Signal 方向 A、三份原型、产品代码 HEAD `114c272c3a0bf9074060fe2cba256ca1d81f7e77`。
+- 量表：acceptance-rubric 1～10 全量检查；安全边界、权限/数据隔离、认证、接口 fail-closed、测试数据库 fail-closed 单独检查。
+- 修订前未解决：critical=0 / high=2 / medium=5 / low=0。
+
+### INK-001 — High — 零破坏性 diff 只检查工作区，无法发现分阶段提交后的越界改动
+- 证据：rev1 要求每阶段独立提交，但最终仅运行不含 commit range 的 `git diff -- src/app/**/route.ts ...`；提交后工作区为空时，即使 route/items/search/schema/migration 已被改动也会通过，且 zsh glob 未引用。
+- 影响需求：M3 零破坏性约束；量表 3、4、7、9、10。
+- 影响：本里程碑最重要的 API/DTO/数据层不变门禁可能产生假阴性。
+- 修复建议：固定 M3 base HEAD；每阶段及最终同时检查 `M3_BASE_HEAD..HEAD` 和工作区，使用 pathspec 与 `--exit-code`，基线不是祖先时 fail closed。
+- 处置：fixed（plan rev2：新增跨阶段零破坏性门禁及停止条件）。
+
+### INK-002 — High — 搜索 URL 状态与问答本地状态合并缺少可实现的竞态合同
+- 证据：真实 `DirectoryShell` 在 URL `q` effect 中拥有 `/search` AbortController，`AskExperience` 独立拥有 `/ask` 状态；rev1 只写单一 draft/模式切换与“复用状态机”，未定义 URL 何时回写 draft、请求所有权、跨模式取消、stale success/error/limited 的落地条件。
+- 影响需求：批准 UI §2.3；量表 3、6、7、9。
+- 影响：切换模式或前进/后退时可能误发请求、旧 URL 覆盖问题、陈旧响应覆盖当前结果。
+- 修复建议：单一 reducer 与请求所有权；按模式独立结果；递增 request id + 两个 AbortController；明确 URL 同步、取消和 stale-response 规则并以单测/E2E 锁定。
+- 处置：fixed（plan rev2：状态、转换、取消、URL 同步与 fail-closed readiness 已明确）。
+
+### INK-003 — Medium — E2E 清表缺少测试库 fail-closed 门禁
+- 证据：`playwright.config.ts` 与多个 E2E spec 分别硬编码连接串，fixture 会 delete/alter 数据；rev1 只在风险文字说“只能连接 collection_system_test”，没有统一验证或负向测试。
+- 影响需求：安全/数据隔离；量表 5、7、8、10。
+- 影响：后续改配置或复用连接串时可能在错误数据库执行迁移、seed、清表。
+- 修复建议：唯一测试库 helper，精确校验本机 host + `/collection_system_test`，webServer/Pool/迁移前统一调用，错误 URL 负向测试，禁止复用外部 server。
+- 处置：fixed_in_rev2_but_repair_incomplete（见 INK-008）。
+
+### INK-004 — Medium — GitHub 类型推导不足以安全处理非法/非 HTTP/不完整 URL
+- 证据：真实 `SiteLink` 对 hostname 有 try/catch，但 rev1 新逻辑仅描述 `new URL(site.url).hostname === "github.com"`；未限制协议、`www`、owner/repo path，也未规定解析失败后的展示字段。
+- 影响需求：批准 UI §2.4；量表 3、6、7。
+- 影响：展示逻辑可能抛错中断整个目录，或把非仓库 URL错误标为 GitHub。
+- 修复建议：单一纯函数，try/catch、HTTP(S)、规范 hostname、至少两段 path；所有失败回退 web 且不重写导航 URL。
+- 处置：fixed（plan rev2）。
+
+### INK-005 — Medium — sticky/fixed/dialog 层级没有固定表
+- 证据：真实 CSS 已存在 locale=50、skip=100、settings sticky=20、dialog=80、ask dock=45；rev1 仅要求“统一 offset 和 z-index”，实现者仍可逐组件加高值。
+- 影响需求：三视口 UI 与可访问性；量表 6、9、10。
+- 影响：顶部栏、分类索引、语言切换、抽屉与 dialog 可能互相遮挡。
+- 修复建议：定义唯一 z-index token 表与使用者，合约测试扫描表外数字。
+- 处置：fixed（plan rev2）。
+
+### INK-006 — Medium — 移动抽屉焦点隔离与恢复合同不完整
+- 证据：rev1 只要求“focus 进入、Escape 返回、滚动锁定”；未要求关闭导航不可聚焦、Tab 循环、背景 inert、路由/卸载清理。真实根级 LocaleSwitcher 为 fixed，可能留在抽屉焦点路径外。
+- 影响需求：批准 UI §3.1、键盘可达性；量表 5、6、7。
+- 影响：键盘焦点可逃逸到遮罩后，关闭后焦点丢失或 body 永久锁滚动。
+- 修复建议：关闭时 inert/卸载；打开时焦点圈、背景 inert；所有关闭路径 focus return；卸载/路由变化恢复副作用。
+- 处置：fixed（plan rev2）。
+
+### INK-007 — Medium — API/鉴权/消息/公开 doc 不变量只有声明，验证映射不完整
+- 证据：rev1 阶段命令以组件单测为主；真实仓库已有 keyword/ask/admin API 集成测试、字典 key 合约和 doc-only E2E，但计划未把它们列为跨阶段接口门禁。原型还有退出登录，rev1 AdminNav 未明确复用既有 `logoutAction`。
+- 影响需求：API/DTO 不变、公开数据隔离、双语一致、管理端认证；量表 2、4、5、7。
+- 影响：视觉改 DOM 时可能改变 CSRF/ETag/no-store/error mapping，漏英文 key、公开 doc 外泄或做出伪客户端登出。
+- 修复建议：映射现有集成测试；严格双语叶子 key；doc-only/目录查询回归；退出复用 server action，session 不下放客户端。
+- 处置：fixed（plan rev2）。
+
+### Cycle 1 修订与从头复审（plan rev2）
+- 修订内容：固定 base 的双 diff 门禁；显式 discovery reducer/竞态合同；安全 GitHub URL 推导；z-index token 表；抽屉 inert/focus/清理；复用 logoutAction；补充 API、鉴权、字典、公开数据隔离测试映射；加入测试库 helper 的全局要求。
+- 代码事实核验：`--ink-*` 与现有 `--color-ink` 无同名；公开目录/关键词 SQL 均显式 `items.type in ('web','github')`，问答 corpus 检查包括 doc；受限 route/items/search/schema/migration 在 M3 base 至当前 HEAD 无 diff；base 是当前 HEAD 的祖先。
+- rev2 从头复审新增 Medium 以上：1（INK-008）。
+- 修订后未解决：critical=0 / high=0 / medium=1 / low=0。
+
+### INK-008 — Medium — 测试库 helper 没有文件归属与全链路迁移任务
+- 证据：rev2 全局门禁要求统一 helper，但阶段 1 文件清单未新增 helper、未列出现有含 Pool/seed 的 E2E spec、未提供错误 URL 负向测试；最终 db:migrate 仍直接使用字面连接串而未先调用断言。
+- 影响需求：测试数据隔离；量表 5、7、8、9。
+- 影响：要求不可直接执行，迁移/清表仍可能绕过 fail-closed 保护。
+- 修复建议：列出 helper、guard 单测和全部现有 DB E2E 文件；明确导出 API、host/path 规则、扫描唯一字面量；迁移命令先通过 helper。
+- 处置：fixed_in_rev3_but_file_inventory_incomplete（见 INK-009）。
+
+## M3 Cycle 2（修订并从头复审：plan rev3）
+- 时间：2026-08-13T08:45:00+08:00。
+- 修订：新增 `tests/e2e/testDatabase.ts`、guard 单测、E2E 连接串迁移任务与 helper 驱动的 migration 命令；revision 2 → 3。
+- 从头复审：base/pathspec、状态机、URL 推导、z-index、抽屉、API/鉴权/字典/doc 隔离修复保持成立；所有引用的既有集成测试路径均存在。
+- 最新新增 Medium 以上：3（INK-009～INK-011）。
+- 未解决：critical=0 / high=0 / medium=3 / low=0。
+
+### INK-009 — Medium — E2E DB 文件清单漏掉 admin-detail.spec.ts
+- 证据：仓库 `rg DATABASE_URL tests/e2e` 显示 8 个直接连接测试库的 spec；rev3 文件清单只列 7 个，遗漏 `tests/e2e/admin-detail.spec.ts`，却声称“上述 8 个”全部迁移。
+- 影响需求：测试数据隔离；量表 5、7、9。
+- 影响：详情 E2E 保留第二个硬编码连接串，唯一事实源扫描与验收无法同时通过。
+- 修复建议：把 admin-detail.spec.ts 纳入阶段 1 文件清单，并将文字改为可机械核对的 8 个文件。
+- 处置：open（目标 rev4）。
+
+### INK-010 — Medium — 已批准设计 token 只有名称，没有精确值
+- 证据：rev3 阶段 1 列出颜色、字体、间距、shadow token 名称，但除圆角外未写 `docs/visual-redesign-proposal.md`/原型已批准的十六进制、间距映射和 shadow 值。
+- 影响需求：方向 A Ink & Signal 视觉批准；量表 1、2、6、9。
+- 影响：实施者可以填写不同暖白、珊瑚色或尺度而仍满足 token“存在”测试，不能证明实现对应已确认原型。
+- 修复建议：在 canonical plan 写出全部已批准 token 精确值，并让 CSS contract 逐值断言。
+- 处置：open（目标 rev4）。
+
+### INK-011 — Medium — “所有旧 class 保留”没有基线比较证据
+- 证据：rev3 只让 `inkSignalContracts` 检查旧 tokens；阶段 4 允许逐段改 CSS，计划没有将 M3 base 中 CSS selector/TSX 静态 class token 与当前版本比较的测试。
+- 影响需求：M3 零破坏性旧 class 保留约束；量表 2、7、9、10。
+- 影响：视觉迁移中误删/重命名旧 class 后，类型检查和页面主路径仍可能通过，破坏既有选择器或测试/自动化依赖。
+- 修复建议：新增 baseline class contract：从固定 base blob 提取 CSS class selector 和 TSX `className` 静态 token，断言当前集合为超集；测试自身验证删除 fixture 会失败，并在每阶段运行。
+- 处置：fixed（plan rev4）。
+
+## M3 Cycle 3（修订并从头复审：plan rev4）
+- 时间：2026-08-13T23:35:00+08:00。
+- 修订：补齐 `admin-detail.spec.ts`；写入全部批准 token 精确值；新增旧 CSS/TSX class baseline 超集合同；revision 3 → 4。
+- 修订处置：INK-009 fixed；INK-010 fixed；INK-011 fixed。
+- 从头复审证据：仓库正好有 8 个直接连接测试库的 E2E spec，rev4 文件清单已全部覆盖；`git show` 可读取固定 base 的 CSS/TSX blob；TypeScript compiler API 可用；设计值逐项与 proposal/原型一致。
+- 最新新增 Medium 以上：2（INK-012～INK-013）。
+- 未解决：critical=0 / high=0 / medium=2 / low=0。
+
+### INK-012 — Medium — 旧 class 合约写了未指定来源的 CSS parser
+- 证据：rev4 要“使用 CSS parser/现有 TypeScript AST”，但项目没有 direct `postcss`/selector-parser API；计划同时禁止新增 runtime dependency。
+- 影响需求：旧 class 零破坏性；量表 7、9、10。
+- 影响：实施者可能临时加依赖、依赖传递包的内部路径，或退回脆弱正则，导致门禁不可重复。
+- 修复建议：明确复用仓库已安装的 `jsdom` CSSOM，递归遍历 stylesheet/grouping rules 的 `selectorText`；TSX 复用 direct TypeScript compiler API；不得新增依赖。
+- 处置：fixed（plan rev5：复用 direct TypeScript compiler API 与仓库已安装的 jsdom CSSOM，不新增依赖）。
+
+### INK-013 — Medium — readiness 检查后的 MODEL_UNAVAILABLE 竞态没有独立 UI 映射
+- 证据：真实 `/ask` 在请求时会再次检查 readiness/原子限流，并可返回 `503 + MODEL_UNAVAILABLE`；rev4 仅把服务端首屏 `disabledReason` 传入受控视图，仍笼统写“保留错误映射”。
+- 影响需求：批准 UI 的“服务未就绪”状态；量表 3、4、6、7。
+- 影响：页面初始可用但提交前模型进入 rebuilding/失败时，UI 可能显示普通上游错误，失去明确恢复语义。
+- 修复建议：保留服务端 error code/status，不改 API；客户端把请求期 `MODEL_UNAVAILABLE` 映射为独立 unavailable 结果，把 `RATE_LIMITED` 映射 limited，其余非 2xx 映射 error，并覆盖竞态测试。
+- 处置：fixed（plan rev5：按现有 status/code 显式映射 unavailable/limited/error，并加入两条不可用路径测试）。
+
+## M3 Cycle 4（最终完整复审：plan rev5）
+- 时间：2026-08-13T23:36:36+08:00。
+- 修订：旧 class 合约固定为 jsdom CSSOM + TypeScript AST；补充请求期 `MODEL_UNAVAILABLE` 竞态映射；完整测试命令也经测试库 helper 注入；revision 4 → 5。
+- 修订处置：INK-012 fixed；INK-013 fixed。
+- 最新从头复审顺序：rev5 plan → 已批准 proposal/原型 → 当前真实组件/接口/SQL/CSS/Playwright 配置 → M3 ledger。
+- 新鲜自动证据：固定 base 是 HEAD 祖先；base..HEAD 与工作区的 route/items/search/schema/migrations diff 均为空；计划无 TODO/TBD/“待定/视情况”；全部既有引用路径存在；8 个 E2E DB spec 与文件清单一致；当前 CSS 含全部旧 tokens 且无预先实施的 `--ink-*`；公开目录和关键词 SQL 均限定 `web/github`，问答 corpus 仍覆盖所有 completed 类型；rev5 风险关键词和已批准 token 值齐全。
+- 最新复审新增 Medium 以上 finding：0。
+- 最终未解决：critical=0 / high=0 / medium=0 / low=0。
+
+## M3 Acceptance Rubric（plan rev5）
+
+| # | 项目 | 结论 | 证据 |
+| --- | --- | --- | --- |
+| 1 | Scope | Pass | 目标/全局约束/四阶段与批准的方向 A、视觉+信息架构范围一致；明确排除 API/DTO/schema、近期添加、排序、stars/语言、worker 状态。 |
+| 2 | Traceability | Pass | proposal §2～4 的统一检索、分类索引、web/GitHub 卡片、后台壳/Library/详情/设置、精确 tokens 均映射到路径、任务、三视口/双语/状态验证。 |
+| 3 | Architecture | Pass | 保留 RSC readiness/Suspense 与 Admin server guard；discovery reducer、URL/local state、请求所有权/取消/stale 规则、阶段依赖和失败行为明确。 |
+| 4 | Data and interfaces | Pass | 固定 base 双 diff + 现有 keyword/ask/admin API 集成测试覆盖 method/schema/status/code/cache/ETag；不迁移 schema，不改变 DTO；GitHub 展示只本地安全推导。 |
+| 5 | Security and privacy | Pass | admin auth/CSRF/session/secret 边界保持；logout 复用 server action；抽屉 inert；E2E DB 精确本机测试库 fail closed；公开 doc 目录隔离有 SQL+测试证据。 |
+| 6 | UX | Pass | 批准原型的 1440/1024/390、双语、键盘、focus trap/return、reduced preferences、loading/empty/error/unavailable/limited、无遮挡层级均有验收。 |
+| 7 | Quality | Pass | 各阶段列 unit/integration/E2E/typecheck/lint；最终全量 test/build/三项目；token/class/message/API/DB guard 为机械合同，截图仅辅助。 |
+| 8 | Operations | Pass | 每阶段独立提交/部署/回滚；固定 base 越界检测；构建/CSP/外部请求门禁；测试数据隔离和停止条件明确。备份/迁移为 N/A：本里程碑禁止数据变更。 |
+| 9 | Execution | Pass | 四阶段有精确文件、任务、依赖、风险、验收命令；新增 helper/测试文件归属完整；解析实现复用现有库且无 TODO/TBD。 |
+| 10 | Risk | Pass | 状态机、非法 URL、sticky 层级、抽屉焦点、消息 key、测试库、旧 class/API 越界均有稳定 finding、修复与 fail-closed 停止条件；无 accepted risk。 |
+
+## M3 Codex Acceptance
+- 结论：accepted（仅代表实施计划通过门禁，不代表产品代码已经实施或运行测试已经完成）。
+- 依据：4/5 个允许周期内收敛；INK-001～INK-013 均有证据与 fixed 处置；未解决 Critical/High/Medium/Low 均为 0；rev5 最新完整复审无新增 Medium 以上问题；量表 10/10 Pass。
+- 零破坏性核验结论：真实代码支持在不修改 route/items/search/schema/migrations 的情况下完成各阶段；公开 UI 需要的数据已存在于 `SiteCard`/`LibraryItemDto`，GitHub 类型可安全本地推导；API 契约由固定 base diff + 既有集成测试锁定；旧 token/class、双语 key、doc 隔离和测试库均新增机械门禁。
+- 边界：本阶段只修改 `docs/implementation-plan.md` 与 `.workflow` 方案/台账/状态/交接产物；未实现、提交或部署产品代码；M2 canonical 与未决发布决策未推进。
+- 工作流校验：2026-08-13T23:36:36+08:00 运行 `python3 /Users/apple/Downloads/new-shoucang/.codex/skills/project-delivery-workflow/scripts/validate_workflow.py /Users/apple/Downloads/new-shoucang/xm-daohang`，退出码 0，输出 `PASS: workflow stage=codex_accepted revision=5`。
+
+## M3 实施期计划澄清（plan rev6 · 架构师裁决）
+- 时间：2026-08-14
+- 触发：阶段 1 独立验收（Codex 阶段验收员，.workflow/stage-acceptance-m3-phase1.md）判 FAIL，退回两项。其中「返工项 2：本机 socket 合同未兑现」明确交由架构师裁决权威计划。
+- 裁决（AR-M3-03 → 直接修订消解，非遗留风险）：将计划第 88 行 `assertTestDatabaseUrl` 的 hostname 合同由 rev5『`127.0.0.1`/`localhost`/本机 socket 可接受形式』收窄为『仅本机 TCP 环回 `127.0.0.1`/`localhost`/`::1`』。
+- 依据：唯一固定测试库 URL 为纯 TCP 环回 `postgresql://apple@127.0.0.1:5432/collection_system_test`，从不使用 Unix socket 形式；rev5 socket 措辞为冗余。收窄后安全姿态只增不减、更 fail-closed；实现（tests/e2e/testDatabase.ts）与计划一致。属非行为性、安全中性偏强的澄清，未放宽任何保护。
+- 边界：仅修改 docs/implementation-plan.md 第 88 行与本台账；未改产品运行代码。若未来确需 socket，须再次修订计划，禁止实现静默放宽/缩窄合同。
+- revision 5 → 6。
+- 返工项 1（Pressable 动态 disabled 仍残留 data-pressed）为真实实现缺陷，不涉及计划修订，退回实施工程师修复并补正式回归测试后重新验收。
+- 工作流校验：2026-08-14 运行 `python3 /Users/apple/Downloads/new-shoucang/.claude/skills/project-delivery-workflow/scripts/validate_workflow.py /Users/apple/Downloads/new-shoucang/xm-daohang`，输出 `PASS: workflow stage=implementation revision=6`。
+
+---
+
+## M3 阶段 2 门禁命令事实源裁决（架构师裁决）
+- 时间：2026-08-15T10:30:00+08:00
+- 裁决人：Claude 项目架构师
+- 触发：阶段 2 第二轮独立验收（Codex 阶段验收员，.workflow/stage-acceptance-m3-phase2-round2.md）判 FAIL。验收员执行架构师派发的 Vitest 10 路径命令时发现 6 个路径不存在，Vitest fail-open 只跑 4 files / 11 tests，实际结果与派发任务描述（10 files / 65 tests）和权威计划 rev6 第 184 行不一致。验收员明确要求架构师统一命令事实源。
+- 问题根因：架构师在创建阶段 2 第二轮验收任务时，未逐字复制权威计划 `docs/implementation-plan.md` revision 6 第 184 行的真实文件路径，而是根据记忆和逻辑推断重新编写了 10 个路径列表，导致以下 6 个路径不存在：
+  - `tests/categories/publicHomePage.test.ts`
+  - `tests/categories/publicHomeKeywordSearch.test.ts`
+  - `tests/categories/publicHomeAsk.test.ts`
+  - `tests/unit/publicHomeRoute.test.ts`
+  - `tests/categories/siteLink.test.ts`
+  - `tests/categories/directoryShell.test.tsx`（实际位于 `tests/unit/`）
+- 架构师裁决：**权威计划 `docs/implementation-plan.md` revision 6 第 184 行是唯一合法的阶段 2 Vitest 门禁命令事实源**。
+
+  **唯一合法的阶段 2 Vitest 门禁命令**（逐字复制自权威计划第 184 行）：
+  ```bash
+  corepack pnpm exec vitest run \
+    tests/unit/directoryShell.test.tsx \
+    tests/unit/directoryView.test.tsx \
+    tests/unit/publicAskAvailability.test.ts \
+    tests/unit/publicDiscoveryModes.test.tsx \
+    tests/unit/task12Contracts.test.ts \
+    tests/unit/publicDirectoryArchitecture.test.ts \
+    tests/integration/keywordSearch.test.ts \
+    tests/integration/publicAsk.test.ts \
+    tests/integration/publicCorpus.test.ts \
+    tests/categories/publicDirectory.test.ts
+  ```
+
+  期望结果：退出码 0，10 files / 65 tests 全部通过，在 `env -u DATABASE_URL` 干净 shell 下执行。
+
+- 验收有效性判定：阶段 2 第二轮验收员按权威计划 rev6 真实 10 文件集合的额外复跑结果（10 files / 65 tests，测试库保留其他 E2E fixture、未人工清库）**为有效证据**，证明两项首轮阻塞缺陷（Vitest 门禁可重复性与 publicDirectory.test.ts 数据隔离、tablet URL 清除竞态）的返工真实成立。
+- 派发错误路径状态：架构师任务描述中的 6 个不存在路径为架构师记忆错误，**不构成合同**，不得要求实施工程师补齐这 6 个文件。
+- 影响：两项首轮返工已通过权威计划真实命令验证；其余自动门禁、零破坏门禁、三视口截图均通过；唯一阻塞项为架构师派发命令与权威计划不一致导致的 fail-open 漏跑。
+- 后续改进：后续阶段的验收任务描述必须**逐字复制**权威计划中的命令，不得根据记忆重新编写路径列表；可在门禁前增加文件存在性断言或 file-count 前置检查，防止 Vitest 对不存在路径 fail-open。
+- 边界：本裁决仅统一命令事实源，不修改 `docs/implementation-plan.md` 正文（rev6 保持不变）；不改产品代码；不改测试文件归属。阶段 2 暂不放行，需按权威计划真实命令重新完整独立验收。
+- 工作流校验：revision 保持为 6，计划未修订。

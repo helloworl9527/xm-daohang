@@ -1,35 +1,62 @@
 {
   "schema_version": 1,
   "project": "收藏系统",
-  "milestone": "导航站增强（M2）",
+  "milestone": "前端视觉重设计（M3 · Ink & Signal）",
   "status": "active",
   "stage": "implementation",
   "active_role": "implementation_agent",
-  "revision": 11,
+  "revision": 6,
   "ui_required": true,
-  "requirements_source": ".workflow/requirements-nav-enhancement.md",
-  "ui_spec_source": ".workflow/ui-spec-nav-enhancement.md",
-  "plan_source": ".workflow/implementation-plan-nav-enhancement.md",
+  "requirements_source": "docs/visual-redesign-proposal.md",
+  "ui_spec_source": "docs/visual-redesign-proposal.md + docs/preview/（public-home.html / admin-library.html / admin-detail.html 可交互原型）",
+  "plan_source": "docs/implementation-plan.md",
+  "scope_note": "纯前端/视觉重设计（Ink & Signal 方向 A 暖白亮色）+ 信息架构优化。零破坏性：不改 API/DTO/路由/数据模型/迁移，保留现有 class 与旧 tokens，新增 --ink-* 前缀 tokens。产品功能需求继承 M2，不在本里程碑变更。",
   "approvals": {
-    "requirements": {"status": "approved", "at": "2026-08-10T18:20:00+08:00", "revised_at": "2026-08-10T19:40:00+08:00", "statement": "确认需求（导航站增强 requirements-nav-enhancement.md）。v0.2 追加 F209 后端关键词模糊搜索。v0.3 F202 升级为可反复手动触发（补充建议+全量重拟，预览→应用、保护人工分类、可选重跑）。v0.4 用户决定移除公开首页 hero 标题区与『每日3条轮换』推荐栏（推翻早期保留推荐），首页顶部改为关键词搜索框+AI问答+导航目录、底部提示框保留；M1 后端每日轮换不主动拆除。UI 方向=C 工作台。以上均为用户直接指示，UI 需在定稿前纳入。"},
-    "ui": {"status": "approved", "at": "2026-08-11T00:00:00+08:00", "statement": "确认界面（用户原文，2026-08-11）。C 工作台方向定稿：公开首页=『目录』标题+右侧紧凑关键词搜索框+分类锚点条+分类卡片目录+底部 AI 问答框；无 hero、无每日3条推荐栏；文案精简（去 eyebrow/副标题/关键词标签，标题改『目录』）。含 F209 关键词字面搜索、F202a/F202b 管理端分类 diff 审核。事实源 ui-spec-nav-enhancement.md，验证证据 screenshots/nav-enhancement/（16 张）+ Playwright PASS。"},
-    "codex": {"status": "approved", "at": "2026-08-11T09:07:47+08:00", "statement": "Codex plan acceptance: rev11, 5 review cycles, acceptance rubric 10/10 Pass, unresolved Critical/High/Medium/Low = 0; plan review only, no product implementation."},
-    "implementation": {"status": "approved", "at": "2026-08-11T09:35:00+08:00", "statement": "接受风险，开始实施（用户原文，2026-08-11）。基于 M2 plan rev11 与 conditional go 审计；用户已知悉并接受 FA-M2-01 的 fail-closed 取舍（AR-M2-01：AI merge/delete 遇人工分类条目 fail-closed 阻断、要求先手动迁移）及 AR-M2-02。残余 FA-M2-02/03(Low)、FA-M2-04(Cosmetic) 不阻塞，交由实施阶段处理。"}
+    "requirements": {"status": "approved", "at": "2026-08-13T00:00:00+08:00", "statement": "用户原文与选择：范围=选项 C（同时做视觉层 + 信息架构优化）；痛点=『觉风格过时、缺乏设计感』；视觉方向=A（Ink & Signal，暖白底 #F6F5F2 + 珊瑚橙 #E4573D）。产品功能需求继承自 M2（requirements-nav-enhancement.md），本里程碑为零破坏性视觉重设计，不新增/变更功能契约。事实源 docs/visual-redesign-proposal.md。注：用户以选项选择形式确认范围与方向，非逐字『确认需求』仪式语，但为对本里程碑范围的明确决定。"},
+    "ui": {"status": "approved", "at": "2026-08-13T00:00:00+08:00", "statement": "用户原文『确认满意，之后交给 codex 实施工程师实现』（2026-08-13），针对 docs/preview/ 三份可交互 HTML 原型（public-home / admin-library / admin-detail，内联 Ink & Signal tokens、Lucide、响应式 1440/1024/390、reduced-motion/transparency）。原型已通过 Node Playwright 3 文件 x 3 视口核验（无横向溢出、图标渲染、无 console/page 错误）与模式/抽屉/dialog 交互检查。注：用户用词为『确认满意』，非逐字『确认界面』，但为对视觉方向与原型的明确验收。"},
+    "codex": {"status": "approved", "at": "2026-08-13T23:36:36+08:00", "statement": "M3 Ink & Signal 实施计划 rev5 accepted：4 轮 analyze→repair→re-analyze 内收敛；INK-001～INK-013 全部 fixed；未解决 Critical/High/Medium/Low=0；acceptance-rubric 10/10 Pass；最新完整复审无新增 Medium 以上问题。固定 M3 base 与工作区受限路径 diff 均为空，API/DTO/路由/数据模型/迁移、旧 tokens/classes、公开 doc 隔离、双语 keys 和 collection_system_test fail-closed 均有明确实施门禁。此审批仅针对计划，不代表产品已实施。"},
+    "implementation": {"status": "approved", "at": "2026-08-14T00:00:00+08:00", "statement": "接受风险，开始实施（用户原文，2026-08-14）。基于 M3 Ink & Signal plan rev5（Codex 方案验证 4 轮收敛 rubric 10/10、Claude 独立最终审计=conditional go）。用户已知悉并接受残余非阻塞项：AR-M3-01（reduced-transparency 需 Safari 人工核验）、AR-M3-02（legacy class 合同仅保护类名非视觉，视觉回归靠三视口 E2E 兜底）、PI-M3-01（实施时须真实通过全部门禁+build+三视口 E2E）、PI-M3-02（Cosmetic）。授权 Codex 方案实施工程师按 rev5 分阶段实施，每阶段经 Codex 阶段验收员独立复跑验收后再进入下一阶段。"}
   },
-  "user_decision": {"choice": "接受风险，开始实施", "at": "2026-08-11T09:35:00+08:00", "accepted_risks": ["AR-M2-01", "AR-M2-02"], "note": "接受 FA-M2-01 fail-closed 语义；FA-M2-02/03(Low)/FA-M2-04(Cosmetic) 不阻塞。"},
+  "user_decision": {"choice": "接受风险，开始实施", "at": "2026-08-14T00:00:00+08:00", "accepted_risks": ["AR-M3-01", "AR-M3-02"], "note": "接受 PI-M3-01（实施须真实通过全部门禁）/PI-M3-02（Cosmetic）为非阻塞；实施采用分阶段（阶段 1→4）+ 每阶段独立验收。"},
   "review": {
-    "cycle": 5,
+    "cycle": 4,
     "max_cycles": 5,
     "unresolved": {"critical": 0, "high": 0, "medium": 0, "low": 0}
   },
-  "audit": {"verdict": "conditional_go", "at": "2026-08-11T09:20:00+08:00", "file": ".workflow/final-audit-nav-enhancement.md", "phase": "pre_implementation", "note": "M2 plan rev11 独立审计=conditional go。无未解决 Critical/High/Medium。唯一必答项 FA-M2-01：AI merge/delete 遇人工条目采用 fail-closed 阻断并要求先手动迁移，是对『单主分类 FK 模型 vs F202b 字面验收』冲突的保护性取舍，须用户裁决是否符合本意。残余 FA-M2-02(Low reclassify 恢复扫描触发点)、FA-M2-03(Low 关键词无索引规模退化)、FA-M2-04(Cosmetic 需求头 v0.5/v0.6)。"},
-  "prior_milestone": {
-    "name": "收藏系统首版交付（M1）",
-    "stage": "user_decision",
-    "revision": 5,
-    "audit": {"verdict": "conditional_go", "at": "2026-08-09T16:05:00+08:00", "file": ".workflow/final-audit.md", "phase": "post_implementation", "note": "实施后审计 conditional go；阻断 PA-01(High) db client 急加载 DATABASE_URL 致 docker build 失败；PA-02(Low) 报告补正；OBS-A 测试 env；AR-001 已接受。"},
-    "user_decision": {"choice": "继续改进", "at": "2026-08-09T20:05:46+08:00", "scope": "修复 PA-01/PA-02/OBS-A；真实 docker build/compose/restore 因本机无 Docker 仍为环境阻塞", "accepted_risks": ["AR-001"]},
-    "note": "M1 审批与审计记录归档于此；事实源仍为 requirements.md/ui-spec.md/final-audit.md 等原始文件，本轮 M2 不覆盖这些历史文件。"
-  },
-  "updated_at": "2026-08-11T09:35:00+08:00"
+  "audit": {"verdict": "conditional_go", "phase": "pre_implementation", "at": "2026-08-13T00:00:00+08:00", "file": ".workflow/final-audit-nav-visual-m3.md", "note": "M3 rev5 计划前独立审计=conditional go。独立按 acceptance-rubric 复核并对真实代码核验：公开目录/关键词 SQL 限定 web/github(publicCorpus.ts:44)、问答语料含 doc、--color-ink(#17211D) 冲突真实故 --ink-* 隔离正确、jsdom26.1/typescript5.9(direct)/lucide1.31 齐备且不新增依赖、8 个 E2E DB spec 与清单一致、logoutAction+requireAdminPage 存在、HEAD==base 未预先实施、受限路径无 diff。零破坏双 diff 门禁、discovery reducer 竞态合同、legacy class 超集合同、测试库 fail-closed、API/鉴权/doc 隔离均为可机械核对门禁。无未解决 Critical/High/Medium。残余：AR-M3-01(reduced-transparency 需 Safari 人工核验)、AR-M3-02(class 合同仅保护名称非视觉)、PI-M3-01(证据为前瞻性，实施时须真实通过全部门禁+build+三视口E2E)、PI-M3-02(Cosmetic 动态 class 静态前缀)。不声称绝对无风险。",
+    "verification": {"public_corpus_type_restrict": "publicCorpus.ts:44 items.type in ('web','github')", "ask_corpus": "retrieve.ts:91 status='completed' 含 doc", "token_collision": "globals.css:4 --color-ink #17211D", "deps": "jsdom 26.1.0 / typescript 5.9.2 direct / lucide-react 1.31.0", "e2e_db_specs": 8, "auth": "logoutAction + requireAdminPage 存在", "base_head": "HEAD==114c272 == M3_BASE_HEAD，受限路径无 diff"}},
+  "gate_note": "M3 全部前置门禁通过：Codex 方案验证（rev5, rubric 10/10）+ Claude 独立最终审计（conditional go）+ 用户原文『接受风险，开始实施』（2026-08-14）。stage 已推进至 implementation / active_role=implementation_agent。实施采用分阶段（阶段 1→4，见 docs/implementation-plan.md），每阶段由 Codex 方案实施工程师实施、Codex 阶段验收员独立复跑验收通过后再进入下一阶段；实施须真实兑现 PI-M3-01（全部门禁+build+三视口 E2E）。M2 的 approvals.implementation 仅对应 M2 rev11，其未决发布决策不受 M3 影响。",
+  "implementation_progress": {"phases_total": 4, "current_phase": 2, "phase_status": "acceptance_pass", "note": "阶段 2 经两轮验收 PASS（round2 最终经架构师裁决确认）：权威计划 10 files / 65 tests 通过，三视口 E2E 各 6/6，零破坏与安全门禁通过，三视口截图核验通过。可放行进入阶段 3。"},
+  "plan_revision_note": {"rev6": {"at": "2026-08-14", "by": "claude_architect", "change": "计划第 88 行 assertTestDatabaseUrl hostname 合同收窄为仅本机 TCP 环回（127.0.0.1/localhost/::1），移除冗余 socket 措辞；安全中性偏强，与实现一致。详见 review-ledger.md M3 实施期计划澄清。"}},
+  "prior_milestones": [
+    {
+      "name": "导航站增强（M2）",
+      "stage": "user_decision",
+      "active_role": "user",
+      "revision": 11,
+      "status": "release_pending",
+      "requirements_source": ".workflow/requirements-nav-enhancement.md",
+      "ui_spec_source": ".workflow/ui-spec-nav-enhancement.md",
+      "plan_source": ".workflow/implementation-plan-nav-enhancement.md",
+      "implementation_complete": {"at": "2026-08-12T00:00:00+08:00", "head": "114c272c3a0bf9074060fe2cba256ca1d81f7e77", "note": "M2 rev11 全部 13 批实施完成并逐批通过 Codex 阶段验收。全量 Vitest 420/420、生产 Playwright 26/26、env -u DATABASE_URL build+prune PASS、audit --prod 0、crash recovery、原生 pg_dump/pg_restore 恢复通过。残余 ENV-M2-DOCKER：本机无 Docker CLI，容器链路未执行。"},
+      "audit": {"verdict": "conditional_go", "phase": "post_implementation", "at": "2026-08-13T00:00:00+08:00", "file": ".workflow/final-audit-nav-enhancement.md", "note": "M2 实施后独立审计=conditional go。无未解决 Critical/High/Medium 代码缺陷。唯一发布必答项 PI-M2-01(ENV-M2-DOCKER)：容器 build/compose/容器 restore 未验证，仅原生 pg 恢复。残余 PI-M2-02(Low)/PI-M2-03(Cosmetic)/FA-M2-04(Cosmetic)。"},
+      "approvals": {
+        "requirements": {"status": "approved", "at": "2026-08-10T18:20:00+08:00"},
+        "ui": {"status": "approved", "at": "2026-08-11T00:00:00+08:00"},
+        "codex": {"status": "approved", "at": "2026-08-11T09:07:47+08:00"},
+        "implementation": {"status": "approved", "at": "2026-08-11T09:35:00+08:00", "statement": "接受风险，开始实施（用户原文，2026-08-11）。基于 M2 plan rev11 与 conditional go 审计；接受 AR-M2-01/AR-M2-02。"}
+      },
+      "release_decision": {"status": "pending", "note": "M2 实施后审计 conditional go，发布 go/no-go 仍待用户单独决定。核心问题：PI-M2-01(ENV-M2-DOCKER) 容器链路未验证。本 M3 里程碑不改变、不推进、不关闭此 M2 未决发布决策。"},
+      "note": "M2 未决发布决策与全部 canonical 文件（*-nav-enhancement.md、review-ledger.md、stage-acceptance-nav-m2-*.md、implementation-report.md）原样保留，M3 不覆盖。"
+    },
+    {
+      "name": "收藏系统首版交付（M1）",
+      "stage": "user_decision",
+      "revision": 5,
+      "audit": {"verdict": "conditional_go", "at": "2026-08-09T16:05:00+08:00", "file": ".workflow/final-audit.md", "phase": "post_implementation"},
+      "user_decision": {"choice": "继续改进", "at": "2026-08-09T20:05:46+08:00", "accepted_risks": ["AR-001"]},
+      "note": "M1 审批与审计归档；事实源为 requirements.md/ui-spec.md/final-audit.md 等原始文件，后续里程碑不覆盖。"
+    }
+  ],
+  "updated_at": "2026-08-15T10:34:05+08:00"
 }

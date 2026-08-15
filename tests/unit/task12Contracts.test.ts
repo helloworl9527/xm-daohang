@@ -58,4 +58,15 @@ describe("Task 12 UI contracts", () => {
     expect(keyword).toContain('autoComplete="off"');
     expect(keyword).toContain('name="keyword"');
   });
+
+  it("keeps the admin shell route matchers, one locale switcher, and existing logout boundary", () => {
+    const nav = source("src/app/admin/(protected)/AdminNav.tsx");
+    const root = source("src/app/layout.tsx");
+    expect(nav).toContain("usePathname()");
+    expect(nav).toContain('path === "/admin/settings/models"');
+    expect(nav).toContain('path === "/admin/settings"');
+    expect(nav).toContain('action={logoutAction}');
+    expect(root.match(/<LocaleSwitcher \/>/g)).toHaveLength(1);
+    expect(nav).not.toContain("<LocaleSwitcher");
+  });
 });

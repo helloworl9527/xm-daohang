@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const databaseUrl = "postgresql://apple@127.0.0.1:5432/collection_system_test";
+import { assertTestDatabaseUrl, TEST_DATABASE_URL } from "./tests/e2e/testDatabase";
+
+const databaseUrl = assertTestDatabaseUrl(TEST_DATABASE_URL);
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -38,8 +40,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 1000 } },
     },
     {
+      name: "chromium-tablet",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1024, height: 768 } },
+    },
+    {
       name: "chromium-mobile",
-      use: { ...devices["iPhone 13"], browserName: "chromium" },
+      use: { ...devices["iPhone 13"], browserName: "chromium", viewport: { width: 390, height: 844 } },
     },
   ],
 });

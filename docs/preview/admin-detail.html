@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ink &amp; Signal - 收藏详情原型</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --ink-canvas: #F6F5F2; --ink-surface: #FFFFFF; --ink-surface-muted: #EFEEE9;
+      --ink-text: #17181A; --ink-text-muted: #686A70; --ink-line: #E4E2DC;
+      --ink-accent: #E4573D; --ink-accent-hover: #C94732; --ink-accent-soft: #FBE8E3;
+      --ink-success: #2E7D5B; --ink-warning: #B7791F; --ink-danger: #C53D3D; --ink-focus: #1669D3;
+      --ink-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --ink-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --ink-radius-sm: 4px; --ink-radius-md: 8px; --ink-shadow-float: 0 12px 30px rgb(23 24 26 / 10%);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink-text); background: var(--ink-canvas); font: 15px/1.5 var(--ink-font-sans); letter-spacing: 0; }
+    button, input, textarea, select { font: inherit; color: inherit; letter-spacing: 0; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid color-mix(in srgb, var(--ink-focus) 42%, transparent); outline-offset: 3px; }
+    .icon { width: 18px; height: 18px; stroke-width: 1.8; flex: 0 0 auto; }
+
+    /* Shared admin shell */
+    .admin-shell { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+    .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; width: 240px; height: 100vh; display: flex; flex-direction: column; padding: 22px 16px 16px; color: #F8F7F3; background: var(--ink-text); }
+    .admin-brand { height: 38px; margin: 0 8px 24px; display: flex; align-items: center; gap: 10px; color: white; text-decoration: none; font-weight: 700; }
+    .brand-mark { width: 30px; height: 30px; display: grid; place-items: center; background: var(--ink-accent); border-radius: var(--ink-radius-sm); font: 700 12px/1 var(--ink-font-mono); }
+    .nav-group + .nav-group { margin-top: 21px; }
+    .nav-label { margin: 0 10px 7px; color: #989A9F; font: 10px/1.4 var(--ink-font-mono); text-transform: uppercase; }
+    .nav-group nav { display: grid; gap: 3px; }
+    .nav-link { position: relative; min-height: 40px; display: flex; align-items: center; gap: 11px; padding: 0 10px; border-radius: var(--ink-radius-sm); color: #C9CACE; text-decoration: none; }
+    .nav-link:hover { color: white; background: rgb(255 255 255 / 7%); }
+    .nav-link[aria-current="page"] { color: white; background: rgb(255 255 255 / 10%); }
+    .nav-link[aria-current="page"]::before { content: ""; position: absolute; left: -16px; top: 9px; bottom: 9px; width: 3px; background: var(--ink-accent); }
+    .sidebar-footer { margin-top: auto; padding: 14px 8px 0; border-top: 1px solid rgb(255 255 255 / 10%); display: flex; align-items: center; justify-content: space-between; color: #AEB0B5; font-size: 12px; }
+    .sidebar-footer button { width: 34px; height: 34px; border: 0; border-radius: var(--ink-radius-sm); display: grid; place-items: center; background: transparent; color: #C9CACE; cursor: pointer; }
+    .main { grid-column: 2; min-width: 0; }
+    .mobile-bar { display: none; }
+    .content { width: min(1280px, calc(100% - 64px)); margin: 0 auto; padding: 40px 0 80px; }
+
+    /* Detail header */
+    .back-link { min-height: 36px; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 17px; color: var(--ink-text-muted); text-decoration: none; font-size: 13px; }
+    .back-link:hover { color: var(--ink-text); }
+    .detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--ink-line); }
+    .type-kicker { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--ink-text-muted); font: 11px var(--ink-font-mono); text-transform: uppercase; }
+    h1 { margin: 0; max-width: 820px; font-size: 30px; line-height: 1.22; font-weight: 650; }
+    .source-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; color: var(--ink-text-muted); font: 12px var(--ink-font-mono); text-decoration: none; }
+    .source-link:hover { color: var(--ink-accent-hover); }
+    .header-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    .primary-button, .secondary-button, .danger-button {
+      min-height: 42px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border-radius: var(--ink-radius-md); cursor: pointer; font-weight: 600;
+    }
+    .primary-button { border: 0; background: var(--ink-accent); color: white; }.primary-button:hover { background: var(--ink-accent-hover); }
+    .secondary-button { border: 1px solid var(--ink-line); background: var(--ink-surface); }.secondary-button:hover { background: var(--ink-surface-muted); }
+    .danger-button { border: 1px solid color-mix(in srgb, var(--ink-danger) 30%, var(--ink-line)); background: white; color: var(--ink-danger); }.danger-button:hover { background: #FCECEC; }
+    button:active { transform: scale(.98); }
+
+    /* Main plus metadata layout */
+    .detail-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 38px; margin-top: 30px; align-items: start; }
+    .editor { min-width: 0; }
+    .form-section { padding: 0 0 28px; }
+    .form-section + .form-section { padding-top: 27px; border-top: 1px solid var(--ink-line); }
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 13px; }
+    .section-head h2 { margin: 0; font-size: 17px; font-weight: 650; }
+    .section-head p { margin: 3px 0 0; color: var(--ink-text-muted); font-size: 12px; }
+    .saved-note { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-success); font-size: 11px; }
+    .field label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 650; }
+    .field input, .field textarea, .field select { width: 100%; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); outline: 0; }
+    .field input, .field select { height: 44px; padding: 0 12px; }
+    .field textarea { min-height: 174px; resize: vertical; padding: 13px 14px; line-height: 1.65; }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--ink-focus); box-shadow: 0 0 0 3px rgb(22 105 211 / 16%); }
+    .field-help { display: flex; justify-content: space-between; gap: 12px; margin-top: 7px; color: var(--ink-text-muted); font-size: 11px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .tags-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 48px; padding: 7px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); }
+    .tag { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 8px; border-radius: 999px; background: var(--ink-surface-muted); color: var(--ink-text-muted); font-size: 11px; }
+    .tag button { width: 18px; height: 18px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+    .tag button .icon { width: 12px; }
+    .tags-input input { flex: 1; min-width: 110px; height: 30px; padding: 0 5px; border: 0; outline: 0; background: transparent; }
+    .category-box { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 14px; min-height: 70px; padding: 12px 14px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); }
+    .category-value { display: flex; align-items: center; gap: 11px; }
+    .category-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: var(--ink-radius-sm); background: var(--ink-accent-soft); color: var(--ink-accent-hover); }
+    .category-value strong { display: block; }.category-value small { color: var(--ink-text-muted); }
+
+    /* Metadata sidebar */
+    .metadata { position: sticky; top: 24px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); overflow: hidden; }
+    .metadata-head { padding: 17px 18px; border-bottom: 1px solid var(--ink-line); }
+    .metadata-head h2 { margin: 0; font-size: 14px; }
+    .status-banner { display: flex; align-items: center; gap: 10px; margin-top: 13px; padding: 10px; border-radius: var(--ink-radius-sm); background: #EAF5EF; color: var(--ink-success); }
+    .status-banner strong { display: block; font-size: 12px; }.status-banner small { display: block; color: #537C68; }
+    .meta-list { margin: 0; padding: 7px 18px; }
+    .meta-row { display: grid; grid-template-columns: 86px 1fr; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--ink-line); }
+    .meta-row:last-child { border-bottom: 0; }
+    .meta-row dt { color: var(--ink-text-muted); font-size: 11px; }.meta-row dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-size: 12px; }
+    .meta-row code { font: 10px var(--ink-font-mono); }
+    .sidebar-actions { display: grid; gap: 8px; padding: 16px 18px; border-top: 1px solid var(--ink-line); background: #FBFAF8; }
+
+    /* Static dialog, with working open/close for review */
+    .dialog-layer { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgb(23 24 26 / 40%); opacity: 1; visibility: visible; transition: opacity 180ms ease, visibility 180ms ease; }
+    .dialog-layer.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .dialog { width: min(440px, 100%); padding: 22px; border: 1px solid #D8D5CE; border-radius: var(--ink-radius-md); background: var(--ink-surface); box-shadow: var(--ink-shadow-float); transform-origin: 80% 100%; transition: transform 180ms ease; }
+    .dialog-layer.is-hidden .dialog { transform: scale(.97) translateY(6px); }
+    .dialog-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--ink-radius-md); color: var(--ink-danger); background: #FCECEC; }
+    .dialog h2 { margin: 16px 0 7px; font-size: 19px; }.dialog p { margin: 0; color: var(--ink-text-muted); }
+    .dialog-warning { margin-top: 15px; padding: 10px 12px; border-left: 3px solid var(--ink-danger); background: #FFF7F7; font-size: 12px; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+    .prototype-flag { position: fixed; right: 14px; bottom: 14px; z-index: 60; padding: 7px 10px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-sm); background: rgb(255 255 255 / 92%); color: var(--ink-text-muted); box-shadow: var(--ink-shadow-float); font: 11px var(--ink-font-mono); }
+    .nav-scrim { display: none; position: fixed; inset: 0; z-index: 25; background: rgb(23 24 26 / 36%); }
+
+    @media (max-width: 1100px) {
+      .content { width: calc(100% - 40px); }
+      .detail-grid { grid-template-columns: minmax(0, 1.6fr) minmax(245px, .8fr); gap: 24px; }
+      .detail-head { align-items: flex-end; }
+    }
+    @media (max-width: 800px) {
+      body.nav-open { overflow: hidden; }
+      .admin-shell { display: block; }
+      .sidebar { width: min(82vw, 292px); transform: translateX(-102%); box-shadow: var(--ink-shadow-float); transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
+      .sidebar.is-open { transform: translateX(0); }
+      .nav-scrim.is-open { display: block; }
+      .main { display: block; }
+      .mobile-bar { position: sticky; top: 0; z-index: 20; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--ink-line); background: rgb(246 245 242 / 94%); backdrop-filter: blur(14px); }
+      .mobile-bar strong { flex: 1; }
+      .icon-button { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); cursor: pointer; }
+      .content { width: calc(100% - 28px); padding: 24px 0 60px; }
+      .detail-head { display: block; }
+      .header-actions { margin-top: 18px; }
+      h1 { font-size: 25px; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .metadata { position: static; grid-row: 1; }
+      .form-row { grid-template-columns: 1fr; }
+      .prototype-flag { display: none; }
+    }
+    @media (max-width: 430px) {
+      .header-actions { display: grid; grid-template-columns: 1fr 1fr; }
+      .header-actions button { padding-inline: 10px; }
+      .meta-row { grid-template-columns: 78px 1fr; }
+      .dialog { padding: 18px; }
+      .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; }
+      .dialog-actions button { min-height: 46px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 1ms !important; } }
+    @media (prefers-reduced-transparency: reduce) { .mobile-bar { background: var(--ink-canvas); backdrop-filter: none; } }
+  </style>
+</head>
+<body>
+  <!-- Throwaway review prototype: fields do not persist. -->
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="admin-brand" href="public-home.html"><span class="brand-mark">CZ</span><span>收藏库</span></a>
+      <div class="nav-group"><p class="nav-label">收藏库</p><nav><a class="nav-link" href="#"><i data-lucide="plus-circle" class="icon"></i>添加收藏</a><a class="nav-link" aria-current="page" href="admin-library.html"><i data-lucide="library" class="icon"></i>全部收藏</a></nav></div>
+      <div class="nav-group"><p class="nav-label">整理</p><nav><a class="nav-link" href="#"><i data-lucide="folder-tree" class="icon"></i>分类工作台</a></nav></div>
+      <div class="nav-group"><p class="nav-label">系统</p><nav><a class="nav-link" href="#"><i data-lucide="bot" class="icon"></i>模型与嵌入</a><a class="nav-link" href="#"><i data-lucide="sliders-horizontal" class="icon"></i>运行设置</a></nav></div>
+      <div class="sidebar-footer"><span>个人工作区</span><button aria-label="退出登录"><i data-lucide="log-out" class="icon"></i></button></div>
+    </aside>
+    <div class="nav-scrim" id="nav-scrim"></div>
+
+    <main class="main">
+      <header class="mobile-bar"><button class="icon-button" id="menu-button" aria-label="打开导航" aria-expanded="false"><i data-lucide="menu" class="icon"></i></button><strong>收藏详情</strong><a class="icon-button" href="admin-library.html" aria-label="返回列表"><i data-lucide="x" class="icon"></i></a></header>
+      <div class="content">
+        <a class="back-link" href="admin-library.html"><i data-lucide="arrow-left" class="icon"></i>返回全部收藏</a>
+        <header class="detail-head">
+          <div><div class="type-kicker"><i data-lucide="github" class="icon"></i>GitHub repository</div><h1>vercel/next.js</h1><a class="source-link" href="#">github.com/vercel/next.js<i data-lucide="arrow-up-right" class="icon"></i></a></div>
+          <div class="header-actions"><button class="secondary-button"><i data-lucide="refresh-cw" class="icon"></i>重新抓取</button><button class="primary-button"><i data-lucide="save" class="icon"></i>保存更改</button></div>
+        </header>
+
+        <div class="detail-grid">
+          <!-- Main editable content -->
+          <form class="editor" id="detail-form">
+            <section class="form-section"><div class="section-head"><div><h2>标题与摘要</h2><p>这些内容会参与搜索和 AI 检索。</p></div><span class="saved-note" id="save-note"><i data-lucide="circle-check" class="icon"></i>已保存</span></div><div class="field"><label for="title">标题</label><input id="title" value="vercel/next.js"></div><div class="field" style="margin-top:14px"><label for="summary">摘要</label><textarea id="summary">Next.js 是由 Vercel 维护的 React Web 框架，提供 App Router、React Server Components、数据缓存、路由处理和生产部署能力。此仓库包含框架源代码、示例与完整文档。</textarea><div class="field-help"><span>人工摘要已启用，重新抓取时不会覆盖。</span><span>92 / 500</span></div></div></section>
+            <section class="form-section"><div class="section-head"><div><h2>标签</h2><p>用于关键词筛选和内容聚合。</p></div></div><div class="tags-input"><span class="tag">Next.js<button type="button" aria-label="移除 Next.js"><i data-lucide="x" class="icon"></i></button></span><span class="tag">React<button type="button" aria-label="移除 React"><i data-lucide="x" class="icon"></i></button></span><span class="tag">框架<button type="button" aria-label="移除 框架"><i data-lucide="x" class="icon"></i></button></span><input placeholder="输入标签后回车"></div></section>
+            <section class="form-section"><div class="section-head"><div><h2>分类</h2><p>手动分类会受到保护，不被 AI 建议覆盖。</p></div></div><div class="category-box"><div class="category-value"><span class="category-icon"><i data-lucide="folder" class="icon"></i></span><div><strong>开发工具</strong><small>手动分类 · 已保护</small></div></div><button type="button" class="secondary-button">更改</button></div></section>
+          </form>
+
+          <!-- Metadata and actions -->
+          <aside class="metadata">
+            <div class="metadata-head"><h2>元数据</h2><div class="status-banner"><i data-lucide="circle-check" class="icon"></i><div><strong>处理完成</strong><small>搜索与 AI 问答均可用</small></div></div></div>
+            <dl class="meta-list"><div class="meta-row"><dt>内容类型</dt><dd>GitHub 仓库</dd></div><div class="meta-row"><dt>来源</dt><dd>手动添加</dd></div><div class="meta-row"><dt>创建时间</dt><dd>2026-08-09 18:42</dd></div><div class="meta-row"><dt>最后更新</dt><dd>今天 14:32</dd></div><div class="meta-row"><dt>内容 ID</dt><dd><code>itm_7f39a2c1</code></dd></div><div class="meta-row"><dt>AI 分类</dt><dd>已关闭覆盖</dd></div></dl>
+            <div class="sidebar-actions"><button type="button" class="secondary-button"><i data-lucide="refresh-cw" class="icon"></i>重新抓取内容</button><button type="button" class="danger-button" id="delete-trigger"><i data-lucide="trash-2" class="icon"></i>删除收藏</button></div>
+          </aside>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Delete confirmation is intentionally visible on first load for design review. -->
+  <div class="dialog-layer" id="dialog-layer" role="presentation">
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-copy">
+      <div class="dialog-icon"><i data-lucide="trash-2" class="icon"></i></div><h2 id="dialog-title">删除这条收藏？</h2><p id="dialog-copy">“vercel/next.js” 将从收藏库和 AI 检索索引中移除。</p><div class="dialog-warning">此操作不可撤销，已生成的摘要、标签和向量数据也会一并删除。</div><div class="dialog-actions"><button class="secondary-button" id="cancel-delete">取消</button><button class="danger-button" id="confirm-delete">确认删除</button></div>
+    </section>
+  </div>
+  <div class="prototype-flag">THROWAWAY PROTOTYPE · DETAIL</div>
+
+  <script>
+    const sidebar = document.getElementById('sidebar'); const navScrim = document.getElementById('nav-scrim'); const menuButton = document.getElementById('menu-button');
+    function setMenu(open) { sidebar.classList.toggle('is-open', open); navScrim.classList.toggle('is-open', open); document.body.classList.toggle('nav-open', open); menuButton.setAttribute('aria-expanded', String(open)); menuButton.querySelector('i').setAttribute('data-lucide', open ? 'x' : 'menu'); lucide.createIcons(); }
+    menuButton.addEventListener('click', () => setMenu(!sidebar.classList.contains('is-open'))); navScrim.addEventListener('click', () => setMenu(false));
+
+    const dialog = document.getElementById('dialog-layer'); const deleteTrigger = document.getElementById('delete-trigger'); const cancelDelete = document.getElementById('cancel-delete');
+    function setDialog(open) { dialog.classList.toggle('is-hidden', !open); if (open) cancelDelete.focus(); else deleteTrigger.focus(); }
+    deleteTrigger.addEventListener('click', () => setDialog(true)); cancelDelete.addEventListener('click', () => setDialog(false));
+    document.getElementById('confirm-delete').addEventListener('click', () => setDialog(false));
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) setDialog(false); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !dialog.classList.contains('is-hidden')) setDialog(false); else if (event.key === 'Escape' && sidebar.classList.contains('is-open')) { setMenu(false); menuButton.focus(); } });
+    document.getElementById('detail-form').addEventListener('input', () => { document.getElementById('save-note').innerHTML = '<i data-lucide="circle" class="icon"></i>有未保存更改'; lucide.createIcons(); });
+    document.querySelector('.header-actions .primary-button').addEventListener('click', () => { document.getElementById('save-note').innerHTML = '<i data-lucide="circle-check" class="icon"></i>已保存'; lucide.createIcons(); });
+    lucide.createIcons();
+  </script>
+</body>
+</html>

@@ -51,4 +51,17 @@ describe("DirectoryShell", () => {
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("searchError"));
     expect(screen.queryByRole("heading", { name: "noResults" })).not.toBeInTheDocument();
   });
+
+  it("clears a failed URL query by navigating to the query-free pathname", async () => {
+    query = "fail";
+    vi.mocked(fetch).mockRejectedValue(new Error("offline"));
+    render(<DirectoryShell><p>directory</p></DirectoryShell>);
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("searchError"));
+    fireEvent.click(screen.getByRole("button", { name: "clear" }));
+
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith("/");
+    expect(screen.getByRole("textbox", { name: "searchInput" })).toHaveFocus();
+  });
 });

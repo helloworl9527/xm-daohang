@@ -14,7 +14,8 @@ export function MotionRegion({ className = "", onPointerDown, ...props }: Motion
 
   useEffect(() => {
     const element = elementRef.current;
-    if (!element || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (!element || reduceMotion) return;
 
     const startedAt = performance.now();
     const angularFrequency = 4 / RESPONSE_SECONDS;

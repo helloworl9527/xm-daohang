@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ink &amp; Signal - 公开首页原型</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --ink-canvas: #F6F5F2;
+      --ink-surface: #FFFFFF;
+      --ink-surface-muted: #EFEEE9;
+      --ink-text: #17181A;
+      --ink-text-muted: #686A70;
+      --ink-line: #E4E2DC;
+      --ink-accent: #E4573D;
+      --ink-accent-hover: #C94732;
+      --ink-accent-soft: #FBE8E3;
+      --ink-success: #2E7D5B;
+      --ink-warning: #B7791F;
+      --ink-danger: #C53D3D;
+      --ink-focus: #1669D3;
+      --ink-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --ink-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --ink-radius-sm: 4px;
+      --ink-radius-md: 8px;
+      --ink-shadow-float: 0 12px 30px rgb(23 24 26 / 10%);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--ink-canvas);
+      color: var(--ink-text);
+      font-family: var(--ink-font-sans);
+      font-size: 15px;
+      line-height: 1.55;
+      letter-spacing: 0;
+    }
+    button, input { font: inherit; letter-spacing: 0; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    a { color: inherit; }
+    button { color: inherit; }
+    :focus-visible { outline: 3px solid color-mix(in srgb, var(--ink-focus) 42%, transparent); outline-offset: 3px; }
+    .icon { width: 18px; height: 18px; stroke-width: 1.8; flex: 0 0 auto; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+    /* Prototype notice */
+    .prototype-flag {
+      position: fixed; right: 14px; bottom: 14px; z-index: 50;
+      padding: 7px 10px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-sm);
+      background: rgb(255 255 255 / 92%); color: var(--ink-text-muted); box-shadow: var(--ink-shadow-float);
+      font: 11px/1.2 var(--ink-font-mono);
+    }
+
+    /* Header */
+    .topbar {
+      position: sticky; top: 0; z-index: 20; height: 64px;
+      background: rgb(246 245 242 / 92%); border-bottom: 1px solid rgb(228 226 220 / 80%);
+      backdrop-filter: blur(18px) saturate(140%);
+    }
+    .topbar-inner {
+      width: min(1200px, calc(100% - 48px)); height: 100%; margin: 0 auto;
+      display: flex; align-items: center; gap: 28px;
+    }
+    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; }
+    .brand-mark {
+      width: 30px; height: 30px; display: grid; place-items: center;
+      background: var(--ink-text); color: var(--ink-canvas); border-radius: var(--ink-radius-sm);
+      font: 700 12px/1 var(--ink-font-mono);
+    }
+    .topnav { display: flex; align-items: center; gap: 22px; margin-left: 8px; }
+    .topnav a { color: var(--ink-text-muted); font-size: 14px; text-decoration: none; }
+    .topnav a:hover { color: var(--ink-text); }
+    .top-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .quiet-button, .icon-button {
+      min-height: 40px; border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md);
+      background: var(--ink-surface); display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 0 12px; text-decoration: none; cursor: pointer;
+    }
+    .quiet-button:hover, .icon-button:hover { background: var(--ink-surface-muted); }
+    .icon-button { width: 40px; padding: 0; }
+
+    /* Discovery workspace */
+    .hero { width: min(1200px, calc(100% - 48px)); margin: 0 auto; padding: 54px 0 36px; }
+    .eyebrow { color: var(--ink-accent); font: 700 12px/1.4 var(--ink-font-mono); text-transform: uppercase; }
+    h1 { margin: 10px 0 10px; max-width: 760px; font-size: 38px; line-height: 1.16; font-weight: 650; }
+    .hero-copy { margin: 0; color: var(--ink-text-muted); font-size: 16px; }
+    .discovery { margin-top: 28px; max-width: 900px; }
+    .mode-switch {
+      display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px; margin-bottom: 10px;
+      background: var(--ink-surface-muted); border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md);
+    }
+    .mode-switch button {
+      min-width: 112px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 5px;
+      background: transparent; color: var(--ink-text-muted); cursor: pointer;
+    }
+    .mode-switch button[aria-selected="true"] { background: var(--ink-surface); color: var(--ink-text); box-shadow: 0 1px 4px rgb(23 24 26 / 8%); font-weight: 650; }
+    .search-shell {
+      display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: center;
+      padding: 10px 10px 10px 18px; min-height: 68px; background: var(--ink-surface);
+      border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); box-shadow: 0 4px 16px rgb(23 24 26 / 5%);
+    }
+    .search-shell:focus-within { border-color: var(--ink-focus); box-shadow: 0 0 0 3px rgb(22 105 211 / 18%); }
+    .search-shell input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink-text); font-size: 17px; }
+    .search-shell input::placeholder { color: #8B8D91; }
+    .submit-button {
+      min-height: 46px; display: inline-flex; align-items: center; gap: 8px; padding: 0 17px;
+      border: 0; border-radius: var(--ink-radius-md); background: var(--ink-accent); color: white; font-weight: 650; cursor: pointer;
+    }
+    .submit-button:hover { background: var(--ink-accent-hover); }
+    .submit-button:active, .mode-switch button:active, .quiet-button:active { transform: scale(.98); }
+    .workspace-note { margin: 9px 2px 0; color: var(--ink-text-muted); font-size: 13px; }
+
+    /* Search / answer states */
+    .state-switcher { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+    .state-switcher button {
+      min-height: 32px; padding: 0 10px; border: 1px solid var(--ink-line); border-radius: 999px;
+      background: transparent; color: var(--ink-text-muted); cursor: pointer; font-size: 12px;
+    }
+    .state-switcher button[aria-pressed="true"] { border-color: var(--ink-accent); background: var(--ink-accent-soft); color: var(--ink-accent-hover); }
+    .result-state { display: none; margin-top: 18px; }
+    .result-state.is-visible { display: block; }
+    .result-panel { border-left: 3px solid var(--ink-accent); padding: 14px 18px; background: var(--ink-surface); }
+    .result-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .result-header strong { font-size: 14px; }
+    .result-header button { border: 0; background: transparent; color: var(--ink-accent-hover); cursor: pointer; }
+    .answer { max-width: 72ch; margin: 10px 0 12px; }
+    .citations { display: flex; gap: 8px; flex-wrap: wrap; }
+    .citation { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; background: var(--ink-surface-muted); border-radius: var(--ink-radius-sm); font-size: 12px; }
+    .empty-panel { display: flex; align-items: center; gap: 14px; padding: 20px; border: 1px dashed #C9C7C1; background: rgb(255 255 255 / 45%); }
+    .empty-panel p { margin: 2px 0 0; color: var(--ink-text-muted); }
+    .skeleton-panel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .skeleton { min-height: 132px; padding: 18px; background: var(--ink-surface); border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); }
+    .skeleton span { display: block; height: 9px; margin-bottom: 12px; background: var(--ink-surface-muted); border-radius: 4px; animation: breathe 1.4s ease-in-out infinite alternate; }
+    .skeleton span:nth-child(1) { width: 38%; }.skeleton span:nth-child(2) { width: 82%; }.skeleton span:nth-child(3) { width: 66%; }
+    @keyframes breathe { to { opacity: .48; } }
+
+    /* Directory */
+    .directory-wrap { border-top: 1px solid var(--ink-line); }
+    .directory {
+      width: min(1200px, calc(100% - 48px)); margin: 0 auto; padding: 36px 0 80px;
+      display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 38px;
+    }
+    .category-index { position: sticky; top: 92px; align-self: start; }
+    .category-index h2 { margin: 0 0 13px; font-size: 12px; color: var(--ink-text-muted); text-transform: uppercase; font-family: var(--ink-font-mono); }
+    .category-index nav { display: grid; gap: 2px; }
+    .category-index a {
+      min-height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 0 10px 0 12px; border-left: 2px solid transparent; color: var(--ink-text-muted); text-decoration: none;
+    }
+    .category-index a:hover { color: var(--ink-text); background: var(--ink-surface-muted); }
+    .category-index a[aria-current="location"] { border-left-color: var(--ink-accent); background: var(--ink-accent-soft); color: var(--ink-text); font-weight: 650; }
+    .category-index small { font: 12px var(--ink-font-mono); color: var(--ink-text-muted); }
+    .category-section + .category-section { margin-top: 46px; }
+    .section-heading { display: flex; align-items: baseline; gap: 10px; margin-bottom: 15px; }
+    .section-heading h2 { margin: 0; font-size: 22px; line-height: 1.25; }
+    .section-heading span { color: var(--ink-text-muted); font: 12px var(--ink-font-mono); }
+    .card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .site-card {
+      min-width: 0; min-height: 184px; display: flex; flex-direction: column; padding: 16px;
+      border: 1px solid var(--ink-line); border-radius: var(--ink-radius-md); background: var(--ink-surface); text-decoration: none;
+      transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+    }
+    .site-card:hover { border-color: #C7C4BC; transform: translateY(-2px); box-shadow: 0 8px 20px rgb(23 24 26 / 7%); }
+    .site-card:active { transform: scale(.99); }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .site-identity { display: flex; gap: 10px; min-width: 0; }
+    .site-icon { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: var(--ink-radius-sm); background: var(--ink-surface-muted); color: var(--ink-text); font-weight: 750; }
+    .site-card.github .site-icon { background: var(--ink-text); color: white; }
+    .site-title { min-width: 0; }
+    .site-title strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    .site-title small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-text-muted); font: 11px/1.6 var(--ink-font-mono); }
+    .type-badge { padding: 3px 6px; border: 1px solid var(--ink-line); border-radius: 999px; color: var(--ink-text-muted); font: 10px var(--ink-font-mono); }
+    .site-card.github .type-badge { color: var(--ink-text); background: var(--ink-surface-muted); }
+    .summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 16px 0; color: var(--ink-text-muted); font-size: 13px; }
+    .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+    .tags { display: flex; gap: 5px; overflow: hidden; }
+    .tag { flex: 0 0 auto; padding: 3px 7px; border-radius: 999px; background: var(--ink-surface-muted); color: var(--ink-text-muted); font-size: 10px; }
+    .external { transition: transform 150ms ease; }
+    .site-card:hover .external { transform: translate(2px, -2px); color: var(--ink-accent); }
+
+    @media (max-width: 1100px) {
+      .hero, .directory, .topbar-inner { width: min(100% - 40px, 980px); }
+      .directory { grid-template-columns: 160px minmax(0, 1fr); gap: 24px; }
+      .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .topnav { display: none; }
+    }
+
+    @media (max-width: 640px) {
+      .topbar { height: 58px; }
+      .topbar-inner, .hero, .directory { width: calc(100% - 28px); }
+      .brand-name, .quiet-button .desktop-label { display: none; }
+      .quiet-button { width: 40px; padding: 0; }
+      .hero { padding: 34px 0 26px; }
+      h1 { font-size: 28px; }
+      .mode-switch { width: 100%; }
+      .mode-switch button { min-height: 42px; min-width: 0; }
+      .search-shell { grid-template-columns: 22px minmax(0, 1fr); padding: 10px 12px; }
+      .submit-button { grid-column: 1 / -1; justify-content: center; min-height: 44px; }
+      .state-switcher { flex-wrap: nowrap; overflow-x: auto; padding: 2px 2px 8px; }
+      .state-switcher button { flex: 0 0 auto; min-height: 38px; }
+      .skeleton-panel { grid-template-columns: 1fr; }
+      .skeleton-panel .skeleton:nth-child(n+2) { display: none; }
+      .directory { display: block; padding-top: 0; }
+      .category-index {
+        position: sticky; top: 58px; z-index: 12; margin: 0 -14px 26px; padding: 10px 14px;
+        background: rgb(246 245 242 / 94%); border-bottom: 1px solid var(--ink-line); backdrop-filter: blur(14px);
+      }
+      .category-index h2 { display: none; }
+      .category-index nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+      .category-index a { flex: 0 0 auto; min-height: 38px; border: 1px solid var(--ink-line); border-radius: 999px; padding: 0 11px; background: var(--ink-surface); }
+      .category-index a[aria-current="location"] { border-color: var(--ink-accent); background: var(--ink-accent-soft); }
+      .card-grid { grid-template-columns: 1fr; }
+      .site-card { min-height: 168px; }
+      .prototype-flag { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+      .site-card:hover { transform: none; }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      .topbar, .category-index { background: var(--ink-canvas); backdrop-filter: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Throwaway review prototype: no production behavior or data calls. -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="CZ 收藏库首页">
+        <span class="brand-mark">CZ</span><span class="brand-name">收藏库</span>
+      </a>
+      <nav class="topnav" aria-label="快捷导航">
+        <a href="#design">设计与产品</a><a href="#tools">开发工具</a><a href="#reading">阅读清单</a>
+      </nav>
+      <div class="top-actions">
+        <button class="icon-button" type="button" title="切换语言" aria-label="切换语言"><i data-lucide="languages" class="icon"></i></button>
+        <a class="quiet-button" href="admin-library.html"><i data-lucide="settings-2" class="icon"></i><span class="desktop-label">管理</span></a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- Unified search and AI workspace -->
+    <section class="hero" aria-labelledby="page-title">
+      <div class="eyebrow">Personal knowledge index / 48 items</div>
+      <h1 id="page-title">找到值得再次打开的内容</h1>
+      <p class="hero-copy">搜索标题、摘要与标签，或直接向你的收藏库提问。</p>
+
+      <div class="discovery">
+        <div class="mode-switch" role="tablist" aria-label="检索模式">
+          <button id="tab-keyword" type="button" role="tab" aria-selected="true" aria-controls="keyword-state" data-mode="keyword">关键词</button>
+          <button id="tab-ask" type="button" role="tab" aria-selected="false" aria-controls="answer-state" data-mode="ask">AI 问答</button>
+        </div>
+        <form class="search-shell" id="search-form">
+          <i data-lucide="search" class="icon" id="mode-icon" aria-hidden="true"></i>
+          <label class="sr-only" for="query">搜索收藏库</label>
+          <input id="query" value="React 性能优化" placeholder="搜索标题、摘要或标签…" autocomplete="off">
+          <button class="submit-button" type="submit"><span id="submit-label">搜索</span><i data-lucide="arrow-right" class="icon"></i></button>
+        </form>
+        <p class="workspace-note" id="workspace-note">回车搜索 48 条公开收藏，结果顺序由相关度决定。</p>
+
+        <div class="state-switcher" aria-label="原型状态切换">
+          <button type="button" aria-pressed="true" data-state="keyword-state">搜索结果</button>
+          <button type="button" aria-pressed="false" data-state="answer-state">AI 回答</button>
+          <button type="button" aria-pressed="false" data-state="empty-state">空状态</button>
+          <button type="button" aria-pressed="false" data-state="loading-state">加载状态</button>
+        </div>
+
+        <section class="result-state is-visible" id="keyword-state" aria-live="polite">
+          <div class="result-panel">
+            <div class="result-header"><strong>“React 性能优化”的 6 个结果</strong><button type="button">清除搜索</button></div>
+            <p class="answer">已优先显示标题、摘要和标签中最相关的收藏，目录分类仍保留在下方供继续浏览。</p>
+          </div>
+        </section>
+        <section class="result-state" id="answer-state" aria-live="polite">
+          <div class="result-panel">
+            <div class="result-header"><strong>来自收藏库的回答</strong><span class="type-badge">3 个引用</span></div>
+            <p class="answer">处理 React 列表性能时，先用 Profiler 确认重复渲染来源，再稳定 props 与 key。对于大数据集，虚拟化通常比继续增加 memo 更有效；服务端组件则应优先减少传向客户端的 JavaScript。</p>
+            <div class="citations"><span class="citation">[1] React 官方文档</span><span class="citation">[2] Vercel 性能指南</span><span class="citation">[3] web.dev 虚拟列表</span></div>
+          </div>
+        </section>
+        <section class="result-state" id="empty-state">
+          <div class="empty-panel"><i data-lucide="search-x" class="icon"></i><div><strong>没有找到匹配内容</strong><p>尝试缩短关键词，或改用标签和域名搜索。</p></div></div>
+        </section>
+        <section class="result-state" id="loading-state" aria-label="正在加载">
+          <div class="skeleton-panel"><div class="skeleton"><span></span><span></span><span></span></div><div class="skeleton"><span></span><span></span><span></span></div><div class="skeleton"><span></span><span></span><span></span></div></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- Directory index and categorized cards -->
+    <div class="directory-wrap">
+      <div class="directory">
+        <aside class="category-index">
+          <h2>分类索引</h2>
+          <nav aria-label="内容分类">
+            <a href="#design" aria-current="location"><span>设计与产品</span><small>12</small></a>
+            <a href="#tools"><span>开发工具</span><small>09</small></a>
+            <a href="#reading"><span>阅读清单</span><small>15</small></a>
+            <a href="#ai"><span>AI 与研究</span><small>09</small></a>
+            <a href="#uncategorized"><span>未分类</span><small>03</small></a>
+          </nav>
+        </aside>
+
+        <div class="directory-content">
+          <section class="category-section" id="design">
+            <div class="section-heading"><h2>设计与产品</h2><span>12 ITEMS</span></div>
+            <div class="card-grid">
+              <a class="site-card" href="#">
+                <div class="card-top"><div class="site-identity"><span class="site-icon">L</span><div class="site-title"><strong>Linear 方法论</strong><small>linear.app/method</small></div></div><span class="type-badge">WEB</span></div>
+                <p class="summary">关于高质量产品开发、节奏控制与团队协作的实践文档，结构清晰，适合反复查阅。</p>
+                <div class="card-footer"><span class="tags"><span class="tag">产品</span><span class="tag">流程</span></span><i data-lucide="arrow-up-right" class="icon external"></i></div>
+              </a>
+              <a class="site-card github" href="#">
+                <div class="card-top"><div class="site-identity"><span class="site-icon"><i data-lucide="github" class="icon"></i></span><div class="site-title"><strong>radix-ui/primitives</strong><small>github.com/radix-ui</small></div></div><span class="type-badge">GITHUB</span></div>
+                <p class="summary">用于构建高质量设计系统和 Web 应用的无样式、可访问组件原语。</p>
+                <div class="card-footer"><span class="tags"><span class="tag">组件</span><span class="tag">无障碍</span></span><i data-lucide="arrow-up-right" class="icon external"></i></div>
+              </a>
+              <a class="site-card" href="#">
+                <div class="card-top"><div class="site-identity"><span class="site-icon">M</span><div class="site-title"><strong>Mobbin 设计案例</strong><small>mobbin.com</small></div></div><span class="type-badge">WEB</span></div>
+                <p class="summary">真实产品界面与交互流程案例库，用于研究信息架构和移动端模式。</p>
+                <div class="card-footer"><span class="tags"><span class="tag">灵感</span><span class="tag">移动端</span></span><i data-lucide="arrow-up-right" class="icon external"></i></div>
+              </a>
+            </div>
+          </section>
+
+          <section class="category-section" id="tools">
+            <div class="section-heading"><h2>开发工具</h2><span>09 ITEMS</span></div>
+            <div class="card-grid">
+              <a class="site-card github" href="#">
+                <div class="card-top"><div class="site-identity"><span class="site-icon"><i data-lucide="github" class="icon"></i></span><div class="site-title"><strong>vercel/next.js</strong><small>github.com/vercel</small></div></div><span class="type-badge">GITHUB</span></div>
+                <p class="summary">React Web 框架源代码与示例，包含 App Router、服务端组件和缓存策略。</p>
+                <div class="card-footer"><span class="tags"><span class="tag">Next.js</span><span class="tag">React</span></span><i data-lucide="arrow-up-right" class="icon external"></i></div>
+              </a>
+              <a class="site-card" href="#">
+                <div class="card-top"><div class="site-identity"><span class="site-icon">C</span><div class="site-title"><strong>Can I use</strong><small>caniuse.com</small></div></div><span class="type-badge">WEB</span></div>
+                <p class="summary">查询浏览器对 Web 平台特性的支持范围，适合实现前快速确认兼容性。</p>
+                <div class="card-footer"><span class="tags"><span class="tag">兼容性</span><span class="tag">CSS</span></span><i data-lucide="arrow-up-right" class="icon external"></i></div>
+              </a>
+              <a class="site-card" href="#">
+                <div class="card-top"><div class="site-identity"><span class="site-icon">B</span><div class="site-title"><strong>Bundlephobia</strong><small>bundlephobia.com</small></div></div><span class="type-badge">WEB</span></div>
+                <p class="summary">评估 npm 包的体积、下载耗时与依赖构成，避免前端引入不必要的成本。</p>
+                <div class="card-footer"><span class="tags"><span class="tag">性能</span><span class="tag">依赖</span></span><i data-lucide="arrow-up-right" class="icon external"></i></div>
+              </a>
+            </div>
+          </section>
+
+          <section class="category-section" id="reading">
+            <div class="section-heading"><h2>阅读清单</h2><span>15 ITEMS</span></div>
+            <div class="empty-panel"><i data-lucide="bookmark" class="icon"></i><div><strong>还有 15 条待读收藏</strong><p>此处用于展示下一组内容，原型暂不重复填充卡片。</p></div></div>
+          </section>
+          <span id="ai"></span><span id="uncategorized"></span>
+        </div>
+      </div>
+    </div>
+  </main>
+  <div class="prototype-flag">THROWAWAY PROTOTYPE · PUBLIC</div>
+
+  <script>
+    const modes = {
+      keyword: { label: '搜索', placeholder: '搜索标题、摘要或标签…', note: '回车搜索 48 条公开收藏，结果顺序由相关度决定。', icon: 'search', state: 'keyword-state' },
+      ask: { label: '提问', placeholder: '向收藏库提问，例如：如何优化 React 列表？', note: 'AI 将只根据已收藏内容回答，并附上引用来源。', icon: 'sparkles', state: 'answer-state' }
+    };
+
+    function showState(id) {
+      document.querySelectorAll('.result-state').forEach((node) => node.classList.toggle('is-visible', node.id === id));
+      document.querySelectorAll('[data-state]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.state === id)));
+    }
+
+    document.querySelectorAll('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = modes[button.dataset.mode];
+        document.querySelectorAll('[data-mode]').forEach((item) => item.setAttribute('aria-selected', String(item === button)));
+        document.getElementById('submit-label').textContent = mode.label;
+        document.getElementById('query').placeholder = mode.placeholder;
+        document.getElementById('workspace-note').textContent = mode.note;
+        document.getElementById('mode-icon').setAttribute('data-lucide', mode.icon);
+        lucide.createIcons();
+        showState(mode.state);
+      });
+    });
+
+    document.querySelectorAll('[data-state]').forEach((button) => button.addEventListener('click', () => showState(button.dataset.state)));
+    document.getElementById('search-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const askMode = document.getElementById('tab-ask').getAttribute('aria-selected') === 'true';
+      showState(askMode ? 'answer-state' : 'keyword-state');
+    });
+
+    const categoryLinks = [...document.querySelectorAll('.category-index a')];
+    categoryLinks.forEach((link) => link.addEventListener('click', () => categoryLinks.forEach((item) => item.toggleAttribute('aria-current', item === link))));
+    lucide.createIcons();
+  </script>
+</body>
+</html>
