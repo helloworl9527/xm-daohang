@@ -101,6 +101,9 @@ test("admin reviews category diffs, handles manual conflict, manages categories,
   await page.getByLabel("用户名").fill("admin");
   await page.getByLabel("密码").fill("correct-password-123");
   await page.getByRole("button", { name: "登录管理端" }).click();
+  if (testInfo.project.name.includes("mobile")) {
+    await page.getByRole("button", { name: "打开导航" }).click();
+  }
   await page.getByRole("link", { name: "分类管理" }).click();
   await expect(page).toHaveURL(/\/admin\/categories$/);
   await expect(page.getByRole("note")).toContainText("人工分类始终保护");
@@ -109,13 +112,10 @@ test("admin reviews category diffs, handles manual conflict, manages categories,
       innerWidth: window.innerWidth,
       screenWidth: window.screen.width,
       pageWidth: document.documentElement.scrollWidth,
-      navClientWidth: document.querySelector<HTMLElement>(".admin-nav")!.clientWidth,
-      navScrollWidth: document.querySelector<HTMLElement>(".admin-nav")!.scrollWidth,
     }));
     expect(geometry.screenWidth).toBe(390);
     expect(geometry.innerWidth).toBe(390);
     expect(geometry.pageWidth).toBeLessThanOrEqual(390);
-    expect(geometry.navScrollWidth).toBeGreaterThan(geometry.navClientWidth);
   }
 
   await page.getByRole("button", { name: /全量重拟/ }).click();
@@ -123,9 +123,8 @@ test("admin reviews category diffs, handles manual conflict, manages categories,
   await page.getByRole("textbox", { name: "新分类", exact: true }).fill("数据工程");
   await page.getByRole("combobox", { name: "自动条目去向" }).first().selectOption(`existing:${CATEGORY_B}`);
 
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   await page.screenshot({
-    path: `.workflow/screenshots/nav-enhancement/task12-admin-accessibility-${suffix}.png`,
+    path: `.workflow/screenshots/ink-signal/phase4-admin-categories-${testInfo.project.name}.png`,
     fullPage: true,
   });
 

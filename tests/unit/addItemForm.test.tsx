@@ -29,6 +29,7 @@ describe("AddItemForm", () => {
     render(<AddItemForm csrfToken="csrf" modelConfigured />);
     const input = screen.getByLabelText("公开链接");
     fireEvent.change(input, { target: { value: "https://example.com/article" } });
+    expect(screen.getByText("链接类型提示：可能是网页")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "添加到收藏库" }));
 
     await waitFor(() => expect(screen.getByText("已加入，正在抓取总结中。")).toBeVisible());
@@ -36,6 +37,7 @@ describe("AddItemForm", () => {
     expect(fetch).toHaveBeenCalledWith("/admin/api/items", expect.objectContaining({
       method: "POST",
       headers: { "Content-Type": "application/json", "x-csrf-token": "csrf" },
+      body: JSON.stringify({ url: "https://example.com/article" }),
     }));
   });
 

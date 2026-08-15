@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export function DeleteItemDialog({ onConfirm }: { onConfirm: () => Promise<boolean> }) {
@@ -40,6 +41,7 @@ export function DeleteItemDialog({ onConfirm }: { onConfirm: () => Promise<boole
   return (
     <>
       <button className="item-delete-trigger" onClick={open} ref={triggerRef} type="button">
+        <Trash2 aria-hidden="true" size={16} />
         {t("delete")}
       </button>
       <dialog
@@ -48,6 +50,7 @@ export function DeleteItemDialog({ onConfirm }: { onConfirm: () => Promise<boole
         onClose={() => triggerRef.current?.focus()}
         ref={dialogRef}
       >
+        <span aria-hidden="true" className="item-delete-dialog-icon"><Trash2 size={20} /></span>
         <h2 id="delete-item-title">{t("deleteTitle")}</h2>
         <p>{t("deleteDescription")}</p>
         <div className="item-dialog-actions">

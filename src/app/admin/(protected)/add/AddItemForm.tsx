@@ -19,6 +19,18 @@ interface AddResponse {
   error?: { code?: string; message?: string };
 }
 
+function inferTypeHint(value: string): "web" | "github" | "document" | null {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (parsed.hostname.toLowerCase() === "github.com") return "github";
+    if (/\.(?:docx?|md|odt|pdf|rtf|txt)$/iu.test(parsed.pathname)) return "document";
+    return "web";
+  } catch {
+    return null;
+  }
+}
+
 export function AddItemForm({
   csrfToken,
   modelConfigured,
@@ -31,6 +43,7 @@ export function AddItemForm({
   const [status, setStatus] = useState<AddStatus>({ kind: "idle" });
   const inputRef = useRef<HTMLInputElement>(null);
   const busy = status.kind === "submitting";
+  const typeHint = inferTypeHint(url);
 
   useEffect(() => {
     if (!url || status.kind === "success" || status.kind === "duplicate") return;
@@ -114,6 +127,9 @@ export function AddItemForm({
             {busy ? t("adding") : t("submit")}
           </Pressable>
         </div>
+        <p aria-live="polite" className="add-item-type-hint">
+          {typeHint ? t("typeHint", { type: t(`type.${typeHint}`) }) : t("typeHintEmpty")}
+        </p>
       </form>
 
       <div aria-live="polite" className="add-item-status" id="add-item-status">

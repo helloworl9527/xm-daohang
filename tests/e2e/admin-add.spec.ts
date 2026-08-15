@@ -50,10 +50,17 @@ test("admin adds and recognizes a duplicate public URL", async ({ page }, testIn
   await page.getByRole("button", { name: "登录管理端" }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "添加内容" })).toBeVisible();
+  if (testInfo.project.name.includes("mobile")) {
+    await page.getByRole("button", { name: "打开导航" }).click();
+  }
   await expect(page.getByRole("navigation", { name: "管理端主导航" })).toBeVisible();
+  if (testInfo.project.name.includes("mobile")) {
+    await page.keyboard.press("Escape");
+  }
 
   const input = page.getByLabel("公开链接");
   await input.fill("https://93.184.216.34/e2e-article?b=2&a=1#section");
+  await expect(page.getByText("链接类型提示：可能是网页")).toBeVisible();
   await page.getByRole("button", { name: "添加到收藏库" }).click();
   await expect(page.getByText("已加入，正在抓取总结中。")).toBeVisible();
 
@@ -71,9 +78,8 @@ test("admin adds and recognizes a duplicate public URL", async ({ page }, testIn
     await pool.end();
   }
 
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   await page.screenshot({
-    path: `.workflow/screenshots/t14-admin-add-${suffix}.png`,
+    path: `.workflow/screenshots/ink-signal/phase4-admin-add-${testInfo.project.name}.png`,
     fullPage: true,
   });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

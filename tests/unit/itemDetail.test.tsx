@@ -56,6 +56,8 @@ describe("ItemDetail", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("正在读取条目…");
     const editor = await screen.findByRole("textbox", { name: "总结" });
+    expect(screen.getByRole("complementary", { name: "条目信息" })).toHaveTextContent("网页");
+    expect(screen.getByRole("heading", { name: "标签" })).toBeVisible();
     fireEvent.change(editor, { target: { value: "未保存的人工总结。" } });
     fireEvent.click(screen.getByRole("button", { name: "保存总结" }));
 

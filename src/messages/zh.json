@@ -25,7 +25,7 @@
     "add": {
       "eyebrow": "入库", "title": "添加内容", "description": "支持公开网页、文档与 GitHub 公开仓库。完成条目可能通过公开问答返回。",
       "configureTitle": "先完成模型配置", "configureDescription": "对话模型和嵌入模型均可用后才能添加内容。", "configureLink": "前往模型设置",
-      "url": "公开链接", "adding": "添加中…", "submit": "添加到收藏库", "success": "已加入，正在抓取总结中。", "duplicate": "该链接已收藏。",
+      "url": "公开链接", "typeHint": "链接类型提示：可能是{type}", "typeHintEmpty": "输入完整链接后显示类型提示", "type": { "web": "网页", "github": "GitHub 仓库", "document": "文档" }, "adding": "添加中…", "submit": "添加到收藏库", "success": "已加入，正在抓取总结中。", "duplicate": "该链接已收藏。",
       "view": "查看条目", "viewRefetch": "查看并重抓", "error": "添加失败，请稍后重试。", "networkError": "添加失败，请检查连接后重试。"
     },
     "library": {
@@ -37,7 +37,7 @@
     "detail": {
       "loadError": "条目暂时无法读取。", "savingError": "保存失败，请稍后重试。", "savingNetworkError": "保存失败，请检查连接后重试。", "saved": "总结已保存。",
       "refetchError": "重抓失败，请稍后重试。", "refetchNetworkError": "重抓失败，请检查连接后重试。", "queued": "已加入重抓队列。", "deleteError": "删除失败，条目已保留。", "deleted": "条目已删除。",
-      "loading": "正在读取条目…", "back": "返回收藏库", "infoLabel": "条目信息", "info": "条目信息", "status": "状态", "source": "来源", "updated": "更新", "actions": "条目操作", "actionsDescription": "重抓会重新获取公开内容；人工总结不会被自动覆盖。", "refetching": "正在处理", "refetch": "手动重抓",
+      "loading": "正在读取条目…", "back": "返回收藏库", "infoLabel": "条目信息", "info": "条目信息", "type": "类型", "status": "状态", "source": "来源", "created": "创建", "updated": "更新", "tags": "标签", "actions": "条目操作", "actionsDescription": "重抓会重新获取公开内容；人工总结不会被自动覆盖。", "refetching": "正在处理", "refetch": "手动重抓",
       "summary": "总结", "manual": "已标记为人工编辑", "saving": "保存中…", "save": "保存总结", "delete": "删除条目", "deleteTitle": "确认删除条目", "deleteDescription": "删除后将同时移除向量与公开检索来源，且无法恢复。", "cancel": "取消", "deleting": "删除中…", "confirmDelete": "确认删除",
       "category": { "title": "主分类", "label": "选择单一主分类", "unclassified": "未分类", "manual": "人工优先", "saving": "保存中…", "save": "保存分类", "saved": "人工分类已保存，后续 AI 不覆盖。", "conflict": "条目已更新，请刷新后再选择。", "error": "分类保存失败，原选择已恢复。" }
     },
@@ -55,7 +55,7 @@
     },
     "models": {
       "eyebrow": "设置", "title": "模型配置", "llm": "对话模型", "embedding": "嵌入模型", "testing": "测试中…", "saving": "保存中…", "connected": "连接成功", "saved": "已保存", "error": "连接失败，原配置未更改。",
-      "keyPlaceholder": "输入 API Key", "modelName": "模型名", "test": "测试{title}", "save": "保存{title}", "probe": "实测 {dimension} 维 · 阈值 {cutoff}", "rebuilding": "向量重建中，公开检索暂不可用。完成后将自动恢复。"
+      "keyPlaceholder": "输入 API Key", "keyConfigured": "已配置 {mask}；留空将保留现有密钥。", "keyNotConfigured": "尚未配置密钥。", "modelName": "模型名", "test": "测试{title}", "save": "保存{title}", "probe": "实测 {dimension} 维 · 阈值 {cutoff}", "rebuilding": "向量重建中，公开检索暂不可用。完成后将自动恢复。"
     },
     "settings": {
       "eyebrow": "站点配置", "title": "设置", "description": "管理模型、自动任务、公开额度、安全、Telegram 与语言。", "modelsEyebrow": "AI", "modelsTitle": "模型配置",
@@ -63,7 +63,7 @@
       "refetch": { "eyebrow": "自动化", "title": "定时重抓", "description": "按固定间隔检查已完成条目，内容变更时更新总结与向量。", "enabled": "启用定时重抓", "interval": "间隔天数", "lastRun": "上次运行", "nextRun": "下次运行", "never": "尚未运行", "disabled": "已关闭", "saving": "保存中…", "save": "保存定时设置", "saved": "定时设置已保存。", "error": "保存失败，请重试。" },
       "rate": { "eyebrow": "公开边界", "title": "公开提问限流", "description": "服务端按单 IP 和全站两层每日额度强制执行。", "enabled": "启用公开限流", "ipDaily": "单 IP 每日上限", "globalDaily": "全站每日上限", "usage": "{day} 全站已用 {used} / {limit}", "saving": "保存中…", "save": "保存限流设置", "saved": "限流设置已保存。", "error": "保存失败，请重试。" },
       "security": { "eyebrow": "身份", "title": "安全", "description": "修改密码后将撤销当前与所有其他会话，需使用新密码重新登录。", "current": "当前密码", "next": "新密码", "saving": "更新中…", "save": "修改密码并撤销会话", "error": "密码未更新，请核对当前密码和强度。" },
-      "telegram": { "eyebrow": "私有入口", "title": "Telegram", "description": "Bot Token 加密保存；仅白名单用户 ID 会收到响应。", "token": "Bot Token", "tokenPlaceholder": "输入 Bot Token", "allowedIds": "用户 ID 白名单（逗号或换行分隔）", "saving": "保存中…", "save": "保存 Telegram 设置", "saved": "Telegram 设置已保存。", "error": "配置无效或保存失败。" },
+      "telegram": { "eyebrow": "私有入口", "title": "Telegram", "description": "Bot Token 加密保存；仅白名单用户 ID 会收到响应。", "token": "Bot Token", "tokenPlaceholder": "输入 Bot Token", "tokenConfigured": "已配置 {mask}；留空将保留现有 Token。", "tokenNotConfigured": "尚未配置 Token。", "allowedIds": "用户 ID 白名单（逗号或换行分隔）", "saving": "保存中…", "save": "保存 Telegram 设置", "saved": "Telegram 设置已保存。", "error": "配置无效或保存失败。" },
       "locale": { "eyebrow": "显示", "title": "语言", "description": "公开端与管理端共用界面语言，AI 总结和回答仍保持中文。", "language": "默认界面语言", "zh": "中文", "en": "English", "saving": "保存中…", "save": "保存语言", "saved": "语言已保存。", "error": "语言保存失败。" }
     }
   }

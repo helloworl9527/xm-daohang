@@ -79,6 +79,15 @@ test.beforeEach(async () => {
       "insert into admin_user (id, username, password_hash) values (1, 'admin', $1)",
       [passwordHash],
     );
+    await pool.query(
+      `insert into items
+        (id, url, url_canonical, type, title, summary, tags, status, source,
+         embedding, embedding_dim, embedding_version)
+       values ('50000000-0000-4000-8000-000000000001',
+               'https://example.com/model-rebuild', 'https://example.com/model-rebuild',
+               'web', '模型重建测试条目', '用于验证嵌入模型变更会禁用重复操作。',
+               array['模型','配置','测试'], 'completed', 'admin', '[1,0,0]', 3, 0)`,
+    );
   } finally {
     await pool.end();
   }
@@ -120,7 +129,7 @@ test("admin tests and saves independent model configurations", async ({ page }, 
     .getByRole("region", { name: "对话模型" })
     .getByRole("button", { name: "保存对话模型" })
     .click();
-  await expect(page.getByPlaceholder("sk-…aaaa")).toBeVisible();
+  await expect(page.getByText("已配置 sk-…aaaa；留空将保留现有密钥。")).toBeVisible();
 
   await page.locator('input[name="embedding-base-url"]').fill(mockModelUrl);
   await page.locator('input[name="embedding-api-key"]').fill("sk-embedding-e2e-bbbb");
@@ -134,9 +143,8 @@ test("admin tests and saves independent model configurations", async ({ page }, 
   await expect(page.getByText(/向量重建中/)).toBeVisible();
   await expect(page.getByRole("button", { name: "测试嵌入模型" })).toBeDisabled();
 
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   await page.screenshot({
-    path: `.workflow/screenshots/t08-model-settings-${suffix}.png`,
+    path: `.workflow/screenshots/ink-signal/phase4-admin-models-${testInfo.project.name}.png`,
     fullPage: true,
   });
   expect(consoleErrors).toEqual([]);

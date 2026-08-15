@@ -39,8 +39,10 @@ describe("model settings form", () => {
 
     const llm = screen.getByRole("region", { name: "对话模型" });
     const embedding = screen.getByRole("region", { name: "嵌入模型" });
-    expect(within(llm).getByPlaceholderText("sk-…aaaa")).toHaveValue("");
-    expect(within(embedding).getByPlaceholderText("sk-…bbbb")).toHaveValue("");
+    expect(within(llm).getByPlaceholderText("输入 API Key")).toHaveValue("");
+    expect(within(embedding).getByPlaceholderText("输入 API Key")).toHaveValue("");
+    expect(within(llm).getByText("已配置 sk-…aaaa；留空将保留现有密钥。")).toBeVisible();
+    expect(within(embedding).getByText("已配置 sk-…bbbb；留空将保留现有密钥。")).toBeVisible();
     expect(document.body.textContent).not.toContain("sensitive");
   });
 

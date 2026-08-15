@@ -3527,3 +3527,670 @@ body:has(.admin-shell) .locale-switcher button[aria-pressed="true"] {
   .library-item { grid-template-columns: 40px minmax(0, 1fr); gap: 14px; }
   .library-item-meta { grid-column: 1 / -1; }
 }
+
+/* Ink & Signal phase 4: admin details, forms, categories, and settings. */
+.admin-login-shell {
+  background: var(--ink-canvas);
+  color: var(--ink-text);
+  font-family: var(--ink-font-sans);
+}
+
+.admin-login-panel {
+  border-color: var(--ink-line);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-surface);
+  padding: var(--ink-space-6);
+  box-shadow: var(--ink-shadow-float);
+}
+
+.admin-login-heading p,
+.admin-section-heading > p:first-child,
+.category-page-header > p:first-child,
+.category-section header > p,
+.category-section-row > div > p,
+.settings-workspace > .admin-settings-header > p:first-child,
+.settings-panel > header > p:first-child,
+.admin-settings-header > p:first-child {
+  color: var(--ink-accent);
+  font: 700 0.72rem/1.4 var(--ink-font-mono);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-login-heading h1,
+.admin-section-heading h1,
+.category-page-header h1,
+.settings-workspace > .admin-settings-header h1,
+.admin-settings-header h1 {
+  color: var(--ink-text);
+  font-family: var(--ink-font-sans);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.admin-login-form label,
+.add-item-form > label,
+.item-summary-field,
+.item-category-selector > label,
+.settings-panel label:not(.settings-toggle),
+.model-settings-group label {
+  color: var(--ink-text);
+  font-family: var(--ink-font-sans);
+}
+
+.admin-login-form input,
+.add-item-input-row input,
+.item-summary-field textarea,
+.category-diff-change input,
+.category-diff-change select,
+.category-create-row input,
+.category-fixed-list input,
+.item-category-selector select,
+.settings-panel input:not([type="checkbox"]),
+.settings-panel textarea,
+.settings-panel select,
+.model-settings-group input {
+  border-color: var(--ink-line);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-surface);
+  color: var(--ink-text);
+}
+
+.admin-login-form input:hover:not(:disabled),
+.add-item-input-row input:hover:not(:disabled),
+.item-summary-field textarea:hover:not(:disabled),
+.settings-panel input:hover:not(:disabled),
+.settings-panel textarea:hover:not(:disabled),
+.settings-panel select:hover:not(:disabled),
+.model-settings-group input:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ink-text) 38%, var(--ink-line));
+}
+
+.admin-login-form [role="alert"],
+.add-item-status [role="alert"],
+.item-action-status [role="alert"],
+.item-category-selector [role="alert"],
+.category-feedback [role="alert"] {
+  color: var(--ink-danger);
+}
+
+.admin-login-form button,
+.add-item-input-row button,
+.item-summary-editor > button,
+.item-action-buttons > button:first-child,
+.category-diff-footer button,
+.category-run button,
+.category-create-row button,
+.item-category-selector button,
+.settings-panel button,
+.model-settings-actions button[type="submit"] {
+  border-color: var(--ink-accent);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-accent);
+  color: var(--ink-surface);
+}
+
+.admin-login-form button:hover:not(:disabled),
+.add-item-input-row button:hover:not(:disabled),
+.item-summary-editor > button:hover:not(:disabled),
+.item-action-buttons > button:first-child:hover:not(:disabled),
+.category-diff-footer button:hover:not(:disabled),
+.category-run button:hover:not(:disabled),
+.category-create-row button:hover:not(:disabled),
+.item-category-selector button:hover:not(:disabled),
+.settings-panel button:hover:not(:disabled),
+.model-settings-actions button[type="submit"]:hover:not(:disabled) {
+  border-color: var(--ink-accent-hover);
+  background: var(--ink-accent-hover);
+  color: var(--ink-surface);
+}
+
+.admin-work-section {
+  max-width: 900px;
+  color: var(--ink-text);
+}
+
+.admin-section-heading h1 {
+  margin-top: var(--ink-space-2);
+  font-size: 2rem;
+}
+
+.admin-section-heading h1 + p,
+.category-page-header > p:last-child,
+.settings-workspace > .admin-settings-header > p:last-child,
+.settings-panel > header > p:last-child {
+  color: var(--ink-text-muted);
+}
+
+.admin-inline-notice {
+  border-color: color-mix(in srgb, var(--ink-warning) 38%, var(--ink-line));
+  background: color-mix(in srgb, var(--ink-warning) 7%, var(--ink-canvas));
+  padding: var(--ink-space-4);
+}
+
+.admin-inline-notice span,
+.add-item-type-hint {
+  color: var(--ink-text-muted);
+}
+
+.admin-inline-notice a,
+.add-item-status a,
+.item-detail-header a {
+  color: var(--ink-accent-hover);
+}
+
+.add-item-form {
+  margin-top: var(--ink-space-7);
+  border-color: var(--ink-line);
+  padding-top: var(--ink-space-5);
+}
+
+.add-item-input-row {
+  gap: var(--ink-space-3);
+}
+
+.add-item-input-row input {
+  min-height: 52px;
+  padding-inline: var(--ink-space-4);
+}
+
+.add-item-input-row button {
+  min-width: 160px;
+}
+
+.add-item-type-hint {
+  min-height: 1.4em;
+  margin: var(--ink-space-2) 0 0;
+  font: 0.75rem/1.5 var(--ink-font-mono);
+}
+
+.add-item-status {
+  color: var(--ink-success);
+}
+
+.item-detail-workspace {
+  max-width: 1240px;
+  color: var(--ink-text);
+}
+
+.item-detail-state {
+  border-color: var(--ink-accent);
+  background: var(--ink-surface);
+}
+
+.item-detail-header {
+  padding-bottom: var(--ink-space-5);
+  border-bottom: 1px solid var(--ink-line);
+}
+
+.item-detail-header > a:first-child,
+.item-detail-header > a:last-child {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ink-space-2);
+  color: var(--ink-text-muted);
+  text-decoration: none;
+}
+
+.item-detail-header > a:last-child {
+  max-width: 100%;
+  font: 0.75rem/1.5 var(--ink-font-mono);
+}
+
+.item-detail-header h1 {
+  font-size: 2rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.item-detail-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(270px, 1fr);
+  align-items: start;
+  gap: var(--ink-space-7);
+  margin-top: var(--ink-space-6);
+  border-top: 0;
+  padding-top: 0;
+}
+
+.item-detail-primary {
+  min-width: 0;
+}
+
+.item-detail-section-heading h2,
+.item-detail-meta h2,
+.item-detail-actions h2 {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.item-detail-section-heading span {
+  color: var(--ink-success);
+}
+
+.item-summary-field textarea {
+  min-height: 220px;
+  padding: var(--ink-space-4);
+}
+
+.item-category-selector,
+.item-tags-section {
+  margin-top: var(--ink-space-6);
+  border-top: 1px solid var(--ink-line);
+  padding-top: var(--ink-space-5);
+}
+
+.item-tags-section .library-tags {
+  margin-top: var(--ink-space-3);
+}
+
+.item-detail-meta {
+  position: sticky;
+  top: var(--ink-space-5);
+  overflow: hidden;
+  border: 1px solid var(--ink-line);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-surface);
+  padding: 0;
+}
+
+.item-detail-meta-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ink-space-3);
+  border-bottom: 1px solid var(--ink-line);
+  padding: var(--ink-space-4);
+}
+
+.item-detail-meta dl {
+  margin: 0;
+  padding: var(--ink-space-2) var(--ink-space-4);
+}
+
+.item-detail-meta dl > div {
+  grid-template-columns: 78px minmax(0, 1fr);
+  border-bottom: 1px solid var(--ink-line);
+  padding: var(--ink-space-3) 0;
+}
+
+.item-detail-meta dl > div:last-child {
+  border-bottom: 0;
+}
+
+.item-detail-meta dt {
+  color: var(--ink-text-muted);
+  font-size: 0.75rem;
+}
+
+.item-detail-meta dd {
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
+.item-detail-meta .library-item-failure {
+  margin: 0 var(--ink-space-4) var(--ink-space-4);
+  border-left-color: var(--ink-danger);
+  color: var(--ink-danger);
+}
+
+.item-detail-actions {
+  display: grid;
+  gap: var(--ink-space-4);
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--ink-line);
+  background: var(--ink-surface-muted);
+  padding: var(--ink-space-4);
+}
+
+.item-detail-actions p {
+  color: var(--ink-text-muted);
+}
+
+.item-action-buttons {
+  display: grid;
+  gap: var(--ink-space-2);
+}
+
+.item-action-buttons > button {
+  width: 100%;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ink-space-2);
+}
+
+.item-action-buttons .item-delete-trigger {
+  border-color: color-mix(in srgb, var(--ink-danger) 36%, var(--ink-line));
+  background: var(--ink-surface);
+  color: var(--ink-danger);
+}
+
+.item-action-buttons .item-delete-trigger:hover:not(:disabled) {
+  border-color: var(--ink-danger);
+  background: color-mix(in srgb, var(--ink-danger) 8%, var(--ink-surface));
+  color: var(--ink-danger);
+}
+
+.item-action-status {
+  color: var(--ink-success);
+}
+
+.item-delete-dialog,
+.category-modal > div {
+  border-color: var(--ink-line);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-surface);
+  color: var(--ink-text);
+  box-shadow: var(--ink-shadow-float);
+}
+
+.item-delete-dialog {
+  max-height: min(680px, calc(100dvh - 32px));
+  overflow-y: auto;
+}
+
+.item-delete-dialog::backdrop,
+.category-modal::backdrop {
+  background: rgb(23 24 26 / 40%);
+}
+
+.item-delete-dialog-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ink-radius-md);
+  background: color-mix(in srgb, var(--ink-danger) 10%, var(--ink-surface));
+  color: var(--ink-danger);
+}
+
+.item-delete-dialog-icon + h2 {
+  margin-top: var(--ink-space-4);
+}
+
+.item-dialog-actions button,
+.category-modal button {
+  border-color: var(--ink-line);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-surface);
+  color: var(--ink-text);
+}
+
+.item-dialog-actions button:last-child,
+.category-modal button.danger {
+  border-color: var(--ink-danger);
+  background: var(--ink-danger);
+  color: var(--ink-surface);
+}
+
+.category-page {
+  color: var(--ink-text);
+  font-family: var(--ink-font-sans);
+}
+
+.category-page-header h1 {
+  font-size: 2rem;
+}
+
+.category-layout {
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: var(--ink-space-7);
+}
+
+.category-protection {
+  border-color: color-mix(in srgb, var(--ink-success) 38%, var(--ink-line));
+  background: color-mix(in srgb, var(--ink-success) 8%, var(--ink-canvas));
+  color: var(--ink-text);
+}
+
+.category-protection svg,
+.category-confirm-protection {
+  color: var(--ink-success);
+}
+
+.category-protection p,
+.category-ai-actions small,
+.category-diff-kind small,
+.category-fixed-list small,
+.category-page-header > p:last-child {
+  color: var(--ink-text-muted);
+}
+
+.category-section,
+.category-diff-list,
+.category-fixed-list li,
+.category-run dl div,
+.category-overview dl div {
+  border-color: var(--ink-line);
+}
+
+.category-ai-actions button,
+.category-diff-row,
+.category-diff-decision button,
+.category-fixed-list button,
+.category-quiet-button {
+  border-color: var(--ink-line);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-surface);
+  color: var(--ink-text);
+}
+
+.category-ai-actions button:hover:not(:disabled) {
+  border-color: var(--ink-accent);
+}
+
+.category-ai-actions svg,
+.category-ai-actions button:last-child svg,
+.category-status {
+  color: var(--ink-accent);
+}
+
+.category-diff-row {
+  border-left-color: var(--ink-accent);
+}
+
+.category-diff-row--rename { border-left-color: var(--ink-focus); }
+.category-diff-row--merge { border-left-color: var(--ink-warning); }
+.category-diff-row--delete { border-left-color: var(--ink-danger); }
+
+.category-diff-decision button[aria-pressed="true"] {
+  border-color: var(--ink-accent);
+  background: var(--ink-accent-soft);
+  color: var(--ink-accent-hover);
+}
+
+.category-fixed-list li > div:last-child button:last-child {
+  color: var(--ink-danger);
+}
+
+.category-overview {
+  top: var(--ink-space-5);
+  border-color: var(--ink-accent);
+}
+
+.category-run dt,
+.category-overview dt {
+  color: var(--ink-text-muted);
+}
+
+.category-modal {
+  z-index: var(--ink-z-modal);
+  padding: max(var(--ink-space-4), env(safe-area-inset-top)) max(var(--ink-space-4), env(safe-area-inset-right)) max(var(--ink-space-4), env(safe-area-inset-bottom)) max(var(--ink-space-4), env(safe-area-inset-left));
+}
+
+.category-modal > div {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.settings-workspace,
+.admin-settings-page {
+  color: var(--ink-text);
+  font-family: var(--ink-font-sans);
+}
+
+.settings-workspace {
+  max-width: 1040px;
+}
+
+.settings-nav {
+  z-index: var(--ink-z-sticky);
+  border-color: var(--ink-line);
+  background: color-mix(in srgb, var(--ink-canvas) 94%, transparent);
+}
+
+.settings-nav a {
+  color: var(--ink-text-muted);
+}
+
+.settings-nav a:hover,
+.settings-nav a:focus-visible {
+  border-color: var(--ink-accent);
+  color: var(--ink-accent-hover);
+}
+
+.settings-panel {
+  border-color: var(--ink-line);
+  padding-block: var(--ink-space-7);
+}
+
+.settings-panel > header h2 {
+  color: var(--ink-text);
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.settings-panel fieldset,
+.model-settings-group fieldset {
+  gap: var(--ink-space-4);
+}
+
+.settings-panel :disabled,
+.model-settings-group fieldset:disabled {
+  opacity: 0.55;
+}
+
+.settings-panel output,
+.model-settings-group__heading output {
+  color: var(--ink-success);
+}
+
+.settings-toggle input {
+  accent-color: var(--ink-accent);
+}
+
+.settings-facts,
+.settings-facts > div,
+.model-settings,
+.model-settings-group,
+#settings-models .model-settings-group {
+  border-color: var(--ink-line);
+}
+
+.settings-facts dt,
+.settings-secret-status {
+  color: var(--ink-text-muted);
+}
+
+.settings-usage {
+  border-color: var(--ink-warning);
+  background: color-mix(in srgb, var(--ink-warning) 8%, var(--ink-surface));
+  color: var(--ink-text);
+}
+
+.settings-secret-status {
+  grid-column: 2;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.model-settings-group {
+  grid-template-columns: minmax(150px, 0.6fr) minmax(0, 2fr);
+}
+
+.model-settings-actions button {
+  border-color: var(--ink-line);
+  border-radius: var(--ink-radius-md);
+  background: var(--ink-surface);
+  color: var(--ink-text);
+}
+
+.model-settings-actions button:hover:not(:disabled) {
+  border-color: var(--ink-accent);
+  background: var(--ink-accent-soft);
+  color: var(--ink-accent-hover);
+}
+
+.model-rebuild-status {
+  border-left: 3px solid var(--ink-warning);
+  background: color-mix(in srgb, var(--ink-warning) 8%, var(--ink-surface));
+  padding: var(--ink-space-3) var(--ink-space-4);
+  color: var(--ink-warning);
+}
+
+@media (max-width: 1180px) {
+  .category-layout { grid-template-columns: 1fr; }
+  .category-overview {
+    position: static;
+    order: -1;
+    border-left: 0;
+    border-block: 1px solid var(--ink-line);
+    padding: var(--ink-space-4) 0;
+  }
+  .category-overview dl { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ink-space-3); }
+}
+
+@media (max-width: 1100px) {
+  .item-detail-grid { grid-template-columns: 1fr; }
+  .item-detail-meta { position: static; }
+}
+
+@media (max-width: 720px) {
+  .admin-login-shell { padding: var(--ink-space-4); }
+  .admin-login-panel { padding: var(--ink-space-5); }
+  .item-detail-header h1 { font-size: 1.6rem; }
+  .category-page,
+  .settings-workspace,
+  .admin-settings-page { padding-inline: var(--ink-space-4); }
+  .settings-nav { top: 58px; }
+  .settings-secret-status { grid-column: 1; }
+  .model-settings-group { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .add-item-input-row { grid-template-columns: 1fr; }
+  .add-item-input-row button { width: 100%; }
+  .item-detail-meta dl > div { grid-template-columns: 72px minmax(0, 1fr); }
+  .item-dialog-actions,
+  .category-modal > div > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .item-dialog-actions button,
+  .category-modal > div > div:last-child button { width: 100%; }
+  .category-overview dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .settings-nav { background: var(--ink-canvas); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .item-delete-dialog::backdrop,
+  .category-modal::backdrop { background: var(--ink-text); }
+}
+
+@media (prefers-contrast: more) {
+  .admin-login-panel,
+  .admin-login-form input,
+  .add-item-input-row input,
+  .item-detail-meta,
+  .item-summary-field textarea,
+  .category-ai-actions button,
+  .category-diff-row,
+  .category-modal > div,
+  .settings-panel input,
+  .settings-panel select,
+  .settings-panel textarea,
+  .model-settings-group input { border-color: var(--ink-text); }
+}

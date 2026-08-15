@@ -66,6 +66,7 @@ test("admin edits, refetches, and deletes an item", async ({ page }, testInfo) =
   await page.goto("/admin/library");
   await page.getByRole("link", { name: "查看 条目详情" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/library/${itemId}$`));
+  await expect(page.getByRole("complementary", { name: "条目信息" })).toContainText("网页");
 
   const editor = page.getByRole("textbox", { name: "总结", exact: true });
   await editor.fill("人工修订的总结。");
@@ -84,9 +85,8 @@ test("admin edits, refetches, and deletes an item", async ({ page }, testInfo) =
     await pool.end();
   }
 
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
   await page.screenshot({
-    path: `.workflow/screenshots/t16-admin-detail-${suffix}.png`,
+    path: `.workflow/screenshots/ink-signal/phase4-admin-detail-${testInfo.project.name}.png`,
     fullPage: true,
   });
 

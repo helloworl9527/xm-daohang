@@ -132,13 +132,17 @@ function ModelGroup({
           <label>
             <span>API Key</span>
             <input
+              aria-describedby={`${kind}-key-status`}
               autoComplete="off"
               name={`${kind}-api-key`}
               onChange={(event) => setDraft((current) => ({ ...current, apiKey: event.target.value }))}
-              placeholder={keyMask ?? t("keyPlaceholder")}
+              placeholder={t("keyPlaceholder")}
               type="password"
               value={draft.apiKey}
             />
+            <small className="settings-secret-status" id={`${kind}-key-status`}>
+              {keyMask ? t("keyConfigured", { mask: keyMask }) : t("keyNotConfigured")}
+            </small>
           </label>
           <label>
             <span>{t("modelName")}</span>

@@ -39,7 +39,7 @@ export function TelegramPanel({ csrfToken, initial }: { csrfToken: string; initi
     <section aria-labelledby="settings-telegram-title" className="settings-panel" id="settings-telegram">
       <header><p>{t("eyebrow")}</p><h2 id="settings-telegram-title">{t("title")}</h2><p>{t("description")}</p></header>
       <form onSubmit={save}><fieldset disabled={status === "saving"}>
-        <label><span>{t("token")}</span><input autoComplete="off" name="telegram-token" onChange={(event) => setToken(event.target.value)} placeholder={mask ?? t("tokenPlaceholder")} type="password" value={token} /></label>
+        <label><span>{t("token")}</span><input aria-describedby="telegram-token-status" autoComplete="off" name="telegram-token" onChange={(event) => setToken(event.target.value)} placeholder={t("tokenPlaceholder")} type="password" value={token} /><small className="settings-secret-status" id="telegram-token-status">{mask ? t("tokenConfigured", { mask }) : t("tokenNotConfigured")}</small></label>
         <label><span>{t("allowedIds")}</span><textarea name="telegram-allowed-ids" onChange={(event) => setAllowedIds(event.target.value)} rows={3} spellCheck={false} value={allowedIds} /></label>
         <button type="submit">{status === "saving" ? t("saving") : t("save")}</button>
         <output aria-live="polite">{status === "saved" ? t("saved") : status === "error" ? t("error") : null}</output>

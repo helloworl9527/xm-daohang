@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -26,6 +27,7 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
   const common = useTranslations("common");
   const statusLabels = { processing: common("processing"), completed: common("completed"), failed: common("failed") };
   const sourceLabels = { admin: common("adminSource"), telegram: common("telegramSource") };
+  const typeLabels = { web: library("typeWeb"), github: library("typeGithub"), doc: library("typeDoc") };
   const router = useRouter();
   const [state, setState] = useState<DetailState>({ kind: "loading" });
   const [notice, setNotice] = useState("");
@@ -145,12 +147,11 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
   return (
     <article aria-labelledby="item-detail-title" className="item-detail">
       <header className="item-detail-header">
-        <Link href="/admin/library">{t("back")}</Link>
+        <Link href="/admin/library"><ArrowLeft aria-hidden="true" size={17} />{t("back")}</Link>
         <div>
-          <span className={`library-status library-status--${item.status}`}>{statusLabels[item.status]}</span>
           <h1 id="item-detail-title">{item.title || item.url}</h1>
         </div>
-        <a href={item.url} rel="noreferrer" target="_blank">{item.url}</a>
+        <a href={item.url} rel="noreferrer" target="_blank">{item.url}<ExternalLink aria-hidden="true" size={15} /></a>
       </header>
 
       <div className="item-detail-grid">
@@ -165,33 +166,41 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
             itemId={item.id}
             onSaved={(category, etag) => setState({ kind: "loaded", etag, item: { ...item, ...category } })}
           />
+          <section aria-labelledby="item-tags-title" className="item-tags-section">
+            <div className="item-detail-section-heading"><h2 id="item-tags-title">{t("tags")}</h2></div>
+            <ul aria-label={common("itemTags")} className="library-tags">
+              {item.tags.map((tag) => <li key={tag}>{tag}</li>)}
+            </ul>
+          </section>
         </div>
         <aside aria-label={t("infoLabel")} className="item-detail-meta">
-          <h2>{t("info")}</h2>
+          <div className="item-detail-meta-heading">
+            <h2>{t("info")}</h2>
+            <span className={`library-status library-status--${item.status}`}>{statusLabels[item.status]}</span>
+          </div>
           <dl>
+            <div><dt>{t("type")}</dt><dd>{typeLabels[item.type]}</dd></div>
             <div><dt>{t("status")}</dt><dd>{statusLabels[item.status]}</dd></div>
             <div><dt>{t("source")}</dt><dd>{sourceLabels[item.source]}</dd></div>
+            <div><dt>{t("created")}</dt><dd><time dateTime={item.createdAt}>{new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(item.createdAt))}</time></dd></div>
             <div><dt>{t("updated")}</dt><dd><time dateTime={item.updatedAt}>{new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(item.updatedAt))}</time></dd></div>
           </dl>
-          <ul aria-label={common("itemTags")} className="library-tags">
-            {item.tags.map((tag) => <li key={tag}>{tag}</li>)}
-          </ul>
           {item.failReason ? <p className="library-item-failure">{library("failureReason", { reason: item.failReason })}</p> : null}
+          <section aria-labelledby="item-actions-title" className="item-detail-actions">
+            <div>
+              <h2 id="item-actions-title">{t("actions")}</h2>
+              <p>{t("actionsDescription")}</p>
+            </div>
+            <div className="item-action-buttons">
+              <button disabled={refetchDisabled} id="refetch" onClick={() => void refetch()} type="button">
+                <RefreshCw aria-hidden="true" size={16} />
+                {refetchDisabled ? t("refetching") : t("refetch")}
+              </button>
+              <DeleteItemDialog onConfirm={remove} />
+            </div>
+          </section>
         </aside>
       </div>
-
-      <section aria-labelledby="item-actions-title" className="item-detail-actions">
-        <div>
-          <h2 id="item-actions-title">{t("actions")}</h2>
-          <p>{t("actionsDescription")}</p>
-        </div>
-        <div className="item-action-buttons">
-          <button disabled={refetchDisabled} id="refetch" onClick={() => void refetch()} type="button">
-            {refetchDisabled ? t("refetching") : t("refetch")}
-          </button>
-          <DeleteItemDialog onConfirm={remove} />
-        </div>
-      </section>
 
       <div aria-live="polite" className="item-action-status">
         {notice ? <p>{notice}</p> : null}

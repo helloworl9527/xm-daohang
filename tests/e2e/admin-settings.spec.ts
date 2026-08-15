@@ -44,10 +44,14 @@ test("admin configures operations, language, Telegram, and revokes sessions on p
   await page.getByLabel("用户名").fill("admin");
   await page.getByLabel("密码").fill("current-password-123");
   await page.getByRole("button", { name: "登录管理端" }).click();
+  if (testInfo.project.name.includes("mobile")) {
+    await page.getByRole("button", { name: "打开导航" }).click();
+  }
   await page.getByRole("link", { name: "设置" }).click();
   await expect(page).toHaveURL(/\/admin\/settings$/);
   await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
   await expect(page.locator(".settings-panel")).toHaveCount(6);
+  await expect(page.locator(".settings-panel .settings-panel")).toHaveCount(0);
 
   const refetch = page.locator("#settings-refetch");
   await refetch.getByRole("checkbox").uncheck();
@@ -67,10 +71,10 @@ test("admin configures operations, language, Telegram, and revokes sessions on p
   await telegram.locator('textarea[name="telegram-allowed-ids"]').fill("42, 99");
   await telegram.getByRole("button", { name: "保存 Telegram 设置" }).click();
   await expect(telegram.getByText("Telegram 设置已保存。")).toBeVisible();
-  await expect(telegram.locator('input[name="telegram-token"]')).not.toHaveAttribute("placeholder", /e2e-telegram-secret/);
+  await expect(telegram.locator('input[name="telegram-token"]')).toHaveAttribute("placeholder", "输入 Bot Token");
+  await expect(telegram.getByText(/已配置 .*；留空将保留现有 Token。/)).toBeVisible();
 
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
-  await page.screenshot({ path: `.workflow/screenshots/t24-admin-settings-${suffix}.png`, fullPage: true });
+  await page.screenshot({ path: `.workflow/screenshots/ink-signal/phase4-admin-settings-${testInfo.project.name}.png`, fullPage: true });
 
   const locale = page.locator("#settings-locale");
   await locale.getByRole("combobox").selectOption("en");
