@@ -224,6 +224,7 @@ export function DirectoryShell({ children, disabledReason = null }: { children: 
   };
 
   const clearKeyword = () => {
+    window.history.replaceState(window.history.state, "", pathname);
     abort("keyword");
     dispatch({ type: "keyword-idle", draft: "" });
     router.push(pathname);
