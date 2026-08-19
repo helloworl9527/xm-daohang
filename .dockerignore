@@ -1,6 +1,7 @@
 .git
 .next
 node_modules
+.pnpm-store
 test-results
 playwright-report
 .workflow/screenshots
