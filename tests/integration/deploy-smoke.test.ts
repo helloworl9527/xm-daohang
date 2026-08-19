@@ -56,6 +56,7 @@ describe("deployment contracts", () => {
     expect(caddy).toContain("header_up -X-Real-Client-IP");
     expect(caddy).toContain("header_up -X-Proxy-Auth");
     expect(caddy).toContain("header_up X-Real-Client-IP {remote_host}");
+    expect(caddy).toContain("header_up X-Real-IP {remote_host}");
     expect(caddy).toContain("header_up X-Proxy-Auth {$PROXY_SHARED_SECRET}");
     expect(caddy).toContain("header_up X-Forwarded-For {remote_host}");
     expect(caddy).toContain("Strict-Transport-Security");
