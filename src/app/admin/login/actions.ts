@@ -8,6 +8,7 @@ import { pool } from "@/db/client";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/guard";
 import { isLockedOut, hashLoginIp, recordAttempt } from "@/lib/auth/loginThrottle";
 import { verifyPassword } from "@/lib/auth/password";
+import { getTrustedClientIpFromHeaders } from "@/lib/http/clientIp";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { logger } from "@/lib/log/logger";
 
@@ -115,19 +116,28 @@ function hasValidFormBoundary(headerStore: Headers): boolean {
   );
 }
 
+export function getLoginClientIp(headerStore: Headers): string | null {
+  if (!hasValidFormBoundary(headerStore)) return null;
+  try {
+    return getTrustedClientIpFromHeaders(headerStore);
+  } catch {
+    return null;
+  }
+}
+
 export async function loginAction(
   _previous: LoginActionState,
   formData: FormData,
 ): Promise<LoginActionState> {
   const headerStore = await headers();
-  if (!hasValidFormBoundary(headerStore)) return { status: "error" };
+  const ip = getLoginClientIp(headerStore);
+  if (!ip) return { status: "error" };
 
   const parsed = credentialsSchema.safeParse({
     username: formData.get("username"),
     password: formData.get("password"),
   });
-  const ip = headerStore.get("x-real-ip");
-  if (!parsed.success || !ip || ip.includes(",")) return { status: "error" };
+  if (!parsed.success) return { status: "error" };
 
   const result = await loginWithCredentials({ ...parsed.data, ip });
   if (!result.ok) {
