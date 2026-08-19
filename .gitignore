@@ -1,5 +1,7 @@
 node_modules/
 .next/
+.next-worker/
+.logs/
 dist/
 build/
 *.tsbuildinfo
