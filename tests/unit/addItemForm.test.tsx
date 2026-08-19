@@ -41,7 +41,7 @@ describe("AddItemForm", () => {
     }));
   });
 
-  it("announces a duplicate and provides item and refetch entry points", async () => {
+  it("announces a duplicate and provides the existing item entry point", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       id: "22222222-2222-4222-8222-222222222222",
       deduped: true,
@@ -58,9 +58,6 @@ describe("AddItemForm", () => {
       "href",
       "/admin/library/22222222-2222-4222-8222-222222222222",
     );
-    expect(screen.getByRole("link", { name: "查看并重抓" })).toHaveAttribute(
-      "href",
-      "/admin/library/22222222-2222-4222-8222-222222222222#refetch",
-    );
+    expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 });

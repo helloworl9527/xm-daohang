@@ -72,13 +72,12 @@ describe("ItemDetail", () => {
     );
   });
 
-  it("marks a saved summary as manual and announces a refetch", async () => {
+  it("marks a saved summary as manual", async () => {
     const saved = { ...completedItem, summary: "人工总结。", summaryManual: true };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(detailResponse())
       .mockResolvedValueOnce(categoryOverviewResponse())
-      .mockResolvedValueOnce(detailResponse(saved, '"etag-two"'))
-      .mockResolvedValueOnce(Response.json({ status: "processing", processGeneration: 1 }, { status: 202 }));
+      .mockResolvedValueOnce(detailResponse(saved, '"etag-two"'));
     vi.stubGlobal("fetch", fetchMock);
     render(<ItemDetail itemId={completedItem.id} csrfToken="csrf-token" />);
 
@@ -86,13 +85,10 @@ describe("ItemDetail", () => {
     fireEvent.change(editor, { target: { value: "人工总结。" } });
     fireEvent.click(screen.getByRole("button", { name: "保存总结" }));
     expect(await screen.findByText("已标记为人工编辑")).toBeVisible();
-
-    fireEvent.click(screen.getByRole("button", { name: "手动重抓" }));
-    expect(await screen.findByText("已加入重抓队列。")).toBeVisible();
-    expect(screen.getByRole("button", { name: "正在处理" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "删除条目" })).toBeVisible();
   });
 
-  it("disables refetch while processing and confirms deletion in a dialog", async () => {
+  it("confirms deletion in a dialog while processing", async () => {
     const processing = { ...completedItem, status: "processing" as const };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(detailResponse(processing))
@@ -101,7 +97,7 @@ describe("ItemDetail", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<ItemDetail itemId={completedItem.id} csrfToken="csrf-token" />);
 
-    expect(await screen.findByRole("button", { name: "正在处理" })).toBeDisabled();
+    await screen.findByRole("complementary", { name: "条目信息" });
     const deleteButton = screen.getByRole("button", { name: "删除条目" });
     fireEvent.click(deleteButton);
     expect(screen.getByRole("dialog", { name: "确认删除条目" })).toHaveAttribute("open");

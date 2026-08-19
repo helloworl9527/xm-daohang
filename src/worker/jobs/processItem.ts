@@ -291,6 +291,51 @@ async function processItemJobCore(
       await finishStaleRequest(payload);
       return { claimed: false };
     }
+
+    if (item.status === "completed" && item.embeddingVersion !== payload.embVersion) {
+      if (!item.summary) {
+        await db.update(processingRequests).set({ status: "done", lastErrorCode: null }).where(and(
+          eq(processingRequests.itemId, payload.itemId),
+          eq(processingRequests.processGeneration, payload.processGeneration),
+          eq(processingRequests.attempt, payload.attempt),
+          eq(processingRequests.status, "running"),
+        ));
+        return { claimed: true, outcome: "completed" };
+      }
+
+      const embedding = await dependencies.embed(item.summary);
+      const now = dependencies.now?.() ?? new Date();
+      let committed = false;
+      await db.transaction(async (tx) => {
+        const [settings] = await tx.select({ embVersion: appSettings.embVersion })
+          .from(appSettings).where(eq(appSettings.id, 1));
+        if (settings?.embVersion !== payload.embVersion) return;
+
+        const [saved] = await tx.update(items).set({
+          embedding,
+          embeddingDim: embedding.length,
+          embeddingVersion: payload.embVersion,
+          failReason: null,
+          updatedAt: now,
+        }).where(and(
+          eq(items.id, payload.itemId),
+          eq(items.processGeneration, payload.processGeneration),
+          eq(items.status, "completed"),
+        )).returning({ id: items.id });
+        if (!saved) return;
+
+        committed = true;
+        await tx.update(processingRequests).set({ status: "done", lastErrorCode: null }).where(and(
+          eq(processingRequests.itemId, payload.itemId),
+          eq(processingRequests.processGeneration, payload.processGeneration),
+          eq(processingRequests.attempt, payload.attempt),
+          eq(processingRequests.status, "running"),
+        ));
+      });
+      if (!committed) await finishStaleRequest(payload);
+      return committed ? { claimed: true, outcome: "completed" } : { claimed: false };
+    }
+
     const fetched = await dependencies.fetchContent(item);
     const contentHash = fingerprintContent(fetched);
     const unchanged = item.contentHash === contentHash;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -32,7 +32,6 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
   const [state, setState] = useState<DetailState>({ kind: "loading" });
   const [notice, setNotice] = useState("");
   const [actionError, setActionError] = useState("");
-  const [refetching, setRefetching] = useState(false);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -83,31 +82,6 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
     }
   };
 
-  const refetch = async () => {
-    if (state.kind !== "loaded" || state.item.status === "processing") return;
-    setRefetching(true);
-    setActionError("");
-    setNotice("");
-    try {
-      const response = await fetch(`/admin/api/items/${itemId}/refetch`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
-        body: "{}",
-      });
-      if (!response.ok) {
-        await discardError(response);
-        setActionError(t("refetchError"));
-        return;
-      }
-      setState({ ...state, item: { ...state.item, status: "processing", failReason: null } });
-      setNotice(t("queued"));
-    } catch {
-      setActionError(t("refetchNetworkError"));
-    } finally {
-      setRefetching(false);
-    }
-  };
-
   const remove = async (): Promise<boolean> => {
     setActionError("");
     try {
@@ -143,7 +117,6 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
   }
 
   const { item } = state;
-  const refetchDisabled = item.status === "processing" || refetching;
   return (
     <article aria-labelledby="item-detail-title" className="item-detail">
       <header className="item-detail-header">
@@ -192,10 +165,6 @@ export function ItemDetail({ itemId, csrfToken }: { itemId: string; csrfToken: s
               <p>{t("actionsDescription")}</p>
             </div>
             <div className="item-action-buttons">
-              <button disabled={refetchDisabled} id="refetch" onClick={() => void refetch()} type="button">
-                <RefreshCw aria-hidden="true" size={16} />
-                {refetchDisabled ? t("refetching") : t("refetch")}
-              </button>
               <DeleteItemDialog onConfirm={remove} />
             </div>
           </section>

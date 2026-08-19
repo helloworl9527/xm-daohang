@@ -140,7 +140,6 @@ export function AddItemForm({
           <p>
             {t("duplicate")}
             {" "}<Link href={`/admin/library/${status.id}`} prefetch={false}>{t("view")}</Link>
-            {" "}<Link href={`/admin/library/${status.id}#refetch`} prefetch={false}>{t("viewRefetch")}</Link>
           </p>
         ) : null}
         {status.kind === "error" ? <p role="alert">{status.message}</p> : null}

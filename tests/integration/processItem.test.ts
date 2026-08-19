@@ -267,6 +267,90 @@ describe("processing request state machine", () => {
     expect(rebuilding.embed).toHaveBeenCalledOnce();
   });
 
+  it("rebuilds embeddings for completed items from the saved summary without fetching the URL again", async () => {
+    const item = await insertItem({
+      status: "completed",
+      summary: "已经保存的总结。",
+      embedding: [0.9, 0.8, 0.7],
+      embeddingVersion: 1,
+      processGeneration: 0,
+    });
+    await db.update(appSettings).set({ embVersion: 2, embRebuildStatus: "building" })
+      .where(eq(appSettings.id, 1));
+    await db.insert(processingRequests).values({
+      itemId: item.id,
+      processGeneration: 0,
+      embVersion: 2,
+      attempt: 0,
+      status: "pending",
+    });
+    const dependencies = successfulDependencies("should not be fetched");
+    dependencies.embed.mockResolvedValue([0.4, 0.5, 0.6]);
+
+    await expect(processItemJob({
+      itemId: item.id,
+      processGeneration: 0,
+      embVersion: 2,
+      attempt: 0,
+    }, dependencies)).resolves.toEqual({ claimed: true, outcome: "completed" });
+
+    expect(dependencies.fetchContent).not.toHaveBeenCalled();
+    expect(dependencies.summarize).not.toHaveBeenCalled();
+    expect(dependencies.embed).toHaveBeenCalledWith("已经保存的总结。");
+    const [saved] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(saved).toMatchObject({
+      status: "completed",
+      title: item.title,
+      summary: "已经保存的总结。",
+      tags: item.tags,
+      embeddingVersion: 2,
+      embeddingDim: 3,
+    });
+    expect(saved.embedding).toEqual([0.4, 0.5, 0.6]);
+    expect(await currentRequest(item.id, 0, 0)).toMatchObject({
+      status: "done",
+      lastErrorCode: null,
+    });
+  });
+
+  it("does not fetch completed items without a saved summary during embedding rebuild", async () => {
+    const item = await insertItem({
+      status: "completed",
+      summary: null,
+      embedding: [0.9, 0.8, 0.7],
+      embeddingVersion: 1,
+      processGeneration: 0,
+    });
+    await db.update(appSettings).set({ embVersion: 2, embRebuildStatus: "building" })
+      .where(eq(appSettings.id, 1));
+    await db.insert(processingRequests).values({
+      itemId: item.id,
+      processGeneration: 0,
+      embVersion: 2,
+      attempt: 0,
+      status: "pending",
+    });
+    const dependencies = successfulDependencies("should not be fetched");
+
+    await expect(processItemJob({
+      itemId: item.id,
+      processGeneration: 0,
+      embVersion: 2,
+      attempt: 0,
+    }, dependencies)).resolves.toEqual({ claimed: true, outcome: "completed" });
+
+    expect(dependencies.fetchContent).not.toHaveBeenCalled();
+    expect(dependencies.summarize).not.toHaveBeenCalled();
+    expect(dependencies.embed).not.toHaveBeenCalled();
+    const [saved] = await db.select().from(items).where(eq(items.id, item.id));
+    expect(saved).toMatchObject({
+      status: "completed",
+      summary: null,
+      embeddingVersion: 1,
+    });
+    expect(await currentRequest(item.id, 0, 0)).toMatchObject({ status: "done" });
+  });
+
   it("keeps a manual summary when changed content refreshes title, tags, and embedding", async () => {
     const item = await insertItem({ summaryManual: true, status: "failed" });
     const oldSummary = item.summary;

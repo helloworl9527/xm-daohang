@@ -67,7 +67,7 @@ describe("Telegram URL ingestion", () => {
     await handleTelegramMessage({ senderId: 42, chatId: "4200", text: "https://example.com/good https://bad.example" }, { assertPublicUrl, send });
     expect(await db.select().from(items)).toHaveLength(1);
     expect(await db.select().from(processingRequests)).toHaveLength(1);
-    expect(send.mock.calls.some((call) => /^\u8be5链接已收藏。回复 \/refetch [0-9a-f]{8} 可重新抓取更新。$/.test(call[1]))).toBe(true);
+    expect(send).toHaveBeenCalledWith("4200", "该链接已收藏，不会重复解析。");
     expect(send).toHaveBeenCalledWith("4200", "没有识别到有效链接。请发送公开网页、文档或 GitHub 仓库链接。");
   });
 

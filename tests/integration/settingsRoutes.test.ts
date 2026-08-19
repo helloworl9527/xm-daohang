@@ -5,7 +5,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 
 import { GET as getLocale, PUT as putLocale } from "@/app/admin/api/settings/locale/route";
 import { GET as getRateLimit, PUT as putRateLimit } from "@/app/admin/api/settings/rate-limit/route";
-import { GET as getRefetch, PUT as putRefetch } from "@/app/admin/api/settings/refetch/route";
 import { PUT as putSecurity } from "@/app/admin/api/settings/security/route";
 import { GET as getTelegram, PUT as putTelegram } from "@/app/admin/api/settings/telegram/route";
 import { db, pool } from "@/db/client";
@@ -67,7 +66,7 @@ function writeRequest(path: string, token: string, body: unknown, overrides: Rec
 
 describe("admin settings routes", () => {
   it("applies the shared write guard before every settings mutation", async () => {
-    const handlers = [putRefetch, putRateLimit, putSecurity, putTelegram, putLocale];
+    const handlers = [putRateLimit, putSecurity, putTelegram, putLocale];
     for (const handler of handlers) {
       const anonymous = await handler(new Request("https://admin.example/admin/api/settings/test", {
         method: "PUT", headers: { "content-type": "application/json" }, body: "{}",
@@ -77,16 +76,6 @@ describe("admin settings routes", () => {
       const invalidCsrf = await handler(writeRequest("/admin/api/settings/test", token, {}, { "x-csrf-token": "wrong" }));
       expect(invalidCsrf.status).toBe(403);
     }
-  });
-
-  it("reads and updates scheduled refetch with bounded intervals and next-run data", async () => {
-    const token = await sessionToken();
-    await db.update(appSettings).set({ refetchLastRun: new Date("2026-08-01T00:00:00Z") });
-    const saved = await putRefetch(writeRequest("/admin/api/settings/refetch", token, { enabled: true, intervalDays: 7 }));
-    expect(saved.status).toBe(200);
-    await expect(saved.json()).resolves.toMatchObject({ enabled: true, intervalDays: 7, nextRun: "2026-08-08T00:00:00.000Z" });
-    expect((await putRefetch(writeRequest("/admin/api/settings/refetch", token, { enabled: true, intervalDays: 0 }))).status).toBe(400);
-    expect((await getRefetch(readRequest("/admin/api/settings/refetch", token))).status).toBe(200);
   });
 
   it("returns business-day usage and applies public limits immediately", async () => {

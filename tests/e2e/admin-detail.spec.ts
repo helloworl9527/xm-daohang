@@ -52,7 +52,7 @@ test.beforeEach(async () => {
   }
 });
 
-test("admin edits, refetches, and deletes an item", async ({ page }, testInfo) => {
+test("admin edits and deletes an item", async ({ page }, testInfo) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -98,9 +98,7 @@ test("admin edits, refetches, and deletes an item", async ({ page }, testInfo) =
   await page.getByRole("button", { name: "取消" }).click();
   await expect(deleteButton).toBeFocused();
 
-  await page.getByRole("button", { name: "手动重抓" }).click();
-  await expect(page.getByText("已加入重抓队列。")).toBeVisible();
-  await expect(page.getByRole("button", { name: "正在处理" })).toBeDisabled();
+  await expect(page.locator(".item-action-buttons").getByRole("button")).toHaveCount(1);
 
   await deleteButton.click();
   await page.getByRole("button", { name: "确认删除" }).click();

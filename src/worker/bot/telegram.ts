@@ -8,9 +8,7 @@ import { getDecryptedSecret } from "@/lib/config/settings";
 import { encryptSecret } from "@/lib/crypto/secretbox";
 import { parsePublicGitHubUrl } from "@/lib/fetch/github";
 import { assertPublicUrl as defaultAssertPublicUrl } from "@/lib/fetch/urlGuard";
-import { manualRefetch } from "@/lib/items/refetch";
 import {
-  ProcessingRequestError,
   requestProcessingWithClient,
   type ProcessingReceipt,
 } from "@/lib/items/processing";
@@ -33,7 +31,6 @@ export interface TelegramMessageDependencies {
     question: string,
     hits: readonly SearchHit[],
   ) => Promise<{ answer: string; citationIds: string[] }>;
-  refetch?: (itemId: string) => Promise<{ processGeneration: number }>;
 }
 
 function hashKey(): string {
@@ -130,39 +127,6 @@ async function addFromTelegram(
   }
 }
 
-function shortId(itemId: string): string {
-  return itemId.slice(0, 8);
-}
-
-async function resolveShortId(value: string): Promise<string | null> {
-  const result = await pool.query<{ id: string }>(
-    "select id from items where left(id::text, 8) = $1 order by id limit 2",
-    [value.toLowerCase()],
-  );
-  return result.rows.length === 1 ? result.rows[0].id : null;
-}
-
-async function handleProcessingCommand(
-  command: RegExpMatchArray,
-  message: TelegramMessage,
-  dependencies: TelegramMessageDependencies,
-): Promise<void> {
-  const itemId = await resolveShortId(command[2]);
-  if (!itemId) {
-    await dependencies.send(message.chatId, "未找到该条目。");
-    return;
-  }
-  try {
-    await (dependencies.refetch ?? manualRefetch)(itemId);
-    await dependencies.send(message.chatId, "已开始重新抓取。");
-  } catch (error) {
-    const text = error instanceof ProcessingRequestError && error.code === "ITEM_ALREADY_PROCESSING"
-      ? "该条目正在处理中。"
-      : "暂时无法重新抓取。";
-    await dependencies.send(message.chatId, text);
-  }
-}
-
 function formatAnswer(answer: string, hits: readonly SearchHit[]): string {
   const sources = hits
     .slice(0, 10)
@@ -206,15 +170,6 @@ export async function handleTelegramMessage(
 ): Promise<void> {
   if (!(await allowed(message.senderId))) return;
   const text = message.text.trim();
-  const command = text.match(/^\/(refetch|retry)\s+([0-9a-f]{8})$/i);
-  if (command) {
-    await handleProcessingCommand(command, message, dependencies);
-    return;
-  }
-  if (/^\/(?:refetch|retry)\b/i.test(text)) {
-    await dependencies.send(message.chatId, "未找到该条目。");
-    return;
-  }
   const allUrls = urlsIn(message.text);
   if (allUrls.length > 0) {
     const selected = allUrls.slice(0, 10);
@@ -224,7 +179,7 @@ export async function handleTelegramMessage(
         logger.info("item_added", { source: "telegram", deduped: outcome.kind === "duplicate" });
       }
       const response = outcome.kind === "duplicate"
-        ? `该链接已收藏。回复 /refetch ${shortId(outcome.itemId)} 可重新抓取更新。`
+        ? "该链接已收藏，不会重复解析。"
         : {
             added: "已加入，正在抓取总结中。",
             invalid: "没有识别到有效链接。请发送公开网页、文档或 GitHub 仓库链接。",

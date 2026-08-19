@@ -366,3 +366,18 @@
 - 绿灯：真实 PostgreSQL 路由 4/4，表单状态 3/3，T11/T12 回归 14/14 通过；typecheck/lint 通过。
 - 生产 `next build + next start` 下 Playwright desktop/mobile 2/2 通过；真实登录后添加+重复提交，DB 仅 1 item/1 outbox，控制台零错误、无横向溢出。
 - 截图：`.workflow/screenshots/t14-admin-add-{desktop,mobile}.png`，人工核对无重叠、裁切或字段泄露。
+
+## 2026-08-19 - Change: 仅新网址首次解析
+
+### What was done
+
+- 移除管理端条目手动重抓 API、设置页定时重抓 API、重抓设置面板、Telegram `/refetch`/`/retry` 命令和 worker 定时重抓队列注册。
+- 添加页和 Telegram 重复链接提示改为只告知已收藏，不再提供重抓入口；后台详情页仅保留编辑总结、分类和删除。
+- 模型嵌入配置变更时，已完成条目只基于已保存 summary 重建向量；不会重新抓取原 URL。缺少 summary 的历史已完成条目会跳过该重建请求，避免触发 URL 解析。
+- 数据库旧 `refetch_*` 列暂保留用于迁移兼容，但不再由应用代码/API/worker 消费。
+
+### Testing
+
+- `NODE_OPTIONS=--max-old-space-size=2048` 下 typecheck、Next.js 生产构建及 standalone 产物校验通过；lint 退出 0，仅原型目录保留 1 条既有 warning。
+- 本次 UI/i18n 定向回归 4 files / 13 tests 通过；全量测试中 38 files / 182 tests 通过，其余集成测试因当前沙箱禁止连接本机 PostgreSQL 或启动 Git 子进程而未能执行。
+- 完成 `git diff --check`、中英文 JSON 解析和全仓重抓入口检索；生产路由不再包含 refetch API。

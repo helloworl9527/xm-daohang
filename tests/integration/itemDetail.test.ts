@@ -5,7 +5,6 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { DELETE, GET, PATCH } from "@/app/admin/api/items/[id]/route";
-import { POST as POST_REFETCH } from "@/app/admin/api/items/[id]/refetch/route";
 import { db, pool } from "@/db/client";
 import {
   appSettings,
@@ -63,7 +62,7 @@ async function seedItem(status: "completed" | "failed" | "processing" = "complet
 }
 
 async function request(
-  method: "GET" | "PATCH" | "DELETE" | "POST",
+  method: "GET" | "PATCH" | "DELETE",
   id: string,
   options: {
     body?: unknown;
@@ -88,8 +87,7 @@ async function request(
     }
   }
   if (options.etag) headers["if-match"] = options.etag;
-  const suffix = method === "POST" ? "/refetch" : "";
-  return new Request(`https://admin.example/admin/api/items/${id}${suffix}`, {
+  return new Request(`https://admin.example/admin/api/items/${id}`, {
     method,
     headers,
     body: method === "GET" ? undefined : options.rawBody ?? JSON.stringify(options.body ?? {}),
@@ -257,34 +255,6 @@ describe("admin item detail API", () => {
       origin: "https://admin.example",
     }), params(item.id));
     expect(valid.status).toBe(204);
-  });
-
-  it("queues a failed item once and rejects refetch while processing", async () => {
-    const item = await seedItem("failed");
-    const first = await POST_REFETCH(await request("POST", item.id), params(item.id));
-    expect(first.status).toBe(202);
-    await expect(first.json()).resolves.toMatchObject({ status: "processing", processGeneration: 1 });
-
-    const second = await POST_REFETCH(await request("POST", item.id), params(item.id));
-    expect(second.status).toBe(409);
-    await expect(second.json()).resolves.toMatchObject({
-      error: { code: "ITEM_ALREADY_PROCESSING" },
-    });
-    expect(await db.select().from(processingRequests)).toHaveLength(1);
-  });
-
-  it.each([
-    ["malformed JSON", { rawBody: "not-json" }],
-    ["an array", { body: [] }],
-    ["an extra field", { body: { force: true } }],
-  ])("rejects %s before refetching", async (_case, bodyOptions) => {
-    const item = await seedItem("failed");
-    const response = await POST_REFETCH(await request("POST", item.id, bodyOptions), params(item.id));
-
-    expect(response.status).toBe(400);
-    const [saved] = await db.select().from(items).where(eq(items.id, item.id));
-    expect(saved).toMatchObject({ status: "failed", processGeneration: 0 });
-    expect(await db.select().from(processingRequests)).toHaveLength(0);
   });
 
   it.each([

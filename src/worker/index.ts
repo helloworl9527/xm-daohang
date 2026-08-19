@@ -17,11 +17,6 @@ import { launchTelegramBot, type TelegramRuntime } from "@/worker/bot/telegram";
 import { cleanupRetention, recordWorkerHeartbeat } from "@/worker/jobs/maintenance";
 import { processItemJob } from "@/worker/jobs/processItem";
 import { reclassifyCategoriesJob } from "@/worker/jobs/reclassifyCategories";
-import {
-  registerScheduledRefetch,
-  runScheduledRefetch,
-  SCHEDULED_REFETCH_QUEUE,
-} from "@/worker/jobs/scheduledRefetch";
 import { publishPendingRequests, type ProcessingJobPayload } from "@/worker/queue/requestPublisher";
 
 export const MAINTENANCE_QUEUE = "daily-maintenance";
@@ -71,7 +66,6 @@ export async function createWorkerRuntime(): Promise<WorkerRuntime> {
   await boss.start();
   await ensureProcessingQueue(boss);
   await ensureCategoryReclassifyQueue(boss);
-  await registerScheduledRefetch(boss);
   await registerMaintenance(boss);
 
   await boss.work<ProcessingJobPayload>(PROCESS_ITEM_QUEUE, { batchSize: 1 }, async (jobs) => {
@@ -79,9 +73,6 @@ export async function createWorkerRuntime(): Promise<WorkerRuntime> {
   });
   await boss.work<CategoryReclassifyPayload>(CATEGORY_RECLASSIFY_QUEUE, { batchSize: 1 }, async (jobs) => {
     for (const job of jobs) await reclassifyCategoriesJob(job.data);
-  });
-  await boss.work(SCHEDULED_REFETCH_QUEUE, { batchSize: 1 }, async () => {
-    await runScheduledRefetch();
   });
   await boss.work(MAINTENANCE_QUEUE, { batchSize: 1 }, async () => {
     await cleanupRetention();
@@ -118,7 +109,6 @@ export async function createWorkerRuntime(): Promise<WorkerRuntime> {
       await Promise.all([
         boss.offWork(PROCESS_ITEM_QUEUE),
         boss.offWork(CATEGORY_RECLASSIFY_QUEUE),
-        boss.offWork(SCHEDULED_REFETCH_QUEUE),
         boss.offWork(MAINTENANCE_QUEUE),
       ]);
       if (telegram) await telegram.stop();

@@ -23,9 +23,9 @@ test.beforeEach(async () => {
     await pool.query(
       `insert into app_settings
         (id, llm_base_url, llm_model, llm_key_enc, emb_base_url, emb_model, emb_key_enc,
-         emb_dim, emb_version, emb_rebuild_status, search_min_cosine, refetch_enabled, refetch_interval_days)
+         emb_dim, emb_version, emb_rebuild_status, search_min_cosine)
        values (1, 'https://models.example/v1', 'chat', $1,
-               'https://models.example/v1', 'embedding', $2, 3, 1, 'ready', 0.5, true, 30)`,
+               'https://models.example/v1', 'embedding', $2, 3, 1, 'ready', 0.5)`,
       [encryptSecret("sk-llm-e2e"), encryptSecret("sk-emb-e2e")],
     );
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
@@ -50,13 +50,8 @@ test("admin configures operations, language, Telegram, and revokes sessions on p
   await page.getByRole("link", { name: "设置" }).click();
   await expect(page).toHaveURL(/\/admin\/settings$/);
   await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
-  await expect(page.locator(".settings-panel")).toHaveCount(6);
+  await expect(page.locator(".settings-panel")).toHaveCount(5);
   await expect(page.locator(".settings-panel .settings-panel")).toHaveCount(0);
-
-  const refetch = page.locator("#settings-refetch");
-  await refetch.getByRole("checkbox").uncheck();
-  await refetch.getByRole("button", { name: "保存定时设置" }).click();
-  await expect(refetch.getByText("定时设置已保存。")).toBeVisible();
 
   const rate = page.locator("#settings-rate");
   await rate.locator('input[name="rate-ip"]').fill("1");
@@ -98,10 +93,10 @@ test("admin configures operations, language, Telegram, and revokes sessions on p
 
   const pool = new Pool({ connectionString: databaseUrl });
   try {
-    const state = await pool.query<{ refetch_enabled: boolean; ratelimit_ip_daily: number; ratelimit_global_daily: number; tg_allowed_ids: string[]; tg_token_enc: string }>(
-      "select refetch_enabled, ratelimit_ip_daily, ratelimit_global_daily, tg_allowed_ids, tg_token_enc from app_settings where id = 1",
+    const state = await pool.query<{ ratelimit_ip_daily: number; ratelimit_global_daily: number; tg_allowed_ids: string[]; tg_token_enc: string }>(
+      "select ratelimit_ip_daily, ratelimit_global_daily, tg_allowed_ids, tg_token_enc from app_settings where id = 1",
     );
-    expect(state.rows[0]).toMatchObject({ refetch_enabled: false, ratelimit_ip_daily: 1, ratelimit_global_daily: 1 });
+    expect(state.rows[0]).toMatchObject({ ratelimit_ip_daily: 1, ratelimit_global_daily: 1 });
     expect(state.rows[0].tg_allowed_ids.map(Number)).toEqual([42, 99]);
     expect(state.rows[0].tg_token_enc).not.toContain("e2e-telegram-secret");
   } finally {

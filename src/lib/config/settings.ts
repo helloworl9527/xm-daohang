@@ -17,9 +17,6 @@ export interface Settings {
   embVersion: number;
   searchMinCosine: number | null;
   embRebuildStatus: "unconfigured" | "building" | "ready" | "failed";
-  refetchEnabled: boolean;
-  refetchIntervalDays: number;
-  refetchLastRun: Date | null;
   ratelimitEnabled: boolean;
   ratelimitIpDaily: number;
   ratelimitGlobalDaily: number;
@@ -40,8 +37,6 @@ export interface SettingsPatch {
   embVersion?: number;
   searchMinCosine?: number | null;
   embRebuildStatus?: Settings["embRebuildStatus"];
-  refetchEnabled?: boolean;
-  refetchIntervalDays?: number;
   ratelimitEnabled?: boolean;
   ratelimitIpDaily?: number;
   ratelimitGlobalDaily?: number;
@@ -80,9 +75,6 @@ export async function getSettings(): Promise<Settings> {
     embVersion: row.embVersion,
     searchMinCosine: row.searchMinCosine,
     embRebuildStatus: row.embRebuildStatus as Settings["embRebuildStatus"],
-    refetchEnabled: row.refetchEnabled,
-    refetchIntervalDays: row.refetchIntervalDays,
-    refetchLastRun: row.refetchLastRun,
     ratelimitEnabled: row.ratelimitEnabled,
     ratelimitIpDaily: row.ratelimitIpDaily,
     ratelimitGlobalDaily: row.ratelimitGlobalDaily,
@@ -126,8 +118,6 @@ export async function updateSettings(patch: SettingsPatch): Promise<Settings> {
   if (patch.embVersion !== undefined) update.embVersion = patch.embVersion;
   if (patch.searchMinCosine !== undefined) update.searchMinCosine = patch.searchMinCosine;
   if (patch.embRebuildStatus !== undefined) update.embRebuildStatus = patch.embRebuildStatus;
-  if (patch.refetchEnabled !== undefined) update.refetchEnabled = patch.refetchEnabled;
-  if (patch.refetchIntervalDays !== undefined) update.refetchIntervalDays = patch.refetchIntervalDays;
   if (patch.ratelimitEnabled !== undefined) update.ratelimitEnabled = patch.ratelimitEnabled;
   if (patch.ratelimitIpDaily !== undefined) update.ratelimitIpDaily = patch.ratelimitIpDaily;
   if (patch.ratelimitGlobalDaily !== undefined) {
