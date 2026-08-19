@@ -8,7 +8,7 @@ import { pool } from "@/db/client";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/guard";
 import { isLockedOut, hashLoginIp, recordAttempt } from "@/lib/auth/loginThrottle";
 import { verifyPassword } from "@/lib/auth/password";
-import { getTrustedClientIpFromHeaders } from "@/lib/http/clientIp";
+import { getLoginClientIp } from "@/lib/auth/loginBoundary";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { logger } from "@/lib/log/logger";
 
@@ -100,31 +100,6 @@ export async function loginWithCredentials(input: {
   }
 }
 
-function hasValidFormBoundary(headerStore: Headers): boolean {
-  const host = headerStore.get("host");
-  const origin = headerStore.get("origin");
-  const contentType = headerStore.get("content-type") ?? "";
-  if (!host || !origin) return false;
-  try {
-    if (new URL(origin).host !== host) return false;
-  } catch {
-    return false;
-  }
-  return (
-    contentType.startsWith("application/x-www-form-urlencoded") ||
-    contentType.startsWith("multipart/form-data")
-  );
-}
-
-export function getLoginClientIp(headerStore: Headers): string | null {
-  if (!hasValidFormBoundary(headerStore)) return null;
-  try {
-    return getTrustedClientIpFromHeaders(headerStore);
-  } catch {
-    return null;
-  }
-}
-
 export async function loginAction(
   _previous: LoginActionState,
   formData: FormData,
@@ -153,7 +128,7 @@ export async function loginAction(
 
 export async function logoutAction(): Promise<void> {
   const headerStore = await headers();
-  if (!hasValidFormBoundary(headerStore)) redirect("/admin/login");
+  if (!getLoginClientIp(headerStore)) redirect("/admin/login");
   const store = await cookies();
   const token = store.get(SESSION_COOKIE_NAME)?.value;
   if (token) await destroySession(token);

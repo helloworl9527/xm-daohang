@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getLoginClientIp } from "@/app/admin/login/actions";
+import { getLoginClientIp } from "@/lib/auth/loginBoundary";
 
 const PROXY_SECRET = "login-proxy-secret-with-at-least-32-bytes";
 
