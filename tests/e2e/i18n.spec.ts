@@ -46,6 +46,8 @@ test("locale cookie persists from login into the protected admin UI", async ({ p
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Add content" })).toBeVisible();
+  const mobile = testInfo.project.name.includes("mobile");
+  if (mobile) await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("navigation", { name: "Admin navigation" })).toBeVisible();
 
   await page.getByRole("link", { name: "Library" }).click();
@@ -56,7 +58,7 @@ test("locale cookie persists from login into the protected admin UI", async ({ p
   await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.evaluate(() => localStorage.getItem("locale"))).resolves.toBe("en");
-  const suffix = testInfo.project.name.includes("mobile") ? "mobile" : "desktop";
+  const suffix = mobile ? "mobile" : "desktop";
   await page.screenshot({
     path: `.workflow/screenshots/t19-i18n-en-${suffix}.png`,
     fullPage: true,
