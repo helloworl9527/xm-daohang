@@ -1,4 +1,4 @@
-import { getTrustedClientIpFromHeaders } from "@/lib/http/clientIp";
+import ipaddr from "ipaddr.js";
 
 function hasValidFormBoundary(headerStore: Headers): boolean {
   const host = headerStore.get("host");
@@ -18,8 +18,12 @@ function hasValidFormBoundary(headerStore: Headers): boolean {
 
 export function getLoginClientIp(headerStore: Headers): string | null {
   if (!hasValidFormBoundary(headerStore)) return null;
+
+  // Caddy strips client-supplied X-Real-IP and injects the single remote address.
+  const rawIp = headerStore.get("x-real-ip");
+  if (!rawIp || rawIp.includes(",") || rawIp !== rawIp.trim()) return null;
   try {
-    return getTrustedClientIpFromHeaders(headerStore);
+    return ipaddr.process(rawIp).toString();
   } catch {
     return null;
   }
