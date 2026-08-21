@@ -36,7 +36,10 @@ export interface EmbeddingProbeResult {
   maxNegative: number;
 }
 
-function normalizeDraft(draft: ModelConnectionDraft): ModelConnectionDraft {
+function normalizeDraft(
+  draft: ModelConnectionDraft,
+  endpoint: "chat/completions" | "embeddings",
+): ModelConnectionDraft {
   let url: URL;
   try {
     url = new URL(draft.baseUrl);
@@ -48,6 +51,11 @@ function normalizeDraft(draft: ModelConnectionDraft): ModelConnectionDraft {
   }
   const model = draft.model.trim();
   if (!model) throw new Error("MODEL_CONFIG_INVALID");
+  const endpointSuffix = `/${endpoint}`;
+  const pathname = url.pathname.replace(/\/+$/, "");
+  if (pathname.endsWith(endpointSuffix)) {
+    url.pathname = pathname.slice(0, -endpointSuffix.length) || "/";
+  }
   const baseUrl = url.toString().replace(/\/$/, "");
   return { baseUrl, model, apiKey: draft.apiKey };
 }
@@ -56,7 +64,10 @@ async function resolveDraft(
   draft: ModelConnectionDraft,
   savedField: "llmKey" | "embKey",
 ): Promise<ResolvedModelConfig> {
-  const normalized = normalizeDraft(draft);
+  const normalized = normalizeDraft(
+    draft,
+    savedField === "llmKey" ? "chat/completions" : "embeddings",
+  );
   const apiKey = normalized.apiKey ?? (await getDecryptedSecret(savedField));
   if (!apiKey) throw new Error("MODEL_KEY_REQUIRED");
   return { baseUrl: normalized.baseUrl, model: normalized.model, apiKey };
