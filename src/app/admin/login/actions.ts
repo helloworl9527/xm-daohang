@@ -106,13 +106,31 @@ export async function loginAction(
 ): Promise<LoginActionState> {
   const headerStore = await headers();
   const ip = getLoginClientIp(headerStore);
-  if (!ip) return { status: "error" };
+  if (!ip) {
+    logger.info("login_boundary", {
+      ok: false,
+      edgeProofPresent: headerStore.has("x-proxy-auth"),
+      clientHeaderPresent: headerStore.has("x-real-client-ip"),
+      realIpHeaderPresent: headerStore.has("x-real-ip"),
+      forwardedForHeaderPresent: headerStore.has("x-forwarded-for"),
+    });
+    return { status: "error" };
+  }
 
+  const username = formData.get("username");
+  const password = formData.get("password");
   const parsed = credentialsSchema.safeParse({
-    username: formData.get("username"),
-    password: formData.get("password"),
+    username,
+    password,
   });
-  if (!parsed.success) return { status: "error" };
+  if (!parsed.success) {
+    logger.info("login_form", {
+      ok: false,
+      usernameIsString: typeof username === "string",
+      passwordIsString: typeof password === "string",
+    });
+    return { status: "error" };
+  }
 
   const result = await loginWithCredentials({ ...parsed.data, ip });
   if (!result.ok) {

@@ -5,6 +5,9 @@ const withNextIntl = createNextIntlPlugin("./src/lib/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  experimental: {
+    cpus: 1,
+  },
   output: "standalone",
   outputFileTracingRoot: process.cwd(),
   poweredByHeader: false,

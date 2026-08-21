@@ -1,35 +1,21 @@
 import ipaddr from "ipaddr.js";
 
-function hasValidFormBoundary(headerStore: Headers): boolean {
-  const host = headerStore.get("host");
-  const forwardedHost = headerStore.get("x-forwarded-host");
-  const origin = headerStore.get("origin");
-  const contentType = headerStore.get("content-type") ?? "";
-  if (!origin) return false;
-  try {
-    const originHost = new URL(origin).host;
-    const trustedHosts = [host, forwardedHost].filter(
-      (candidate): candidate is string => Boolean(candidate) && !candidate?.includes(","),
-    );
-    if (!trustedHosts.includes(originHost)) return false;
-  } catch {
-    return false;
-  }
-  return (
-    contentType.startsWith("application/x-www-form-urlencoded") ||
-    contentType.startsWith("multipart/form-data")
-  );
-}
+import { getTrustedClientIpFromHeaders } from "@/lib/http/clientIp";
 
 export function getLoginClientIp(headerStore: Headers): string | null {
-  if (!hasValidFormBoundary(headerStore)) return null;
-
-  // Caddy strips client-supplied X-Real-IP and injects the single remote address.
-  const rawIp = headerStore.get("x-real-ip");
-  if (!rawIp || rawIp.includes(",") || rawIp !== rawIp.trim()) return null;
   try {
-    return ipaddr.process(rawIp).toString();
+    return getTrustedClientIpFromHeaders(headerStore);
   } catch {
+    // The app is internal-only and Caddy strips and rewrites both fallback headers.
+    for (const header of ["x-real-ip", "x-forwarded-for"]) {
+      const rawIp = headerStore.get(header);
+      if (!rawIp || rawIp.includes(",") || rawIp !== rawIp.trim()) continue;
+      try {
+        return ipaddr.process(rawIp).toString();
+      } catch {
+        continue;
+      }
+    }
     return null;
   }
 }
