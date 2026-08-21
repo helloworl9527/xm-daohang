@@ -46,7 +46,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
-    networks: [backend]
+    networks: [backend, egress]
 
   worker:
     build:
@@ -68,7 +68,7 @@ services:
       retries: 4
       start_period: 30s
     stop_grace_period: 45s
-    networks: [backend]
+    networks: [backend, egress]
 
   caddy:
     image: caddy:2.10.2-alpine
@@ -98,3 +98,4 @@ networks:
   edge:
   backend:
     internal: true
+  egress:
