@@ -13,6 +13,7 @@ import {
 } from "@/lib/categories/classify";
 import { fingerprintContent } from "@/lib/fetch/fingerprint";
 import { fetchGitHubRepository, GitHubFetchError } from "@/lib/fetch/github";
+import { SafeFetchError } from "@/lib/fetch/safeFetch";
 import { ContentExtractError, fetchAndExtractContent } from "@/lib/fetch/webExtract";
 import { logger } from "@/lib/log/logger";
 import type { ProcessingJobPayload } from "@/worker/queue/requestPublisher";
@@ -207,6 +208,7 @@ async function deferForGitHubBackoff(
 
 function stableError(error: unknown): { code: string; retryAt?: Date } {
   if (error instanceof GitHubFetchError) return { code: error.code, retryAt: error.retryAt };
+  if (error instanceof SafeFetchError) return { code: error.code };
   if (error instanceof ContentExtractError) return { code: error.code };
   if (error instanceof AiClientError) return { code: error.code };
   return { code: "PROCESSING_UPSTREAM_FAILED" };

@@ -66,6 +66,16 @@ describe("bounded web/document extraction", () => {
     ).rejects.toMatchObject({ code: "EXTRACT_TEXT_ENCODING" });
   });
 
+  it("extracts Markdown as UTF-8 text", async () => {
+    await expect(
+      extractBoundedContent(response("text/markdown", "# Crawlee\n\nBuild reliable crawlers.")),
+    ).resolves.toMatchObject({
+      type: "doc",
+      title: null,
+      content: "# Crawlee\n\nBuild reliable crawlers.",
+    });
+  });
+
   it("requires PDF magic, rejects encryption and enforces the 100-page limit", async () => {
     const loadPdf = vi.fn<(data: Uint8Array) => Promise<PdfDocument>>();
     await expect(

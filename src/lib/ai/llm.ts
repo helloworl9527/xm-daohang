@@ -49,7 +49,7 @@ async function requestOpenAiText(
   const response = await client.chat.completions.create({
     model: config.model,
     messages: [
-      { role: "system", content: request.system },
+      { role: "system", content: `${request.system}\n必须输出有效的 json object。` },
       { role: "user", content: request.user },
     ],
     response_format: { type: "json_object" },

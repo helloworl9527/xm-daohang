@@ -13,6 +13,7 @@ import {
   telegramReceipts,
 } from "@/db/schema";
 import type { CategoryCandidate, ClassificationOutcome } from "@/lib/categories/classify";
+import { SafeFetchError } from "@/lib/fetch/safeFetch";
 import { upsertItem } from "@/lib/items/dedupe";
 import { requestProcessing } from "@/lib/items/processing";
 import { logger } from "@/lib/log/logger";
@@ -149,6 +150,25 @@ describe("processing request state machine", () => {
     expect(requests.map((request) => request.attempt)).toEqual([0, 1, 2, 3]);
     expect(requests.every((request) => request.status === "failed")).toBe(true);
     expect(requests[3].lastErrorCode).toBe("PROCESSING_UPSTREAM_FAILED");
+  });
+
+  it("preserves safe fetch error codes on failed processing attempts", async () => {
+    const item = await insertItem({ status: "failed" });
+    const generation = await requestProcessing(item.id);
+    const dependencies = successfulDependencies();
+    dependencies.fetchContent.mockRejectedValue(new SafeFetchError("FETCH_MIME_NOT_ALLOWED"));
+
+    await expect(processItemJob({
+      itemId: item.id,
+      processGeneration: generation,
+      embVersion: 1,
+      attempt: 0,
+    }, dependencies)).resolves.toEqual({ claimed: true, outcome: "retrying" });
+
+    expect(await currentRequest(item.id, generation, 0)).toMatchObject({
+      status: "failed",
+      lastErrorCode: "FETCH_MIME_NOT_ALLOWED",
+    });
   });
 
   it("allows only one concurrent handler claim after a duplicate delivery", async () => {

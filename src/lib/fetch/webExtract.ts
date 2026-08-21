@@ -6,7 +6,9 @@ import { safeFetch, type BoundedResponse } from "@/lib/fetch/safeFetch";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_PDF_PAGES = 100;
 const MAX_CONTENT_CHARS = 200_000;
-const ALLOWED_MIME = ["text/html", "text/plain", "application/pdf"];
+const TEXT_MIME = ["text/plain", "text/markdown"];
+const ALLOWED_MIME = ["text/html", ...TEXT_MIME, "application/pdf"];
+const WEB_USER_AGENT = "Mozilla/5.0 (compatible; CollectionBot/1.0; +https://sc.xmcode.tech/)";
 
 export interface ExtractedContent {
   title: string | null;
@@ -102,7 +104,7 @@ export async function extractBoundedContent(
     throw new ContentExtractError("EXTRACT_BODY_TOO_LARGE");
   }
 
-  if (response.mime === "text/plain") {
+  if (TEXT_MIME.includes(response.mime)) {
     return { title: null, content: normalizeContent(decodeUtf8(response.body)), type: "doc" };
   }
   if (response.mime === "application/pdf") {
@@ -123,6 +125,10 @@ export async function fetchAndExtractContent(url: string): Promise<ExtractedCont
     maxBytes: MAX_BODY_BYTES,
     timeoutMs: 15_000,
     allowedMime: ALLOWED_MIME,
+    requestHeaders: {
+      accept: ALLOWED_MIME.join(", "),
+      "user-agent": WEB_USER_AGENT,
+    },
   });
   return extractBoundedContent(response);
 }
