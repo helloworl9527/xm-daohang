@@ -2,11 +2,16 @@ import ipaddr from "ipaddr.js";
 
 function hasValidFormBoundary(headerStore: Headers): boolean {
   const host = headerStore.get("host");
+  const forwardedHost = headerStore.get("x-forwarded-host");
   const origin = headerStore.get("origin");
   const contentType = headerStore.get("content-type") ?? "";
-  if (!host || !origin) return false;
+  if (!origin) return false;
   try {
-    if (new URL(origin).host !== host) return false;
+    const originHost = new URL(origin).host;
+    const trustedHosts = [host, forwardedHost].filter(
+      (candidate): candidate is string => Boolean(candidate) && !candidate?.includes(","),
+    );
+    if (!trustedHosts.includes(originHost)) return false;
   } catch {
     return false;
   }

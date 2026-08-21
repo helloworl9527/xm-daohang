@@ -18,10 +18,12 @@
     header_up -X-Real-Client-IP
     header_up -X-Proxy-Auth
     header_up -X-Forwarded-For
+    header_up -X-Forwarded-Host
     header_up -X-Real-IP
     header_up X-Real-Client-IP {remote_host}
     header_up X-Real-IP {remote_host}
     header_up X-Proxy-Auth {$PROXY_SHARED_SECRET}
     header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Host {host}
   }
 }
